@@ -1,0 +1,13 @@
+# Dataset manifest. Each top-level key is a dataset; each field gives dims + path.
+# dims are fast-to-slow (matches FZGM -l fast x mid x slow). `root` is prepended to
+# each field's relative `path`. SDRBench entries (with sha256 + download source) land
+# in M5; this M1 manifest points at local data already on disk.
+
+CESM-CLDHGH-local:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: /home/skyler/research/compression/FZ_ZF/compressors/FZGPUModules/data
+  fields:
+    CLDHGH:
+      dims: [3600, 1800]      # 6,480,000 f32 = 25,920,000 bytes
+      path: CLDHGH.f32

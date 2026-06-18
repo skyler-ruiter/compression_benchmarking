@@ -1,0 +1,527 @@
+# compression_benchmarking — Design & Roadmap
+
+> Standardized benchmarking and analysis toolkit for GPU-accelerated, error-bounded
+> lossy compressors (EBLCs). Built to compare reference compressors (cuSZ, cuSZ+,
+> cuSZp, cuSZ-Hi, MANS, PFPL, …) against their modularized **FZGPUModules (FZGM)**
+> ports across compression ratio, throughput, quality, and memory — and to support
+> rapid, reproducible experiments for research papers.
+
+Status: **design draft** (M0). No harness code yet — this document is the contract we
+build against. Decisions below are recorded in [Decision Log](#10-decision-log).
+
+---
+
+## 1. The headline question
+
+FZGM re-implements and modernizes the kernels of several published GPU EBLCs as
+composable pipeline stages. The central question this toolkit must answer cheaply and
+repeatedly:
+
+> **Does the FZGM port of compressor *X* roughly match the original *X* on compression
+> ratio and quality, without losing too much speed — under identical datasets, error
+> bounds, and error-mode semantics?**
+
+Everything here is in service of producing a defensible, reproducible answer to that
+question, and of making the next experiment (new stage, new dataset, new bound) a
+config edit rather than a scripting project.
+
+### Secondary goals
+- Cross-compare *all* compressors against each other (rate–distortion, throughput),
+  not just FZGM-vs-original pairs.
+- Generate paper-ready tables and figures from a single results store.
+- Capture enough provenance that any number in a paper can be traced to the exact
+  binary, GPU, clocks, dataset checksum, and config that produced it.
+
+### Non-goals (initially)
+- Not a compressor. We orchestrate and measure; we do not implement compression.
+- Not a CI gate for FZGM correctness (that lives in the FZGM repo's tests).
+- Not a distributed/cluster scheduler. Single-node, single-GPU first; multi-GPU and
+  job-array submission are later extensions.
+
+---
+
+## 2. Design principles
+
+1. **The harness owns the metrics.** We do *not* trust each tool's self-reported CR,
+   PSNR, or throughput. Tools differ in PSNR value-range conventions, whether timing
+   includes PCIe transfers, and what they count as "size." The harness computes CR,
+   bit-rate, PSNR, NRMSE, and error-bound satisfaction itself from raw artifacts
+   (original bytes, compressed bytes, decompressed output). The *only* number we must
+   accept from a tool is **device kernel time**, because that is the one thing the
+   harness cannot observe from outside the process — and we record exactly how each
+   tool measured it. See [§5 Metrics](#5-metrics-harness-owned).
+
+2. **Normalize error-mode semantics before comparing.** "Relative" means different
+   things across tools (relative to value-range vs. per-value vs. L∞). A comparison is
+   only fair once both compressors are configured to the *same* effective bound. This
+   normalization is explicit and recorded, not assumed. See [§5.4](#54-error-mode-normalization).
+
+3. **Every result row carries full provenance.** A result is meaningless without the
+   GPU, clocks, driver, commit SHA, and dataset checksum that produced it. Provenance
+   is captured once per run-session and foreign-keyed into every row.
+
+4. **Tidy, append-only results.** One row = one atomic measurement
+   (compressor × dataset-field × error-bound × mode × repetition). Stored as JSONL
+   (newline-delimited JSON), append-only, trivially loadable into pandas/polars. No
+   in-place mutation; re-runs append and are disambiguated by `run_id`.
+
+5. **Adapters isolate per-compressor messiness.** Each compressor is wrapped by an
+   adapter implementing one interface. Adding a compressor = writing one adapter +
+   one build script. The runner, metrics, provenance, and analysis layers never know
+   which compressor they're driving.
+
+6. **Reproducibility is a feature, not an afterthought.** Pinned commits (submodules),
+   locked GPU clocks, warmup runs, repetition with spread reporting, recorded
+   environment. A run should be re-creatable months later for a paper revision.
+
+7. **Config over code.** A new experiment is a YAML file describing the run matrix.
+   The Python is generic; the science is declarative.
+
+---
+
+## 3. Architecture overview
+
+```
+                    configs/experiments/*.yaml   configs/datasets.yaml
+                                 │                        │
+                                 ▼                        ▼
+   ┌───────────────────────────────────────────────────────────────────┐
+   │                            RUNNER                                   │
+   │  expands run matrix → for each cell: warmup, repeat, collect        │
+   └───────────────┬───────────────────────────────┬───────────────────┘
+                   │ drives via uniform interface   │ records once/session
+                   ▼                                ▼
+        ┌─────────────────────┐            ┌──────────────────────┐
+        │  ADAPTERS            │            │  PROVENANCE          │
+        │  fzgm / cusz / cuszp │            │  GPU, clocks, driver │
+        │  cusz-hi / mans /    │            │  CUDA, host, commits │
+        │  pfpl  …             │            │  build flags         │
+        │  compress()/decomp() │            └──────────┬───────────┘
+        └──────────┬──────────┘                       │
+                   │ artifacts (compressed, decompressed) + device times
+                   ▼                                   │
+        ┌─────────────────────┐                        │
+        │  METRICS (harness)  │                        │
+        │  CR, bitrate, PSNR, │                        │
+        │  NRMSE, eb-check,   │                        │
+        │  throughput, mem    │                        │
+        └──────────┬──────────┘                        │
+                   ▼                                    ▼
+            ┌──────────────────────────────────────────────┐
+            │  RESULTS STORE   results/<session>/runs.jsonl │
+            │                  + provenance.json + logs/    │
+            └───────────────────────┬──────────────────────┘
+                                    ▼
+            ┌──────────────────────────────────────────────┐
+            │  ANALYSIS   rate–distortion, throughput bars, │
+            │  FZGM-vs-reference delta report, LaTeX/figs   │
+            └──────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Repository layout (target)
+
+```
+compression_benchmarking/
+├── README.md
+├── docs/
+│   ├── DESIGN.md                  ← this document
+│   └── adapters/                  ← per-compressor integration notes & quirks
+│       └── <compressor>.md
+├── configs/
+│   ├── datasets.yaml              ← SDRBench dataset manifest
+│   └── experiments/
+│       ├── smoke.yaml             ← tiny end-to-end sanity matrix
+│       └── fzgm_vs_reference.yaml ← the headline validation matrix
+├── benchkit/                      ← the Python package (orchestration + analysis)
+│   ├── config.py                  ← load/validate experiment + dataset configs
+│   ├── datasets.py                ← resolve, fetch, checksum datasets
+│   ├── provenance.py              ← capture environment manifest
+│   ├── metrics.py                 ← harness-owned metric computation
+│   ├── runner.py                  ← expand matrix, warmup/repeat, orchestrate
+│   ├── store.py                   ← append-only JSONL results + artifact paths
+│   └── adapters/
+│       ├── base.py                ← Adapter ABC + shared subprocess helpers
+│       ├── fzgm.py                ← wraps fzgmod-cli
+│       ├── cusz.py
+│       ├── cuszp.py
+│       ├── cusz_hi.py
+│       ├── mans.py
+│       └── pfpl.py
+├── external/                      ← git submodules: reference compressor sources
+│   ├── cuSZ/  cuSZp/  cuSZ-Hi/  MANS/  PFPL/  …
+│   └── (FZGM consumed via its own install / PATH, not vendored here)
+├── scripts/
+│   ├── build_all.sh               ← build each submodule, record commit+flags
+│   ├── fetch_datasets.sh          ← download SDRBench, verify checksums
+│   ├── lock_clocks.sh             ← pin GPU sm/mem clocks for stable timing
+│   └── unlock_clocks.sh
+├── results/                       ← gitignored; per-session run output
+│   └── <YYYYMMDD-HHMMSS-host>/
+│       ├── provenance.json
+│       ├── runs.jsonl
+│       └── logs/<run_id>.log
+└── analysis/
+    ├── load.py                    ← results → tidy DataFrame
+    ├── figures.py                 ← rate–distortion, throughput, deltas
+    └── notebooks/
+```
+
+Notes:
+- **FZGM is not vendored as a submodule.** It is your library; the adapter calls an
+  installed `fzgmod-cli` (path configurable). Reference compressors *are* vendored as
+  pinned submodules so their exact source is reproducible.
+- `external/` build artifacts and `results/` are gitignored. Only sources/recipes,
+  configs, and the package are tracked.
+
+---
+
+## 5. Metrics (harness-owned)
+
+All quality/size metrics are computed by `benchkit/metrics.py` from raw bytes. Inputs:
+the original array, the compressed file size, the decompressed array, and the dataset's
+declared dtype/dims/value-range.
+
+### 5.1 Size / ratio
+- **Compression ratio** `CR = original_bytes / compressed_bytes`.
+- **Bit-rate** `bitrate = compressed_bits / num_elements` (bits per value). Report both;
+  rate–distortion plots use bit-rate, headline tables often use CR.
+- `compressed_bytes` is measured by the harness from the output file, never parsed from
+  the tool. (Document any container/header overhead each tool adds.)
+
+### 5.2 Distortion / quality
+Let `r = max(original) − min(original)` be the value range, `MSE` the mean squared error
+between original and decompressed.
+- **PSNR** `= 20·log10(r) − 10·log10(MSE)` (∞ when MSE = 0). Value-range convention is
+  fixed here so it is identical across all compressors.
+- **NRMSE** `= sqrt(MSE) / r`.
+- (Optional, later) SSIM for visualization-oriented fields.
+
+### 5.3 Error-bound satisfaction
+- **max_abs_err** `= max |original − decompressed|`.
+- **max_rel_err** `= max |original − decompressed| / r` (range-relative).
+- **eb_satisfied** — boolean: did the realized error actually respect the requested
+  bound under the requested mode? A compressor that "wins" on CR while violating its
+  bound is disqualified, so this flag is first-class.
+
+### 5.4 Error-mode normalization
+Before a run, the runner translates the experiment's canonical bound into each
+compressor's native flags, recording both. Canonical mode is **range-relative ABS**
+(`eb_abs = rel · r`) as the comparison baseline, since most SDRBench studies report this
+way. Per-compressor quirks (e.g. a tool whose "REL" is per-value, or that bounds L∞ vs
+L2) are documented in `docs/adapters/<compressor>.md` and encoded in the adapter so the
+*effective* bound matches across tools. If a tool cannot express the canonical bound,
+that is recorded and the row is flagged `mode_mismatch`.
+
+**Canonical modes vs. native names — the collision is real.** "REL" means *different
+things* across tools, so the harness uses a tool-agnostic canonical vocabulary and each
+adapter translates it to native flags + an eb basis:
+
+| Canonical | eb basis (`eb_abs =`) | ABS/REL tools (cuSZ, cuSZp, cuSZ-Hi, MANS) | ABS/NOA/REL tools (FZGM, PFPL) |
+|---|---|---|---|
+| `rel_range` *(cross-tool comparable)* | `eb·(max−min)` | **REL** | **NOA** |
+| `rel_maxabs` | `eb·max(\|data\|)` | — | **REL** (Lorenzo; approx per-elem) |
+| `abs` | `eb` | ABS | ABS |
+| `from_toml` | (read from the config) | — | use the config's declared bound, no sweep |
+
+Key facts (M1, empirically caught then verified in source):
+- **FZGM/PFPL `NOA` = range-relative** (= what cuSZ etc. call `REL`); **FZGM `REL` =
+  `eb·max(|data|)`** (`predictor_utils.cuh`), *not* range, and approximate per-element
+  (≈1.0002× overshoot at tight bounds). FZGM's `REL` for QuantizerStage is a different
+  (exact per-element) thing — revisit when those pipelines are benchmarked.
+- The harness first assumed FZGM `rel` was range-relative and (correctly) flagged every
+  row as bound-violating until the basis was fixed — the §5.4 hazard, concrete on day
+  one. The cross-tool comparable `rel_range` maps to FZGM `NOA` and is *exact*
+  (`err_over_bound`≈1.000003), so headline experiments use it.
+- `metrics.compute_quality` takes the `basis` directly from the adapter's mode
+  translation. `err_over_bound` (realized max error ÷ requested abs bound) is recorded
+  per row so a near-miss is visible; `eb_tol` defaults to 1e-3 to absorb documented
+  approximate-REL slack without masking real violations.
+
+**Bound rendering (FZGM, TOML-first).** For TOML pipelines the harness renders the swept
+bound into every lossy stage (`error_bound` + `error_bound_mode`) by text substitution
+(preserving comments), validates the result re-parses, and **archives the rendered TOML
+into the run's work dir** alongside the compressed/decompressed artifacts and JSON
+reports — a self-contained, shippable bundle (D9).
+
+### 5.5 Throughput
+- **compress_throughput** `= original_bytes / compress_device_ms` → GB/s.
+- **decompress_throughput** `= original_bytes / decompress_device_ms` → GB/s.
+- Timing source is **device/kernel time reported by the tool** (the one trusted
+  number), with the measurement method recorded per adapter (e.g. CUDA events,
+  DAG-elapsed, includes/excludes H2D/D2H). We additionally capture **end-to-end
+  wall time** from the harness subprocess for an apples-to-apples lower bound and to
+  detect tools whose self-timing excludes large transfers. **Never** compare one
+  tool's device time against another's host wall time (a single-shot decompress wall
+  time can be 10–100× the device time because it includes pipeline construction + file
+  I/O).
+- **Recompute throughput in one unit convention from raw bytes + a chosen device time —
+  never tabulate printed throughput.** Tools disagree on units: FZGM reports decimal
+  GB/s (bytes / 1e9 / s), cuSZ reports GiB/s (1024³), cuSZp reports MiB/ms. 1 GiB/s =
+  1.0737 GB/s, so mixing printed numbers bakes in a silent ~7% skew. The harness fixes
+  one convention (decimal GB/s) and derives every number itself; per-adapter native
+  units are documented in `docs/adapters/<x>.md`.
+- Report **median over repetitions** with min/max (or IQR), never a single run. When a
+  reference tool only reports a single warm run (cuSZp) or externally-aggregated runs
+  (PFPL), use a *consistent* statistic from the tools that give arrays (FZGM `median` or
+  `min`) and record the other tool's method — a single warm run ≈ our `min`.
+
+### 5.6 Memory (best-effort)
+- **peak_gpu_mem_bytes** via NVML sampling during the run (poll `nvmlDeviceGetMemoryInfo`
+  on a side thread) or `nsys`/`--print-gpu-trace` where available. Uniform peak-memory
+  capture across heterogeneous tools is hard; this is explicitly best-effort and
+  nullable, with the capture method recorded.
+
+---
+
+## 6. Schemas
+
+### 6.1 Result row (one atomic measurement → one JSONL line)
+```jsonc
+{
+  "run_id": "smoke-0007",                  // unique within session
+  "session_id": "20260617-141500-hostname",
+  "timestamp": "2026-06-17T14:15:03Z",
+
+  "compressor": "cusz",                    // logical name
+  "variant": "reference",                  // "reference" | "fzgm"
+  "pipeline": "lorenzo->huffman",          // for fzgm: the stage chain / preset
+  "version": "cuSZ 0.x",                   // tool-reported version string
+  "commit": "a1b2c3d",                     // submodule SHA (null for fzgm install)
+
+  "dataset": "CESM-ATM",
+  "field": "CLDHGH",
+  "dtype": "f32",
+  "dims": [26, 1800, 3600],
+  "dim_order": "fast-to-slow",
+  "num_elements": 168480000,
+  "original_bytes": 673920000,
+
+  "error_mode": "rel",                     // canonical mode
+  "error_bound": 1e-3,
+  "eb_abs_effective": 4.21e-4,             // normalized absolute bound actually used
+  "native_flags": "-m r2r -e 1e-3",        // exactly what was passed to the tool
+
+  "rep": 2,
+  "warmup_reps": 3,
+
+  "compressed_bytes": 5230112,
+  "cr": 128.85,
+  "bitrate": 0.248,
+
+  "compress_device_ms": 1.82,
+  "decompress_device_ms": 1.10,
+  "compress_throughput_gbs": 370.3,
+  "decompress_throughput_gbs": 612.7,
+  "compress_walltime_ms": 41.0,            // harness-observed, end to end
+  "timing_method": "cuda_events_d2d",      // how the tool measured device time
+
+  "psnr": 84.21,
+  "nrmse": 6.1e-5,
+  "max_abs_err": 4.20e-4,
+  "max_rel_err": 9.98e-4,
+  "eb_satisfied": true,
+
+  "peak_gpu_mem_bytes": 1342177280,
+  "mem_method": "nvml_poll",
+
+  "provenance_id": "20260617-141500-hostname",
+  "log_path": "logs/smoke-0007.log",
+  "status": "ok",                          // "ok" | "fail" | "mode_mismatch"
+  "error_message": null
+}
+```
+
+### 6.2 Provenance manifest (one per session → `provenance.json`)
+```jsonc
+{
+  "session_id": "20260617-141500-hostname",
+  "gpu": {
+    "name": "NVIDIA A100-SXM4-40GB", "uuid": "GPU-...", "driver": "550.xx",
+    "cuda_runtime": "12.4", "vbios": "...", "ecc": true, "persistence": true,
+    "sm_clock_locked_mhz": 1410, "mem_clock_locked_mhz": 1215, "power_limit_w": 400
+  },
+  "host": { "cpu": "AMD EPYC ...", "cores": 64, "ram_gb": 512,
+            "os": "Ubuntu 24.04", "kernel": "6.x" },
+  "harness": { "git_sha": "...", "config_hash": "sha256:...",
+               "python": "3.12", "numpy": "2.x" },
+  "compressors": {
+    "cusz":   { "repo": "https://github.com/szcompressor/cuSZ", "commit": "a1b2c3d",
+                "build_flags": "-DPSZ_BACKEND=cuda ...", "compiler": "nvcc 12.4 / gcc 13",
+                "built_at": "2026-06-15T..." },
+    "fzgm":   { "cli_path": "/usr/local/bin/fzgmod-cli", "version": "2.0" }
+  },
+  "nvidia_smi": "<captured snapshot>",
+  "env": { "CUDA_VISIBLE_DEVICES": "0" }
+}
+```
+
+### 6.3 Experiment config (`configs/experiments/*.yaml`)
+```yaml
+name: fzgm_vs_reference
+description: Validate FZGM ports against originals at matched bounds.
+
+datasets: [CESM-ATM, NYX, Hurricane-ISABEL]   # keys into configs/datasets.yaml
+fields: all                                    # or explicit list per dataset
+
+error:
+  mode: rel                                    # canonical mode
+  bounds: [1e-2, 1e-3, 1e-4, 1e-5]
+
+repetitions: 5
+warmup_reps: 3
+lock_clocks: true
+
+# Each entry is a (compressor, variant, pipeline) the runner will drive.
+runs:
+  - {compressor: cusz,    variant: reference, pipeline: lorenzo+huffman}
+  - {compressor: fzgm,    variant: fzgm,      pipeline: "lorenzo->huffman"}
+  - {compressor: cuszp,   variant: reference, pipeline: default}
+  - {compressor: fzgm,    variant: fzgm,      pipeline: "lorenzo->bitshuffle->rze"}
+
+# Pairings for the FZGM-vs-original delta report (§8).
+pairings:
+  - {reference: cusz,  fzgm_pipeline: "lorenzo->huffman",            label: cuSZ}
+  - {reference: cuszp, fzgm_pipeline: "lorenzo->bitshuffle->rze",    label: cuSZp}
+```
+
+### 6.4 Dataset manifest (`configs/datasets.yaml`)
+```yaml
+CESM-ATM:
+  source: https://sdrbench.github.io/   # download URL / instructions
+  dtype: f32
+  dim_order: fast-to-slow
+  fields:
+    CLDHGH: {dims: [1800, 3600],        sha256: "...", path: "CESM-ATM/CLDHGH_1_1800_3600.f32"}
+    # ...
+NYX:
+  dtype: f32
+  fields:
+    baryon_density: {dims: [512, 512, 512], sha256: "...", path: "NYX/baryon_density.f32"}
+```
+
+---
+
+## 7. Adapter interface
+
+Each compressor implements `benchkit/adapters/base.py::Adapter`:
+
+```python
+class Adapter(ABC):
+    name: str
+    variant: str                    # "reference" | "fzgm"
+
+    def is_available(self) -> bool: ...
+    def provenance(self) -> dict: ...                 # version, commit, build flags
+
+    # Translate canonical (mode, bound, dataset) → native flags. Records both.
+    def native_flags(self, spec: RunSpec) -> NativeInvocation: ...
+
+    # Run compression. Returns compressed artifact path + device time + raw log.
+    def compress(self, spec: RunSpec) -> CompressResult: ...
+
+    # Run decompression. Returns decompressed artifact path + device time + raw log.
+    def decompress(self, spec: RunSpec) -> DecompressResult: ...
+```
+
+The adapter's *only* jobs: build the command line, run the subprocess, and parse two
+things from stdout — **device time** and **tool version**. Compressed size, CR, all
+quality metrics, and eb-satisfaction are computed downstream by `metrics.py` from the
+artifacts. This keeps every compressor honest against the same definitions.
+
+Per-adapter quirks (flag meanings, REL semantics, header overhead, timing method) live
+in `docs/adapters/<compressor>.md` so the knowledge is captured, not buried in code.
+
+---
+
+## 8. The FZGM-vs-reference delta report
+
+The product that answers the headline question. For each `pairing` in the config, at
+each matched (dataset, field, bound):
+
+| metric | computed as | PASS criterion (default, configurable) |
+|---|---|---|
+| ΔCR | `(CR_fzgm − CR_ref) / CR_ref` | within ±5% |
+| ΔPSNR | `PSNR_fzgm − PSNR_ref` (dB) | within ±0.5 dB |
+| Δcompress throughput | `(T_fzgm − T_ref) / T_ref` | ≥ −20% (not *too* much slower) |
+| Δdecompress throughput | same | ≥ −20% |
+| eb_satisfied | both must be true | both true |
+
+Output: a per-pairing table (CSV + LaTeX) and a roll-up PASS/FAIL with the cells that
+fail and by how much — so "did the port hold up?" is a glance, and the offending
+dataset/bound is immediately visible for debugging the FZGM stage.
+
+Thresholds are config-driven; they encode "roughly matches … without losing too much
+speed" numerically so the standard is explicit and consistent across papers.
+
+---
+
+## 9. Roadmap / milestones
+
+- **M0 — Design (this doc).** Architecture, schemas, decisions. ✅ Done.
+- **M1 — Core loop on one compressor.** ✅ **Done (2026-06-18).** `config → runner →
+  fzgm adapter → metrics → JSONL → comparison table`, driven by
+  `configs/experiments/smoke.yaml` on local CLDHGH. The `benchkit` package ships:
+  config/dataset loaders, the `Adapter` ABC + `FzgmAdapter`, harness-owned `metrics`,
+  lightweight `provenance` capture, append-only `store`, the `runner`, and a `report`
+  table — run with `python -m benchkit run configs/experiments/smoke.yaml`. Validated:
+  harness PSNR matches FZGM's own to 5 decimals; per-stage timing captured; the
+  rel-basis hazard (§5.4) surfaced and fixed. Deferred to later milestones: skip-
+  completed resumability, clock locking, TOML-preset (huffman/cuSZ-equivalent) sweeps.
+- **M2 — Provenance & reproducibility.** Environment manifest capture, clock locking,
+  warmup + repetition with spread, gitignored session dirs. Now a number is traceable.
+- **M3 — Reference adapters (incremental).** Add submodules + build scripts + adapters
+  one at a time: cuSZ → cuSZp → cuSZ-Hi → MANS → PFPL. Each lands with a
+  `docs/adapters/<x>.md` and passes the smoke matrix before the next is added.
+- **M4 — Analysis layer.** Tidy loader, rate–distortion curves, throughput bars, and
+  the FZGM-vs-reference delta report (§8).
+- **M5 — Paper-support polish.** LaTeX table export, figure styling, run archiving,
+  SDRBench fetch automation with checksum verification. Optionally: multi-GPU / cluster
+  job-array submission.
+
+Each milestone is independently useful and leaves a working artifact.
+
+---
+
+## 10. Decision log
+
+| # | Decision | Rationale |
+|---|---|---|
+| D1 | **Python** orchestration + analysis; compressors driven as **subprocesses**. | pandas/matplotlib/pydantic ecosystem; subprocess isolation matches heterogeneous CLIs and keeps the harness language-agnostic about compressors. |
+| D2 | Reference compressors vendored as **git submodules + build scripts** (pinned commits). | Self-contained, no external package manager dependency; exact source reproducible. |
+| D3 | Datasets: **SDRBench standard set**, described by a checksummed manifest. | Field-standard, paper-comparable; checksums guard against silent data drift. |
+| D4 | **Harness owns all size/quality metrics**; only device time is trusted from tools. | Eliminates per-tool PSNR/CR/timing convention skew → fair comparison. |
+| D5 | Canonical error mode = **range-relative**, normalized into native flags per adapter. | "REL" is defined inconsistently across tools; one baseline makes bounds comparable. |
+| D6 | Results stored as **append-only JSONL**, one row per atomic run, with provenance FK. | Tidy, mergeable, trivially loadable; re-runs append rather than clobber. |
+| D7 | FZGM consumed via **installed `fzgmod-cli`**, not vendored. | It's the home library; avoid duplicating its source/build here. |
+| D8 | First deliverable: **design doc only**, scaffold in M1 after review. | Agreed scope for this pass. |
+| D9 | **TOML-first pipelines** for FZGM (not CLI `--stages`); rendered config archived per run. | TOML exposes the full DAG (branches, fused stages) the CLI text path can't; lets a hand-tuned config be benchmarked as-is and shipped with its results+provenance. `--stages` kept only for quick linear tests. |
+| D10 | **Canonical, tool-agnostic error modes** (`abs`/`rel_range`/`rel_maxabs`/`from_toml`); adapters translate to native flags + eb basis. | "REL"/"NOA" names collide across tools; one canonical vocabulary makes bounds comparable and the eb-check correct. |
+| D11 | **Decompressed output deleted after metrics by default** (`retain_decompressed: false`); its sha256 is recorded and `c.fzm` is kept. | Keeps the local repo under a ~20 GB budget — `d.bin` is ~original-sized and regenerable from `c.fzm`; at ~2–3 MB/run retained, ~7k runs fit. Toggle on per-experiment when the array itself is needed. |
+
+---
+
+## 11. Open questions (to resolve before/within M1)
+
+1. **~~`fzgmod-cli` machine-readable output.~~ RESOLVED (2026-06-18).** FZGM now ships
+   `--report-json <path>` (schema_version 1.0): a standalone JSON file with `tool`,
+   `status`, `config`, `size`, `timing` (device_ms + host_wall_ms, per-rep `all` arrays),
+   `throughput`, `memory`, `quality`, and an FZGM-only `stages[]` per-stage device-time
+   breakdown. `--report-json` auto-enables profiling, so device timing and stages are
+   always populated. Adapter integration rules captured in
+   [`docs/adapters/fzgm.md`](adapters/fzgm.md); full schema lives in the FZGM repo at
+   `memory/report_json_spec.md`. Other adapters still need stdout scraping; FZGM is the
+   one we control and it is now clean.
+2. **Decompressed-output retention.** Harness-owned quality metrics require each tool to
+   write the decompressed array to disk. Confirm every reference tool can emit raw
+   decompressed output (most can); note any that only self-report PSNR.
+3. **Peak-memory method.** Decide NVML-poll vs `nsys` as the default; NVML-poll is
+   lighter and per-process-attributable, `nsys` is more precise but heavier. Default
+   proposal: NVML-poll, nullable, method recorded.
+4. **Clock policy.** Confirm we can `nvidia-smi -lgc`/`-lmc` on the target GPUs (needs
+   permissions); if not, record clocks-as-observed and flag throughput as unlocked.
+5. **Dim-order convention.** Lock fast-to-slow vs slow-to-fast across the manifest and
+   all adapters (FZGM uses `-l fast x mid x slow`); mismatches silently wreck quality
+   metrics, so this must be asserted, not assumed.
+```

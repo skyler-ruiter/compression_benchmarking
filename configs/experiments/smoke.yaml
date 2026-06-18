@@ -1,0 +1,26 @@
+# Smoke matrix: proves the TOML-first end-to-end loop on FZGM, local data.
+#   python -m benchkit run configs/experiments/smoke.yaml
+#
+# Pipelines are TOML configs (full DAG, archived per run). Canonical mode rel_range
+# (= FZGM "NOA") is the cross-tool-comparable range-relative bound; the harness renders
+# each bound into the lossy stage of the TOML. cusz.toml exercises the Lorenzo+Huffman
+# (cuSZ-equivalent) path that the --stages text builder could not express.
+name: smoke
+description: M1 end-to-end sanity check (FZGM only, local CLDHGH, TOML-driven).
+
+datasets: [CESM-CLDHGH-local]
+fields: all
+
+error:
+  mode: rel_range           # canonical; -> FZGM "NOA". Use abs|rel_maxabs|from_toml too.
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: false          # desktop 3080 Ti; clock locking arrives in M2
+retain_decompressed: false  # default: delete the ~original-sized d.bin after metrics
+                            # (checksum kept; regenerable from c.fzm). Set true to keep.
+
+runs:
+  - {compressor: fzgm, variant: fzgm, pipeline: configs/pipelines/fzgpu.toml}
+  - {compressor: fzgm, variant: fzgm, pipeline: configs/pipelines/cusz.toml}

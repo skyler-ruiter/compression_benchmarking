@@ -1,0 +1,22 @@
+# Run output (sessions, artifacts, logs) — never tracked
+results/
+
+# Built compressor artifacts inside submodules
+external/**/build/
+external/**/install/
+
+# Downloaded datasets
+data/
+datasets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Editor / OS
+.vscode/
+.DS_Store
