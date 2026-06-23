@@ -16,11 +16,6 @@ from ..pipelines import PipelineToml, sha256
 from .base import (Adapter, AdapterError, BenchmarkResult, CompressResult,
                    DecompressResult, Prepared, RunSpec, load_report_json, run_cli)
 
-# The PATH binary (~/.local/bin) may be stale (predates --report-json); prefer the
-# freshly built one unless overridden. Resolution order: explicit > env > build > PATH.
-_DEFAULT_BUILD = Path(
-    "/home/skyler/research/compression/FZ_ZF/compressors/FZGPUModules/build/bin/fzgmod-cli")
-
 # canonical mode -> (native FZGM mode string, eb basis for the satisfaction check).
 # rel_range -> NOA (FZGM's range-relative); rel_maxabs -> REL (Lorenzo max|data| basis).
 _MODE_MAP = {
@@ -35,15 +30,18 @@ _CLI_MODE = {"ABS": "abs", "NOA": "noa", "REL": "rel"}
 
 
 def resolve_cli(explicit: str | None = None) -> str:
+    # Precedence: per-run cli_path > $FZGMOD_CLI (set by Site/site.local.yaml) > PATH.
+    # No hardcoded path — portable across desktop and HPC (set FZGMOD_CLI via module/Spack
+    # or configs/site.local.yaml). Note: a system fzgmod-cli may be stale; prefer an
+    # explicit FZGMOD_CLI pointing at the intended build.
     for cand in (explicit, os.environ.get("FZGMOD_CLI")):
         if cand:
             return cand
-    if _DEFAULT_BUILD.exists():
-        return str(_DEFAULT_BUILD)
     found = shutil.which("fzgmod-cli")
     if found:
         return found
-    raise AdapterError("fzgmod-cli not found (set FZGMOD_CLI or cli_path)")
+    raise AdapterError("fzgmod-cli not found: set FZGMOD_CLI, cli_path, or "
+                       "configs/site.local.yaml (see configs/site.example.yaml)")
 
 
 class FzgmAdapter(Adapter):

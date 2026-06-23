@@ -109,6 +109,10 @@ class TimingStat:
     max_ms: float
     n: int
     throughput_gbs: float   # original_bytes / median_ms, decimal GB/s
+    std_ms: float
+    cv: float               # std / median — relative dispersion of the kept reps
+    rel_spread: float       # (max - min) / median
+    stable: bool            # cv <= threshold (unstable => throughput untrustworthy)
 
 
 def _gbs(original_bytes: int, ms: float) -> float:
@@ -116,14 +120,23 @@ def _gbs(original_bytes: int, ms: float) -> float:
 
 
 def summarize_timing(device_ms_all: list[float], original_bytes: int,
-                     warmup_reps: int) -> TimingStat:
-    """Drop warmup reps, summarize the rest. Throughput uses the median device time."""
+                     warmup_reps: int, cv_threshold: float = 0.15) -> TimingStat:
+    """Drop warmup reps, summarize the rest. Throughput uses the median device time.
+
+    `cv` (coefficient of variation) flags clock-bounce / throttling on unlocked GPUs: a
+    high cv means the median throughput is not trustworthy. Calibrated default 0.15 —
+    steady cells run ~0.07-0.14; a clock-ramp regime shift pushes cv well above 0.4.
+    """
     kept = list(device_ms_all[warmup_reps:]) or list(device_ms_all)
     arr = np.asarray(kept, dtype=np.float64)
     median = float(np.median(arr))
+    std = float(np.std(arr))
+    cv = std / median if median > 0 else 0.0
+    rel_spread = (float(arr.max()) - float(arr.min())) / median if median > 0 else 0.0
     return TimingStat(
         median_ms=median, min_ms=float(arr.min()), max_ms=float(arr.max()),
         n=int(arr.size), throughput_gbs=_gbs(original_bytes, median),
+        std_ms=std, cv=cv, rel_spread=rel_spread, stable=cv <= cv_threshold,
     )
 
 

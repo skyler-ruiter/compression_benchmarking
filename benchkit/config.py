@@ -5,6 +5,8 @@ malformed config fails with a clear message rather than a deep traceback.
 """
 from __future__ import annotations
 
+import os
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -70,8 +72,10 @@ class DatasetCatalog:
             raise KeyError(f"field '{field_name}' not found in dataset '{dataset}' "
                            f"(have: {sorted(fields)})")
         fspec = fields[field_name]
-        root = Path(ds.get("root", "")).expanduser()
-        rel = Path(fspec["path"])
+        # Expand ${ENV} and ~ so a portable manifest can use ${BENCHKIT_DATA_ROOT}/... and
+        # resolve per site (HPC scratch vs. local disk).
+        root = Path(os.path.expandvars(ds.get("root", ""))).expanduser()
+        rel = Path(os.path.expandvars(fspec["path"]))
         path = rel if rel.is_absolute() else (root / rel)
         dims = list(fspec["dims"])
         if not dims or any(int(d) <= 0 for d in dims):
@@ -132,6 +136,7 @@ class ExperimentConfig:
     warmup_reps: int
     lock_clocks: bool
     retain_decompressed: bool
+    timing_cv_threshold: float
     runs: list[RunEntry]
     pairings: list[dict[str, Any]] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
@@ -166,6 +171,9 @@ class ExperimentConfig:
             # local disk budget. Its checksum is recorded regardless, and c.fzm is kept
             # so it can be regenerated. Toggle on for experiments that need the array.
             retain_decompressed=bool(raw.get("retain_decompressed", False)),
+            # Coefficient-of-variation above which a cell's timing is flagged unreliable
+            # (clock bounce / throttling on unlocked GPUs). Tighten on exclusive HPC nodes.
+            timing_cv_threshold=float(raw.get("timing_cv_threshold", 0.15)),
             runs=runs,
             pairings=list(raw.get("pairings", [])),
             raw=raw,

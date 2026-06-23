@@ -1,0 +1,16 @@
+# Per-machine paths. Copy to site.local.yaml (gitignored) and edit for your machine,
+# or set the equivalent environment variables. Precedence: CLI arg > env var > this file.
+#
+#   FZGMOD_CLI            -> fzgmod_cli
+#   BENCHKIT_RESULTS_ROOT -> results_root
+#
+# On HPC, prefer env vars set by your job script (module load / spack load), e.g.:
+#   export FZGMOD_CLI=$(which fzgmod-cli)
+#   export BENCHKIT_RESULTS_ROOT=$SCRATCH/benchkit-results
+
+# Path to the fzgmod-cli binary to benchmark (a system one may be stale — point at the
+# intended build).
+fzgmod_cli: /path/to/FZGPUModules/build/bin/fzgmod-cli
+
+# Where session output goes (use cluster scratch on HPC; defaults to ./results).
+results_root: ./results

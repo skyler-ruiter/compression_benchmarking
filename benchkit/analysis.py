@@ -18,6 +18,7 @@ _COLS = [
     ("compress_throughput_gbs", "cGB/s", 8),
     ("decompress_throughput_gbs", "dGB/s", 8),
     ("eb_satisfied", "eb_ok", 6),
+    ("timing_reliable", "tOK", 5),
 ]
 
 

@@ -1,6 +1,9 @@
 # Run output (sessions, artifacts, logs) — never tracked
 results/
 
+# Per-machine site config (paths); commit site.example.yaml instead
+configs/site.local.yaml
+
 # Built compressor artifacts inside submodules
 external/**/build/
 external/**/install/

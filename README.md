@@ -23,18 +23,34 @@ there. Reference-compressor adapters (cuSZ, cuSZp, …) land in M3.
 
 ```bash
 # Requires: python3 + numpy + pyyaml, a built fzgmod-cli, an NVIDIA GPU.
-# fzgmod-cli is resolved from $FZGMOD_CLI, else the FZGM build dir, else PATH.
+# Set paths once: copy configs/site.example.yaml -> configs/site.local.yaml (gitignored)
+# and point fzgmod_cli at your build, or export FZGMOD_CLI / BENCHKIT_RESULTS_ROOT.
 
-python -m benchkit run configs/experiments/smoke.yaml   # run a matrix
-python -m benchkit report results/<session>/runs.jsonl  # re-print the table
+python -m benchkit run    configs/experiments/smoke.yaml   # run a matrix
+python -m benchkit report results/<session>/               # re-print the table
 ```
 
-Each run writes a session dir under `results/<id>/`: `runs.jsonl` (one tidy row per
-measurement), `provenance.json` (GPU/driver/host/git), `logs/`, and `work/`. Configure
-experiments in [configs/experiments/](configs/experiments/) and datasets in
-[configs/datasets.yaml](configs/datasets.yaml). FZGM adapter quirks (the `rel`-basis
-finding, the huffman/zigzag constraint) are in
-[docs/adapters/fzgm.md](docs/adapters/fzgm.md).
+Each run writes a session dir: `runs.jsonl` (one tidy row per measurement),
+`provenance*.json` (GPU/driver/host/scheduler/git), `logs/`, and `work/`. Configure
+experiments in [configs/experiments/](configs/experiments/), datasets in
+[configs/datasets.yaml](configs/datasets.yaml), pipelines in
+[configs/pipelines/](configs/pipelines/).
+
+### HPC (SLURM)
+
+The same configs run on a cluster. A job array shards the matrix; each task is
+resumable. Template: [scripts/submit.slurm](scripts/submit.slurm).
+
+```bash
+# one array task (k of N) into a shared, resumable session
+python -m benchkit run configs/experiments/smoke.yaml \
+    --session-id "$SLURM_ARRAY_JOB_ID" --shard "${SLURM_ARRAY_TASK_ID}/${N}"
+python -m benchkit merge "$BENCHKIT_RESULTS_ROOT/$SLURM_ARRAY_JOB_ID"   # after array
+```
+
+FZGM adapter quirks (the `rel`-basis finding, huffman/zigzag, TOML-first) are in
+[docs/adapters/fzgm.md](docs/adapters/fzgm.md); the full design in
+[docs/DESIGN.md](docs/DESIGN.md).
 
 ## Why it's structured this way (the short version)
 

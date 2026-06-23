@@ -6,8 +6,9 @@
 > ports across compression ratio, throughput, quality, and memory — and to support
 > rapid, reproducible experiments for research papers.
 
-Status: **design draft** (M0). No harness code yet — this document is the contract we
-build against. Decisions below are recorded in [Decision Log](#10-decision-log).
+Status: **M1 complete; M2 (HPC execution) in progress.** The `benchkit` package runs the
+core loop on FZGM, TOML-first, with sharding/resume for clusters. This document is the
+living contract. Decisions are recorded in the [Decision Log](#10-decision-log).
 
 ---
 
@@ -469,8 +470,16 @@ speed" numerically so the standard is explicit and consistent across papers.
   harness PSNR matches FZGM's own to 5 decimals; per-stage timing captured; the
   rel-basis hazard (§5.4) surfaced and fixed. Deferred to later milestones: skip-
   completed resumability, clock locking, TOML-preset (huffman/cuSZ-equivalent) sweeps.
-- **M2 — Provenance & reproducibility.** Environment manifest capture, clock locking,
-  warmup + repetition with spread, gitignored session dirs. Now a number is traceable.
+- **M2 — Reproducibility & HPC execution.** ✅ **Done (2026-06-18).** Site config
+  (de-hardcoded `fzgmod-cli`/results-root paths; `${ENV}` dataset roots); matrix
+  **sharding** (`--shard k/N` for SLURM job arrays); **resume** (skip completed cells by
+  `cell_key`); per-shard provenance capturing scheduler (SLURM/PBS) + software
+  (modules/Spack/nvcc) + GPU; a `merge` command; `scripts/submit.slurm`. **Timing
+  reliability** (since clocks can't be locked on shared nodes): per-cell coefficient of
+  variation over the kept reps flags unstable throughput (`*_stable`, `timing_reliable`,
+  default cv ≤ 0.15), plus a concurrent `GpuSampler` recording clocks + thermal/power
+  throttle reasons during the benchmark. See [Execution on HPC](#12-execution-on-hpc).
+  Optional clock-lock hook (where permitted) is the only deferred piece.
 - **M3 — Reference adapters (incremental).** Add submodules + build scripts + adapters
   one at a time: cuSZ → cuSZp → cuSZ-Hi → MANS → PFPL. Each lands with a
   `docs/adapters/<x>.md` and passes the smoke matrix before the next is added.
@@ -499,6 +508,10 @@ Each milestone is independently useful and leaves a working artifact.
 | D9 | **TOML-first pipelines** for FZGM (not CLI `--stages`); rendered config archived per run. | TOML exposes the full DAG (branches, fused stages) the CLI text path can't; lets a hand-tuned config be benchmarked as-is and shipped with its results+provenance. `--stages` kept only for quick linear tests. |
 | D10 | **Canonical, tool-agnostic error modes** (`abs`/`rel_range`/`rel_maxabs`/`from_toml`); adapters translate to native flags + eb basis. | "REL"/"NOA" names collide across tools; one canonical vocabulary makes bounds comparable and the eb-check correct. |
 | D11 | **Decompressed output deleted after metrics by default** (`retain_decompressed: false`); its sha256 is recorded and `c.fzm` is kept. | Keeps the local repo under a ~20 GB budget — `d.bin` is ~original-sized and regenerable from `c.fzm`; at ~2–3 MB/run retained, ~7k runs fit. Toggle on per-experiment when the array itself is needed. |
+| D12 | **No hardcoded paths** — `fzgmod-cli` + results-root from a site config (env > `configs/site.local.yaml` > default); dataset roots via `${ENV}` expansion. | The same configs must run unchanged on the desktop and on HPC (scratch filesystems, module/Spack-provided binaries). |
+| D13 | **Sharding + resume** keyed by a deterministic `cell_key`; each shard writes its own `runs.shard-k-of-N.jsonl`; a `merge` step dedupes. | SLURM job arrays split a big matrix across tasks with no append contention; jobs that hit walltime resume idempotently. |
+| D14 | **Per-shard provenance** (not one shared manifest). | Each array task may land on a different node/GPU — capturing GPU+scheduler+software per shard is correct, and avoids a write race. |
+| D15 | **Timing reliability = variance-primary, throttle-reasons-secondary.** `cv` over kept reps decides `timing_reliable`; concurrent GPU sampling is diagnostic. | Clocks can't be locked on shared nodes; cv catches sub-sample-rate clock bounce that a clock query misses, while throttle reasons explain *why* when something is detectably throttling. |
 
 ---
 
@@ -524,4 +537,56 @@ Each milestone is independently useful and leaves a working artifact.
 5. **Dim-order convention.** Lock fast-to-slow vs slow-to-fast across the manifest and
    all adapters (FZGM uses `-l fast x mid x slow`); mismatches silently wreck quality
    metrics, so this must be asserted, not assumed.
+```
+
+---
+
+## 12. Execution on HPC
+
+The toolkit runs unchanged on the local desktop and on SLURM/PBS clusters; the cluster
+is where the paper-grade matrices and reference GPUs (A100/H100) live.
+
+**Paths are never hardcoded.** `fzgmod-cli` and the results root resolve from a site
+config (env var > `configs/site.local.yaml` (gitignored) > default); dataset manifest
+`root`s support `${ENV}` expansion (e.g. `${BENCHKIT_DATA_ROOT}`). On HPC set these from
+the job script (`module load` / `spack load`); commit only `site.example.yaml`.
+
+**Sharding (job arrays).** The cell matrix is enumerated in a deterministic order;
+`--shard k/N` runs only cells where `index % N == k`. A SLURM array of `N` tasks shares
+one session dir (`--session-id $SLURM_ARRAY_JOB_ID`) and each task writes its own
+`runs.shard-k-of-N.jsonl` + `provenance.shard-k-of-N.json` — no append contention, and
+per-task provenance because each task may be a different node/GPU. `benchkit merge
+<session>` dedupes the shard files into `runs.jsonl`. Template: `scripts/submit.slurm`.
+
+**Resume.** Each row carries a deterministic `cell_key`
+(`compressor|variant|pipeline|dataset|field|mode|eb`). On start the runner scans all run
+files in the session dir and skips cells already `status: ok`, so a task that hits
+walltime resumes idempotently on resubmit.
+
+**Timing without clock-lock privileges.** `nvidia-smi -lgc/-lmc` is usually admin-only on
+shared clusters, so the harness does not assume it. Two complementary signals make
+throughput honest instead of silently wrong:
+- **Variance (primary).** Per cell, the coefficient of variation (`cv = std/median`) over
+  the kept reps is computed for each phase; `cv > timing_cv_threshold` (default 0.15)
+  sets `*_stable = false` and `timing_reliable = false`. This catches fast clock-bounce
+  that coarse sampling misses (observed: a cell read a steady 1710 MHz yet had cv 0.25).
+  On unlocked GPUs prefer the recorded `*_device_ms_min` (best warm rep).
+- **Throttle reasons (diagnostic).** A `GpuSampler` thread polls clocks + NVML throttle
+  reasons *during* the benchmark (a post-hoc query only ever sees GpuIdle). It records
+  observed SM-clock min/mean/max, max temp, and any thermal/HW/power throttle reason;
+  `throttled_thermal` also forces `timing_reliable = false`.
+
+The runner prints a per-cell flag and an end-of-run roll-up of unreliable cells. Results
+from different GPUs are partitioned by provenance, never silently pooled.
+
+```bash
+# local
+python -m benchkit run configs/experiments/smoke.yaml
+
+# one HPC array task (k of N), shared session, resumable
+python -m benchkit run configs/experiments/sdrbench.yaml \
+    --session-id "$SLURM_ARRAY_JOB_ID" --shard "${SLURM_ARRAY_TASK_ID}/${N}"
+
+# after the array finishes
+python -m benchkit merge "$BENCHKIT_RESULTS_ROOT/$SLURM_ARRAY_JOB_ID"
 ```
