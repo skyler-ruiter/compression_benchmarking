@@ -38,7 +38,8 @@ class Site:
                 or local.get("results_root")
                 or str(REPO_ROOT / "results"))
 
-        return cls(fzgmod_cli=cli, results_root=Path(root).expanduser())
+        return cls(fzgmod_cli=cli,
+                   results_root=Path(os.path.expandvars(root)).expanduser())
 
     def export_env(self) -> None:
         """Publish resolved values to the environment so adapters pick them up."""

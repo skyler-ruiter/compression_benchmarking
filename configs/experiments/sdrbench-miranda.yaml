@@ -1,0 +1,27 @@
+# MIRANDA benchmark — f64 dataset, fzgpu_f64 + cusz_f64 pipelines.
+# Separate from sdrbench.yaml because the runner applies all runs to all datasets
+# (no per-run dataset filtering), so f32 and f64 pipelines must be in separate files.
+#
+# Submit the same way as sdrbench.yaml; point EXPERIMENT at this file in submit.slurm.
+
+name: sdrbench-miranda
+description: Miranda f64 turbulence suite — FZGM float64 pipelines, NOA (rel_range) error bounds.
+
+datasets:
+  - MIRANDA
+
+fields: all
+
+error:
+  mode: rel_range   # NOA in fzgm terms: eb × (max−min); standard SDRBench comparison basis
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: true
+retain_decompressed: false
+timing_cv_threshold: 0.10
+
+runs:
+  - {compressor: fzgm, variant: fzgpu_f64, pipeline: configs/pipelines/fzgpu_f64.toml}
+  - {compressor: fzgm, variant: cusz_f64,  pipeline: configs/pipelines/cusz_f64.toml}

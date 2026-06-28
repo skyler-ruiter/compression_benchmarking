@@ -1,0 +1,21 @@
+[pipeline]
+# Lorenzo-Quant → BitplaneRLE for double-precision (float64) input.
+# Identical structure to fzgpu.toml; only input_type changes.
+# Use with MIRANDA and any other f64 datasets.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float64"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "bprle"
+type = "BitplaneRLE"
+inputs = [{from = "lrz", port = "codes"}]

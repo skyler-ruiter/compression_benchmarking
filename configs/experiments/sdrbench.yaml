@@ -1,0 +1,49 @@
+# Full SDRBench benchmark — f32 datasets, fzgpu + cusz pipelines, abs error bounds.
+# For MIRANDA (f64) use sdrbench-miranda.yaml.
+#
+# Submit via SLURM job array:
+#   ARRAY_ID=$(sbatch --parsable scripts/submit.slurm)
+#   sbatch --dependency=afterok:$ARRAY_ID --wrap \
+#     "cd $SLURM_SUBMIT_DIR && source .venv/bin/activate && \
+#      python -m benchkit merge $SCRATCH/benchkit-results/$ARRAY_ID"
+#
+# Datasets:
+#   CESM-2D       79 f32 fields, 1800×3600
+#   CESMATM-3D    33 f32 fields, 26×1800×3600
+#   HURR          13 f32 fields, 100×500×500
+#   NYX            6 f32 fields, 512×512×512
+#   HACC           6 f32 fields, 280,953,867 particles (1-D)
+#   EXAALT         6 f32 fields, 2,869,440 particles (1-D, .dat2)
+#   QMCPACK        1 f32 field,  288×69×69×115 (4-D)
+#
+# Total cells: 144 fields × 3 bounds × 2 pipelines = 864 cells.
+# With N=8 shards each task handles ~108 cells; adjust --array in submit.slurm.
+# Run smoke-bigred200.yaml first to confirm timing before committing to a full array.
+
+name: sdrbench
+description: Full SDRBench f32 suite — FZGM fzgpu + cusz pipelines, NOA (rel_range) error bounds.
+
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - HACC
+  - EXAALT
+  - QMCPACK
+
+fields: all
+
+error:
+  mode: rel_range   # NOA in fzgm terms: eb × (max−min); standard SDRBench comparison basis
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: true           # exclusive SLURM node gives steadier GPU clocks
+retain_decompressed: false  # disk budget: checksum kept; regenerable from c.fzm
+timing_cv_threshold: 0.10   # tighter than default (0.15); exclusive nodes are stable
+
+runs:
+  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml}
+  - {compressor: fzgm, variant: cusz,  pipeline: configs/pipelines/cusz.toml}

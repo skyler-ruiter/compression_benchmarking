@@ -1,7 +1,14 @@
 # Dataset manifest. Each top-level key is a dataset; each field gives dims + path.
 # dims are fast-to-slow (matches FZGM -l fast x mid x slow). `root` is prepended to
-# each field's relative `path`. SDRBench entries (with sha256 + download source) land
-# in M5; this M1 manifest points at local data already on disk.
+# each field's relative `path`. ${ENV} variables are expanded at load time (config.py).
+#
+# Use ${BENCHKIT_DATA_ROOT} to make entries portable across machines:
+#   export BENCHKIT_DATA_ROOT=/N/scratch/sruiter/sdrbench_data   (BigRed200)
+# Set this in your job script, ~/.bashrc, or site.local.yaml before running.
+# scripts/download-sdrbench.sh (or `benchkit download`) creates the directory layout below.
+# See docs/hpc-setup.md for full machine setup instructions.
+
+# ----- local desktop (non-HPC) -----------------------------------------------
 
 CESM-CLDHGH-local:
   dtype: f32
@@ -9,5 +16,235 @@ CESM-CLDHGH-local:
   root: /home/skyler/research/compression/FZ_ZF/compressors/FZGPUModules/data
   fields:
     CLDHGH:
-      dims: [3600, 1800]      # 6,480,000 f32 = 25,920,000 bytes
+      dims: [3600, 1800]
       path: CLDHGH.f32
+
+
+# ----- SDRBench datasets (portable via ${BENCHKIT_DATA_ROOT}) -----------------
+# Download with:  bash scripts/download-sdrbench.sh $BENCHKIT_DATA_ROOT
+# or:             python -m benchkit download $BENCHKIT_DATA_ROOT
+#
+# Directory layout created by the download script:
+#   $BENCHKIT_DATA_ROOT/
+#     CESM_1800x3600/         (79 2-D f32 fields, 1800×3600)
+#     CESMATM_26x1800x3600/   (33 3-D f32 fields, 26×1800×3600)
+#     HURR_100x500x500/       (13 3-D f32 fields, 100×500×500)
+#     NYX_512x512x512/        (6 3-D f32 fields, 512×512×512)
+#     MIRANDA_256x384x384/    (7 3-D f64 fields, 256×384×384)
+#     HACCM_280953867/        (6 1-D f32 fields, 280,953,867 particles)
+#     EXAALT_2869440/         (6 1-D f32 fields as .dat2, 2,869,440 particles)
+#     QMCPACK/                (1 4-D f32 array, 288×69×69×115 orbitals)
+
+# CESM-ATM 2-D surface fields (79 fields, 1800×3600, f32)
+# Fast-to-slow: longitude (3600) varies fastest in memory.
+CESM-2D:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/CESM_1800x3600
+  fields:
+    AEROD_v:   {dims: [3600, 1800], path: AEROD_v_1_1800_3600.f32}
+    CLDHGH:    {dims: [3600, 1800], path: CLDHGH_1_1800_3600.f32}
+    CLDLOW:    {dims: [3600, 1800], path: CLDLOW_1_1800_3600.f32}
+    CLDMED:    {dims: [3600, 1800], path: CLDMED_1_1800_3600.f32}
+    CLDTOT:    {dims: [3600, 1800], path: CLDTOT_1_1800_3600.f32}
+    FLDS:      {dims: [3600, 1800], path: FLDS_1_1800_3600.f32}
+    FLDSC:     {dims: [3600, 1800], path: FLDSC_1_1800_3600.f32}
+    FLNS:      {dims: [3600, 1800], path: FLNS_1_1800_3600.f32}
+    FLNSC:     {dims: [3600, 1800], path: FLNSC_1_1800_3600.f32}
+    FLNT:      {dims: [3600, 1800], path: FLNT_1_1800_3600.f32}
+    FLNTC:     {dims: [3600, 1800], path: FLNTC_1_1800_3600.f32}
+    FLUT:      {dims: [3600, 1800], path: FLUT_1_1800_3600.f32}
+    FLUTC:     {dims: [3600, 1800], path: FLUTC_1_1800_3600.f32}
+    FREQSH:    {dims: [3600, 1800], path: FREQSH_1_1800_3600.f32}
+    FREQZM:    {dims: [3600, 1800], path: FREQZM_1_1800_3600.f32}
+    FSDS:      {dims: [3600, 1800], path: FSDS_1_1800_3600.f32}
+    FSDSC:     {dims: [3600, 1800], path: FSDSC_1_1800_3600.f32}
+    FSDTOA:    {dims: [3600, 1800], path: FSDTOA_1_1800_3600.f32}
+    FSNS:      {dims: [3600, 1800], path: FSNS_1_1800_3600.f32}
+    FSNSC:     {dims: [3600, 1800], path: FSNSC_1_1800_3600.f32}
+    FSNT:      {dims: [3600, 1800], path: FSNT_1_1800_3600.f32}
+    FSNTC:     {dims: [3600, 1800], path: FSNTC_1_1800_3600.f32}
+    FSNTOA:    {dims: [3600, 1800], path: FSNTOA_1_1800_3600.f32}
+    FSNTOAC:   {dims: [3600, 1800], path: FSNTOAC_1_1800_3600.f32}
+    FSUTOA:    {dims: [3600, 1800], path: FSUTOA_1_1800_3600.f32}
+    ICEFRAC:   {dims: [3600, 1800], path: ICEFRAC_1_1800_3600.f32}
+    LANDFRAC:  {dims: [3600, 1800], path: LANDFRAC_1_1800_3600.f32}
+    LHFLX:     {dims: [3600, 1800], path: LHFLX_1_1800_3600.f32}
+    LWCF:      {dims: [3600, 1800], path: LWCF_1_1800_3600.f32}
+    OCNFRAC:   {dims: [3600, 1800], path: OCNFRAC_1_1800_3600.f32}
+    ODV_bcar1: {dims: [3600, 1800], path: ODV_bcar1_1_1800_3600.f32}
+    ODV_bcar2: {dims: [3600, 1800], path: ODV_bcar2_1_1800_3600.f32}
+    ODV_dust1: {dims: [3600, 1800], path: ODV_dust1_1_1800_3600.f32}
+    ODV_dust2: {dims: [3600, 1800], path: ODV_dust2_1_1800_3600.f32}
+    ODV_dust3: {dims: [3600, 1800], path: ODV_dust3_1_1800_3600.f32}
+    ODV_dust4: {dims: [3600, 1800], path: ODV_dust4_1_1800_3600.f32}
+    ODV_ocar1: {dims: [3600, 1800], path: ODV_ocar1_1_1800_3600.f32}
+    ODV_ocar2: {dims: [3600, 1800], path: ODV_ocar2_1_1800_3600.f32}
+    ODV_SSLTA: {dims: [3600, 1800], path: ODV_SSLTA_1_1800_3600.f32}
+    ODV_SSLTC: {dims: [3600, 1800], path: ODV_SSLTC_1_1800_3600.f32}
+    ODV_sulf:  {dims: [3600, 1800], path: ODV_sulf_1_1800_3600.f32}
+    PBLH:      {dims: [3600, 1800], path: PBLH_1_1800_3600.f32}
+    PCONVB:    {dims: [3600, 1800], path: PCONVB_1_1800_3600.f32}
+    PCONVT:    {dims: [3600, 1800], path: PCONVT_1_1800_3600.f32}
+    PHIS:      {dims: [3600, 1800], path: PHIS_1_1800_3600.f32}
+    PRECC:     {dims: [3600, 1800], path: PRECC_1_1800_3600.f32}
+    PRECCDZM:  {dims: [3600, 1800], path: PRECCDZM_1_1800_3600.f32}
+    PRECL:     {dims: [3600, 1800], path: PRECL_1_1800_3600.f32}
+    PRECSC:    {dims: [3600, 1800], path: PRECSC_1_1800_3600.f32}
+    PRECSH:    {dims: [3600, 1800], path: PRECSH_1_1800_3600.f32}
+    PRECSL:    {dims: [3600, 1800], path: PRECSL_1_1800_3600.f32}
+    PRECT:     {dims: [3600, 1800], path: PRECT_1_1800_3600.f32}
+    PS:        {dims: [3600, 1800], path: PS_1_1800_3600.f32}
+    PSL:       {dims: [3600, 1800], path: PSL_1_1800_3600.f32}
+    QFLX:      {dims: [3600, 1800], path: QFLX_1_1800_3600.f32}
+    QREFHT:    {dims: [3600, 1800], path: QREFHT_1_1800_3600.f32}
+    RHREFHT:   {dims: [3600, 1800], path: RHREFHT_1_1800_3600.f32}
+    SFCLDICE:  {dims: [3600, 1800], path: SFCLDICE_1_1800_3600.f32}
+    SFCLDLIQ:  {dims: [3600, 1800], path: SFCLDLIQ_1_1800_3600.f32}
+    SHFLX:     {dims: [3600, 1800], path: SHFLX_1_1800_3600.f32}
+    SNOWHICE:  {dims: [3600, 1800], path: SNOWHICE_1_1800_3600.f32}
+    SNOWHLND:  {dims: [3600, 1800], path: SNOWHLND_1_1800_3600.f32}
+    SOLIN:     {dims: [3600, 1800], path: SOLIN_1_1800_3600.f32}
+    SRFRAD:    {dims: [3600, 1800], path: SRFRAD_1_1800_3600.f32}
+    SWCF:      {dims: [3600, 1800], path: SWCF_1_1800_3600.f32}
+    TAUX:      {dims: [3600, 1800], path: TAUX_1_1800_3600.f32}
+    TAUY:      {dims: [3600, 1800], path: TAUY_1_1800_3600.f32}
+    TGCLDIWP:  {dims: [3600, 1800], path: TGCLDIWP_1_1800_3600.f32}
+    TGCLDLWP:  {dims: [3600, 1800], path: TGCLDLWP_1_1800_3600.f32}
+    TMQ:       {dims: [3600, 1800], path: TMQ_1_1800_3600.f32}
+    TREFHT:    {dims: [3600, 1800], path: TREFHT_1_1800_3600.f32}
+    TREFMNAV:  {dims: [3600, 1800], path: TREFMNAV_1_1800_3600.f32}
+    TREFMXAV:  {dims: [3600, 1800], path: TREFMXAV_1_1800_3600.f32}
+    TROP_P:    {dims: [3600, 1800], path: TROP_P_1_1800_3600.f32}
+    TROP_T:    {dims: [3600, 1800], path: TROP_T_1_1800_3600.f32}
+    TROP_Z:    {dims: [3600, 1800], path: TROP_Z_1_1800_3600.f32}
+    TS:        {dims: [3600, 1800], path: TS_1_1800_3600.f32}
+    TSMN:      {dims: [3600, 1800], path: TSMN_1_1800_3600.f32}
+    TSMX:      {dims: [3600, 1800], path: TSMX_1_1800_3600.f32}
+
+# CESM-ATM 3-D pressure-level fields (33 fields, 26×1800×3600, f32)
+# Fast-to-slow: longitude (3600) → latitude (1800) → pressure level (26).
+CESMATM-3D:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/CESMATM_26x1800x3600
+  fields:
+    CLDICE:  {dims: [3600, 1800, 26], path: CLDICE_1_26_1800_3600.f32}
+    CLDLIQ:  {dims: [3600, 1800, 26], path: CLDLIQ_1_26_1800_3600.f32}
+    CLOUD:   {dims: [3600, 1800, 26], path: CLOUD_1_26_1800_3600.f32}
+    CMFDQ:   {dims: [3600, 1800, 26], path: CMFDQ_1_26_1800_3600.f32}
+    CMFDQR:  {dims: [3600, 1800, 26], path: CMFDQR_1_26_1800_3600.f32}
+    CMFDT:   {dims: [3600, 1800, 26], path: CMFDT_1_26_1800_3600.f32}
+    CONCLD:  {dims: [3600, 1800, 26], path: CONCLD_1_26_1800_3600.f32}
+    DCQ:     {dims: [3600, 1800, 26], path: DCQ_1_26_1800_3600.f32}
+    DTCOND:  {dims: [3600, 1800, 26], path: DTCOND_1_26_1800_3600.f32}
+    DTV:     {dims: [3600, 1800, 26], path: DTV_1_26_1800_3600.f32}
+    FICE:    {dims: [3600, 1800, 26], path: FICE_1_26_1800_3600.f32}
+    GCLDLWP: {dims: [3600, 1800, 26], path: GCLDLWP_1_26_1800_3600.f32}
+    ICIMR:   {dims: [3600, 1800, 26], path: ICIMR_1_26_1800_3600.f32}
+    ICLDIWP: {dims: [3600, 1800, 26], path: ICLDIWP_1_26_1800_3600.f32}
+    ICLDTWP: {dims: [3600, 1800, 26], path: ICLDTWP_1_26_1800_3600.f32}
+    ICWMR:   {dims: [3600, 1800, 26], path: ICWMR_1_26_1800_3600.f32}
+    OMEGA:   {dims: [3600, 1800, 26], path: OMEGA_1_26_1800_3600.f32}
+    OMEGAT:  {dims: [3600, 1800, 26], path: OMEGAT_1_26_1800_3600.f32}
+    Q:       {dims: [3600, 1800, 26], path: Q_1_26_1800_3600.f32}
+    QC:      {dims: [3600, 1800, 26], path: QC_1_26_1800_3600.f32}
+    QRL:     {dims: [3600, 1800, 26], path: QRL_1_26_1800_3600.f32}
+    QRS:     {dims: [3600, 1800, 26], path: QRS_1_26_1800_3600.f32}
+    RELHUM:  {dims: [3600, 1800, 26], path: RELHUM_1_26_1800_3600.f32}
+    T:       {dims: [3600, 1800, 26], path: T_1_26_1800_3600.f32}
+    U:       {dims: [3600, 1800, 26], path: U_1_26_1800_3600.f32}
+    UU:      {dims: [3600, 1800, 26], path: UU_1_26_1800_3600.f32}
+    V:       {dims: [3600, 1800, 26], path: V_1_26_1800_3600.f32}
+    VD01:    {dims: [3600, 1800, 26], path: VD01_1_26_1800_3600.f32}
+    VQ:      {dims: [3600, 1800, 26], path: VQ_1_26_1800_3600.f32}
+    VT:      {dims: [3600, 1800, 26], path: VT_1_26_1800_3600.f32}
+    VU:      {dims: [3600, 1800, 26], path: VU_1_26_1800_3600.f32}
+    VV:      {dims: [3600, 1800, 26], path: VV_1_26_1800_3600.f32}
+    Z3:      {dims: [3600, 1800, 26], path: Z3_1_26_1800_3600.f32}
+
+# Hurricane Isabel (13 fields, 100×500×500, f32)
+# Log10 variants excluded; only the raw physical fields are benchmarked.
+# Fast-to-slow: x (500) → y (500) → z (100).
+HURR:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/HURR_100x500x500
+  fields:
+    CLOUD:  {dims: [500, 500, 100], path: CLOUDf48.bin.f32}
+    P:      {dims: [500, 500, 100], path: Pf48.bin.f32}
+    PRECIP: {dims: [500, 500, 100], path: PRECIPf48.bin.f32}
+    QCLOUD: {dims: [500, 500, 100], path: QCLOUDf48.bin.f32}
+    QGRAUP: {dims: [500, 500, 100], path: QGRAUPf48.bin.f32}
+    QICE:   {dims: [500, 500, 100], path: QICEf48.bin.f32}
+    QRAIN:  {dims: [500, 500, 100], path: QRAINf48.bin.f32}
+    QSNOW:  {dims: [500, 500, 100], path: QSNOWf48.bin.f32}
+    QVAPOR: {dims: [500, 500, 100], path: QVAPORf48.bin.f32}
+    TC:     {dims: [500, 500, 100], path: TCf48.bin.f32}
+    U:      {dims: [500, 500, 100], path: Uf48.bin.f32}
+    V:      {dims: [500, 500, 100], path: Vf48.bin.f32}
+    W:      {dims: [500, 500, 100], path: Wf48.bin.f32}
+
+# NYX cosmology simulation (6 fields, 512×512×512, f32)
+NYX:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/NYX_512x512x512
+  fields:
+    baryon_density:      {dims: [512, 512, 512], path: baryon_density.f32}
+    dark_matter_density: {dims: [512, 512, 512], path: dark_matter_density.f32}
+    temperature:         {dims: [512, 512, 512], path: temperature.f32}
+    velocity_x:          {dims: [512, 512, 512], path: velocity_x.f32}
+    velocity_y:          {dims: [512, 512, 512], path: velocity_y.f32}
+    velocity_z:          {dims: [512, 512, 512], path: velocity_z.f32}
+
+# Miranda turbulence simulation (7 fields, 256×384×384, f64)
+# Double precision. Use configs/pipelines/fzgpu_f64.toml and cusz_f64.toml.
+MIRANDA:
+  dtype: f64
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/MIRANDA_256x384x384
+  fields:
+    density:    {dims: [384, 384, 256], path: density.d64}
+    diffusivity: {dims: [384, 384, 256], path: diffusivity.d64}
+    pressure:   {dims: [384, 384, 256], path: pressure.d64}
+    velocityx:  {dims: [384, 384, 256], path: velocityx.d64}
+    velocityy:  {dims: [384, 384, 256], path: velocityy.d64}
+    velocityz:  {dims: [384, 384, 256], path: velocityz.d64}
+    viscocity:  {dims: [384, 384, 256], path: viscocity.d64}
+
+# HACC N-body cosmology — medium size (6 fields, 280,953,867 particles, f32, 1-D)
+HACC:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/HACCM_280953867
+  fields:
+    vx: {dims: [280953867], path: vx.f32}
+    vy: {dims: [280953867], path: vy.f32}
+    vz: {dims: [280953867], path: vz.f32}
+    xx: {dims: [280953867], path: xx.f32}
+    yy: {dims: [280953867], path: yy.f32}
+    zz: {dims: [280953867], path: zz.f32}
+
+# EXAALT molecular dynamics (6 fields, 2,869,440 particles, f32, 1-D)
+# Files use .dat2 extension; content is raw binary float32.
+EXAALT:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/EXAALT_2869440
+  fields:
+    vx: {dims: [2869440], path: vx.dat2}
+    vy: {dims: [2869440], path: vy.dat2}
+    vz: {dims: [2869440], path: vz.dat2}
+    xx: {dims: [2869440], path: xx.dat2}
+    yy: {dims: [2869440], path: yy.dat2}
+    zz: {dims: [2869440], path: zz.dat2}
+
+# QMCPACK quantum Monte Carlo orbitals (1 file, 288×69×69×115, f32, 4-D)
+# File is in the 115x69x69x288/ subdirectory; fast-to-slow: orbital (288) is fastest.
+QMCPACK:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/QMCPACK/115x69x69x288
+  fields:
+    einspline: {dims: [288, 69, 69, 115], path: einspline_115_69_69_288.f32}

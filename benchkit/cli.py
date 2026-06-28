@@ -1,10 +1,11 @@
 """benchkit CLI.
 
-    python -m benchkit run    configs/experiments/smoke.yaml
+    python -m benchkit run      configs/experiments/smoke.yaml
         [--datasets configs/datasets.yaml] [--results-root DIR]
         [--session-id ID] [--shard k/N]
-    python -m benchkit merge  results/<session>/        # combine shard files -> runs.jsonl
-    python -m benchkit report results/<session>/        # print the table
+    python -m benchkit merge    results/<session>/        # combine shard files -> runs.jsonl
+    python -m benchkit report   results/<session>/        # print the table
+    python -m benchkit download [DATA_DIR]                # fetch SDRBench datasets
 
 HPC: a SLURM job array runs `--shard $SLURM_ARRAY_TASK_ID/$N --session-id $SLURM_JOB_ID`;
 each task writes its own shard file, then one `merge` combines them. Re-running the same
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from .analysis import print_table
@@ -82,6 +84,57 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_download(args: argparse.Namespace) -> int:
+    from .download import ALL_DATASETS, DATASET_KEYS, download_dataset
+
+    if args.list:
+        for ds in ALL_DATASETS:
+            print(f"  {ds.key:<10}  {ds.name:<20}  {ds.dims:<20}  {ds.dtype}  {ds.num_fields} fields")
+        return 0
+
+    data_dir = Path(args.data_dir)
+    tarball_dir = (
+        Path(args.tarball_dir) if args.tarball_dir
+        else data_dir.parent / "sdrbench_tarballs"
+    )
+    keys = args.datasets or DATASET_KEYS
+
+    unknown = [k for k in keys if k not in DATASET_KEYS]
+    if unknown:
+        raise SystemExit(f"Unknown dataset key(s): {', '.join(unknown)}. "
+                         f"Valid keys: {', '.join(DATASET_KEYS)}")
+
+    data_dir.mkdir(parents=True, exist_ok=True)
+    tarball_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"[config] data_dir    = {data_dir}")
+    print(f"[config] tarball_dir = {tarball_dir}")
+    print(f"[config] datasets    = {' '.join(keys)}")
+    print()
+
+    for key in keys:
+        download_dataset(key, data_dir, tarball_dir)
+
+    print()
+    print(f"[summary] {data_dir}:")
+    for d in sorted(data_dir.iterdir()):
+        if not d.is_dir():
+            continue
+        n = sum(1 for f in d.rglob("*") if f.is_file() and f.name != "metadata.yaml")
+        meta = ""
+        mf = d / "metadata.yaml"
+        if mf.exists():
+            for line in mf.read_text().splitlines():
+                if line.startswith("dataset:"):
+                    meta = f"  ({line.split(':', 1)[1].strip()})"
+                    break
+        print(f"  {d.name:<35} {n} file(s){meta}")
+    print()
+    print(f"Tarballs cached in: {tarball_dir}")
+    print(f"Delete once verified: rm -rf '{tarball_dir}'")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="benchkit")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -103,6 +156,19 @@ def main(argv: list[str] | None = None) -> int:
     rep = sub.add_parser("report", help="print a table from a session dir or runs.jsonl")
     rep.add_argument("target")
     rep.set_defaults(func=cmd_report)
+
+    from .download import DATASET_KEYS
+    _default_data_dir = os.environ.get("BENCHKIT_DATA_ROOT", str(Path.cwd() / "sdrbench_data"))
+    dl = sub.add_parser("download", help="download SDRBench datasets from the Globus mirror")
+    dl.add_argument("data_dir", nargs="?", default=_default_data_dir,
+                    help="where extracted data goes (default: $BENCHKIT_DATA_ROOT or ./sdrbench_data)")
+    dl.add_argument("--tarball-dir", default=None,
+                    help="where .tar.gz files cache (default: DATA_DIR/../sdrbench_tarballs)")
+    dl.add_argument("--datasets", nargs="+", metavar="KEY", default=None,
+                    help=f"subset to download (default: all). Keys: {', '.join(DATASET_KEYS)}")
+    dl.add_argument("--list", action="store_true",
+                    help="list available dataset keys and exit")
+    dl.set_defaults(func=cmd_download)
 
     args = p.parse_args(argv)
     return args.func(args)

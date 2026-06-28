@@ -67,8 +67,8 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
     shard_txt = "" if shard is None else f" shard {shard[0]}/{shard[1]}"
     n_skip = sum(1 for _, (e, f, eb) in cells
                  if cell_key(e, f.dataset, f.field, cfg.error_mode, eb) in done)
-    print(f"[session] {store.session_id}{shard_txt}  ->  {store.dir}")
-    print(f"[plan] {len(cells)} cells this task, {n_skip} already done (skipped)")
+    print(f"[session] {store.session_id}{shard_txt}  ->  {store.dir}", flush=True)
+    print(f"[plan] {len(cells)} cells this task, {n_skip} already done (skipped)", flush=True)
 
     n_runs = cfg.warmup_reps + cfg.repetitions
     for idx, (entry, fspec, eb) in cells:
@@ -122,7 +122,8 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                 f" !UNSTABLE(cv c={ct.cv:.2f} d={dt.cv:.2f})")
             print(f"  [{idx}] OK   {label}  CR={size.cr:.2f} "
                   f"PSNR={qual.psnr:.2f}dB cT={ct.throughput_gbs:.1f} "
-                  f"dT={dt.throughput_gbs:.1f}GB/s eb_ok={qual.eb_satisfied}{flag}")
+                  f"dT={dt.throughput_gbs:.1f}GB/s eb_ok={qual.eb_satisfied}{flag}",
+                  flush=True)
         except Exception as e:  # noqa: BLE001 - one bad cell shouldn't kill the matrix
             store.append({"run_id": run_id, "session_id": store.session_id,
                           "cell_key": key,
@@ -130,7 +131,7 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                           "pipeline": entry.pipeline, "dataset": fspec.dataset,
                           "field": fspec.field, "error_bound": eb,
                           "status": "fail", "error_message": str(e)})
-            print(f"  [{idx}] FAIL {label}  -> {e}")
+            print(f"  [{idx}] FAIL {label}  -> {e}", flush=True)
 
     rows = store.load_rows()
     unreliable = [r for r in rows if r.get("status") == "ok"
@@ -170,8 +171,10 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench) -> 
         "bitrate_bits_per_elem": size.bitrate_bits_per_elem,
         "compress_device_ms_median": ct.median_ms,
         "compress_device_ms_min": ct.min_ms,
+        "compress_device_ms_max": ct.max_ms,
         "decompress_device_ms_median": dt.median_ms,
         "decompress_device_ms_min": dt.min_ms,
+        "decompress_device_ms_max": dt.max_ms,
         "compress_throughput_gbs": ct.throughput_gbs,
         "decompress_throughput_gbs": dt.throughput_gbs,
         "throughput_unit": "GB/s_decimal",

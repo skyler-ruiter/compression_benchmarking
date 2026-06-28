@@ -1,0 +1,38 @@
+# Smoke test for BigRed200 — run interactively on a GPU node before submitting arrays.
+#
+# Get an interactive GPU node, then:
+#   module load python/3.12.11 cudatoolkit
+#   source .venv/bin/activate
+#   export BENCHKIT_DATA_ROOT=/N/scratch/sruiter/sdrbench_data
+#   python -m benchkit run configs/experiments/smoke-bigred200.yaml
+#
+# One field per dataset shape class (2-D, 3-D, 1-D) × both pipelines × one bound.
+# Should finish in a few minutes; confirms fzgmod-cli, data, and benchkit all work.
+
+name: smoke-bigred200
+description: Quick end-to-end sanity check on BigRed200 before submitting full arrays.
+
+datasets:
+  - CESM-2D        # 2-D surface field
+  - HURR           # 3-D field
+  - NYX            # 3-D field, different shape
+  - HACC           # 1-D particle data
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range   # NOA: eb × (max−min)
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false    # interactive node; not exclusive
+retain_decompressed: false
+
+runs:
+  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml}
+  - {compressor: fzgm, variant: cusz,  pipeline: configs/pipelines/cusz.toml}

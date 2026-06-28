@@ -9,9 +9,9 @@ from __future__ import annotations
 
 _COLS = [
     ("compressor", "comp", 6),
-    ("pipeline", "pipeline", 24),
-    ("dataset", "dataset", 12),
-    ("field", "field", 8),
+    ("variant", "variant", 10),
+    ("dataset", "dataset", 14),
+    ("field", "field", 12),
     ("error_bound", "eb", 8),
     ("cr", "CR", 8),
     ("psnr", "PSNR", 8),
