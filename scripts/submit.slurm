@@ -23,16 +23,10 @@ N=8                                  # <-- must equal the --array size above
 EXPERIMENT=configs/experiments/sdrbench.yaml   # <-- your experiment
 export BENCHKIT_RESULTS_ROOT="$SCRATCH/benchkit-results"   # <-- scratch, not the repo
 
-# --- environment: make fzgmod-cli + CUDA available (edit for your site) ----------
-module load python/3.12.11
-module load cudatoolkit              # loads cudatoolkit/12.6 (default)
-# Path to fzgmod-cli; set FZGMOD_CLI or point at your build directly:
-export FZGMOD_CLI=/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli
-# Where the SDRBench data lives (downloaded by scripts/download-sdrbench.sh):
-export BENCHKIT_DATA_ROOT="${SCRATCH}/sdrbench_data"
-
 cd "$SLURM_SUBMIT_DIR"
-source .venv/bin/activate
+
+# --- environment: modules, compressor paths, data roots, venv ----------------
+source scripts/env-bigred200.sh
 python -m benchkit run "$EXPERIMENT" \
     --session-id "$SLURM_ARRAY_JOB_ID" \
     --shard "${SLURM_ARRAY_TASK_ID}/${N}"

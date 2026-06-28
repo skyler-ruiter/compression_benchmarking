@@ -1,0 +1,41 @@
+# Smoke test for the cuSZ reference adapter vs. the FZGM cuSZ port.
+# Run interactively on a GPU node after building cusz and sourcing env-bigred200.sh.
+#
+#   source scripts/env-bigred200.sh
+#   python -m benchkit run configs/experiments/smoke-cusz.yaml
+#
+# One field per dataset shape class. The two run entries are the pair being
+# validated in M3: reference cuSZ and the FZGM modular port of the same algorithm
+# (Lorenzo+Huffman). Comparing against fzgpu would not be meaningful here.
+#
+# Both compressors report cuda_event_device_only timing (executor.cc patched
+# for cusz). Throughput numbers are directly comparable across the two rows.
+# See docs/adapters/cusz.md for details on the executor.cc patch.
+
+name: smoke-cusz
+description: cuSZ reference vs. fzgm:cusz — M3 cross-tool validation smoke test.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+
+runs:
+  - {compressor: cusz, variant: cusz, pipeline: default}
+  - {compressor: fzgm, variant: cusz, pipeline: configs/pipelines/cusz.toml}

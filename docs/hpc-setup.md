@@ -114,64 +114,55 @@ QMCPACK/                  1 f32 array, 288×69×69×115
 
 ---
 
-## 6. Tell benchkit where the data is
+## 6. Environment script
 
-Set `BENCHKIT_DATA_ROOT` to the directory you passed to the download script:
+`scripts/env-bigred200.sh` loads all modules, sets `BENCHKIT_DATA_ROOT` /
+`BENCHKIT_RESULTS_ROOT`, exports compressor binary paths, and activates the venv.
+Source it from any interactive session or SLURM job instead of setting things manually:
 
 ```bash
-# Add to ~/.bashrc (or your job script) so it's always set:
-export BENCHKIT_DATA_ROOT=/path/to/scratch/sdrbench_data
+# From the repo root — works on login nodes and GPU nodes:
+source scripts/env-bigred200.sh
 ```
 
-`configs/datasets.yaml` uses `${BENCHKIT_DATA_ROOT}` to resolve all dataset paths.
+**When adding a new compressor**, uncomment (or add) its two lines in the env script and
+re-source. `scripts/submit.slurm` sources the env script automatically, so SLURM jobs
+pick up the new paths without any other changes.
+
+For a new HPC site, copy `scripts/env-bigred200.sh` → `scripts/env-<site>.sh` and adapt
+the `module load` names and hardcoded scratch paths.
 
 ---
 
 ## 7. Smoke test (interactive, single field)
 
-Verify the end-to-end pipeline works before submitting the full matrix:
+Get an interactive GPU node and verify the pipeline end-to-end:
 
 ```bash
-source .venv/bin/activate
-export BENCHKIT_DATA_ROOT=/path/to/scratch/sdrbench_data
-
-# Run a single dataset/field/bound to check fzgmod-cli is found and data resolves:
+srun --account=r01156 --partition=gpu --gpus=1 --time=00:30:00 --pty bash
+cd ~/research/compression_benchmarking
+source scripts/env-bigred200.sh
 python -m benchkit run configs/experiments/smoke-bigred200.yaml
 ```
 
-Create `configs/experiments/smoke-bigred200.yaml` (not tracked, machine-specific):
-```yaml
-name: smoke-bigred200
-datasets: [CESM-2D]
-fields:
-  CESM-2D: [CLDHGH]
-error:
-  mode: rel_range
-  bounds: [1.0e-3]
-repetitions: 3
-warmup_reps: 1
-lock_clocks: false
-runs:
-  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml}
-```
-
-A successful run prints a table and writes a `runs.jsonl` to the results directory.
+All 8 cells (4 datasets × 2 pipelines × 1 bound) should finish in a few minutes and
+print a table with `eb_ok=True` for every row.
 
 ---
 
 ## 8. Edit submit.slurm for your site
 
-Open `scripts/submit.slurm` and update:
+Open `scripts/submit.slurm` and update the SBATCH header:
 
-| Line | What to change |
-|------|---------------|
+| Directive | What to change |
+|-----------|---------------|
 | `--partition=gpu` | Your GPU partition name |
 | `--account=r01156` | Your allocation account |
-| `--array=0-7` | Keep in sync with `N=8` below it |
-| `module load python/3.12.11` | Your site's Python module |
-| `module load cudatoolkit` | Your site's CUDA module |
-| `export FZGMOD_CLI=...` | Path to your fzgmod-cli binary |
-| `export BENCHKIT_DATA_ROOT=...` | `$SCRATCH/sdrbench_data` or your data path |
+| `--array=0-7` | Keep in sync with `N=8` in the script body |
+
+Module loads, compressor paths, and data roots are all handled by
+`scripts/env-bigred200.sh` — no other lines in the script need touching for a standard
+BigRed200 run.
 
 ---
 
@@ -215,6 +206,7 @@ On some clusters `$SCRATCH` is only set inside SLURM jobs. Hardcode the path in
 `configs/site.local.yaml` and your shell rc file rather than relying on the variable.
 
 **MIRANDA fields fail**
-Miranda is f64. The bundled pipeline TOMLs declare `input_type = "float32"`.
-Verify fzgmod-cli f64 support or create f64-specific pipeline TOMLs before running.
-Miranda is excluded from `sdrbench.yaml` by default for this reason.
+Miranda is f64. Use `configs/experiments/sdrbench-miranda.yaml` (not `sdrbench.yaml`),
+which points at `configs/pipelines/fzgpu_f64.toml` and `cusz_f64.toml`.
+Miranda is excluded from `sdrbench.yaml` because the runner applies all pipelines to all
+datasets — mixing f32 and f64 pipelines requires separate experiment files.

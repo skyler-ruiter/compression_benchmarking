@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /N/u/sruiter/BigRed200/research/compressors/cuSZ -type f -name \"*.cc\" -o -name \"*.cu\" -o -name \"*.h\" -o -name \"*.hpp\" | head -50)",
+      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/**)",
+      "Bash(find /N/u/sruiter/BigRed200/research/compressors/cuSZ -type f \\\\\\( -name \"main.cc\" -o -name \"main.cu\" -o -name \"*cli*\" -o -name \"*app*\" \\\\\\) | grep -E \"\\(main|cli|app\\)\" | head -20)",
+      "Bash(find /N/u/sruiter/BigRed200/research/compressors/cuSZ -type f -name \"*.h\" -o -name \"*.hpp\" | xargs grep -l \"psz_header\\\\|psz_cli_config\" | head -10)",
+      "Read(//N/u/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli/**)",
+      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli/**)"
+    ],
+    "additionalDirectories": [
+      "/N/u/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli",
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli"
+    ]
+  }
+}
