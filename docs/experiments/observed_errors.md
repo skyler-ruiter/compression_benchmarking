@@ -371,8 +371,9 @@ overshoot as E8/E13/E16 (see E16) — not a new issue.
 
 ## E11 — FZGM cuSZ-Hi TP-mode CR is 63–67% below native, one field also violates eb
 
-**Status:** Partially fixed (2026-07-02, FZGPUModules commit `8e581a8`) — the crash/corruption
-component is resolved; the CR deficit on CESM specifically remains open (unrelated bug)
+**Status:** Fixed (2026-07-03, FZGPUModules commit `bb96edb`) — CR deficit closed to within
+a few percent of native on all 3 fields; only the pre-existing E16 eb-overshoot pattern on
+CESM remains, unrelated to this entry
 
 **Symptom:** On every field where `cusz_hi_tp.toml` completes (CESM, HURR, NYX — HACC blocked by
 E9), FZGM's CR is 63–67% lower than native `cuszhi -s tp` at the same eb:
@@ -432,6 +433,32 @@ target the crashes/corruption, not compression ratio:
 So the CR deficit itself (this entry's original headline finding) is a genuinely separate,
 still-open bug from the crash/corruption issues that shared its symptoms — needs the
 stage-by-stage size comparison suggested below. HACC/vx still fails, expected (E9).
+
+**Root cause (confirmed, FZGPUModules commit `bb96edb`):** The FZGM preset's `GInterp` stage
+used `code_type = "uint16"` with `quant_radius = 32768` — but native cuSZ-Hi's actual spline
+error-control (`ErrCtrlTrait<1>` in the vendored MVP code) emits **1-byte** codes in `[0, 256)`
+(`context.h` default `dict_size = 256, radius = 128`), escaping any residual outside ±128 to
+the outlier buffer. The FZGM preset's wide radius kept every residual inline as a 2-byte code
+— literally twice the bytes per code, and higher-entropy per code too since nothing was
+routed to outliers. Skyler verified this wasn't an auto-tuning gap (`auto_tuning = 3/4` adds
+< 0.5% CR on top of the fix) or a lossless-coder gap (reimplementing `RREStage`'s bitshuffle
+as native's exact `d_BIT_1` gave zero change) — it was purely the code width/radius mismatch.
+Fix: `code_type = "uint8"`, `quant_radius = 128`, matching native exactly.
+
+**Retest 3 (2026-07-03, after the fix):** CR deficit closed to within a few percent on all 3
+fields — NYX is now actually *ahead* of native:
+
+| Field | native CR | fzgm CR | Δ |
+|---|---|---|---|
+| CESM/CLDHGH | 13.33 | 12.47 | −6.5% |
+| HURR/TC | 39.55 | 38.97 | −1.5% |
+| NYX/temperature | 209.75 | 210.33 | +0.3% |
+
+PSNR unchanged (66.81/68.54/75.75 dB) — quality wasn't traded away for the CR gain, confirming
+this was a genuine efficiency bug, not a bound-tightness difference. CESM still shows
+`eb_satisfied: false` with the identical E16 `err_over_bound` (`1.0018662878045856`) — that's
+the cross-tool pattern tracked separately, not a regression from this fix. **Consider this
+entry closed** — HACC remains excluded (1-D unsupported, E9).
 
 ---
 
@@ -654,5 +681,16 @@ Huffman stage's codebook or the RRE/RZE chain has to work).
 **Needs:** Compare per-stage output sizes (`--profile`) between this pipeline and native
 cuszhi's CR-mode backend specifically on NYX/temperature to isolate which stage loses ground
 on highly compressible data.
+
+**Update (2026-07-03):** E11's analogous TP-mode deficit turned out to be a `GInterp`
+`code_type`/`quant_radius` mismatch (uint16/32768 in the FZGM preset vs. native's actual
+uint8/128 spline error-control) — fixed in commit `bb96edb`, closing that gap to within a few
+percent. **`cusz_hi_cr.toml` still uses `quant_radius = 2048` with `code_type = "uint16"`**
+(see its own header comment: `quant_radius` explicit "so Huffman bklen can match") — this
+preset was not touched by the TP-mode fix and this entry's gap remains open. Given CR mode
+runs `GInterp` through a `Huffman` stage rather than direct Bitshuffle/RRE, the fix may not
+transfer directly (a `code_type=uint8` change here would also need `Huffman`'s `bklen` and
+CESM/HURR's already-matching numbers re-verified), but the same root-cause family (code
+width/radius not matching native's actual spline error-control) is the first thing to check.
 
 **First seen:** fzgm_vs_native retest 2, cusz_hi_cr NYX/temperature, 2026-07-02

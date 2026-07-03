@@ -1,0 +1,52 @@
+# Graph-mode validation: cuSZp2/cuSZp3 native vs. fzgm, fzgm-with-graph.
+#
+# Confirmed working on BigRed200 (2026-07-03, A100): both cuszp2.toml and cuszp3.toml
+# report graph.active: true (Quantizer[ABS,linear] -> Lorenzo[block]/TiledLorenzo ->
+# AdaptiveBitpack[forward] has no D2H sync anywhere in the forward chain). See
+# docs/adapters/fzgm.md "Graph mode" and DESIGN.md D16.
+#
+# error.mode MUST be `abs`, not `rel_range`/`rel_maxabs`, for graph mode to succeed here.
+# _prepare_toml() renders whatever canonical mode is chosen into every lossy stage,
+# overwriting cuszp2.toml/cuszp3.toml's checked-in `error_bound_mode = "ABS"` on the
+# Quantizer. `rel_range` -> NOA needs a data-dependent value-base scan
+# (predictor_utils.cuh's computeValueBase(), a cudaStreamSynchronize) that's illegal
+# during graph capture — confirmed live: it throws "operation not permitted when stream
+# is capturing" and the CLI falls back to graph.active: false. `abs` stays ABS end to
+# end, matching the Quantizer's own graph-safe linear-mode declaration.
+#
+#   source scripts/env-bigred200.sh
+#   python -m benchkit run configs/experiments/fzgm_graph_mode.yaml
+
+name: fzgm_graph_mode
+description: >
+  cuSZp2/cuSZp3 native vs. fzgm port, with and without CUDA Graph capture on the
+  fzgm side — quantifies how much of the launch-overhead gap graph mode closes.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: abs
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+
+runs:
+  - {compressor: cuszp2, variant: cuszp2,     pipeline: outlier}
+  - {compressor: fzgm,   variant: cuszp2,        pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: fzgm,   variant: cuszp2_graph,  pipeline: configs/pipelines/cuszp2.toml, graph: true}
+  - {compressor: cuszp3, variant: cuszp3,     pipeline: plain}
+  - {compressor: fzgm,   variant: cuszp3,        pipeline: configs/pipelines/cuszp3.toml}
+  - {compressor: fzgm,   variant: cuszp3_graph,  pipeline: configs/pipelines/cuszp3.toml, graph: true}

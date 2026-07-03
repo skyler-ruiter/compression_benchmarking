@@ -161,6 +161,9 @@ class FzgmAdapter(Adapter):
         argv = [self.cli, "-b", "-i", str(f.path), *self._io(f), *prep.config_args,
                 "--runs", str(n_runs), "--compare", str(f.path),
                 "--report-json", str(report)]
+        if spec.graph:
+            # See docs/adapters/fzgm.md "Graph mode" for the CLI contract.
+            argv.append("--graph")
         proc = run_cli(argv, log)
         if proc.returncode != 0:
             raise AdapterError(f"benchmark failed (exit {proc.returncode}){_tool_error(report, log)}; see {log}")
@@ -168,10 +171,17 @@ class FzgmAdapter(Adapter):
         t = rep["timing"]
         comp = t.get("compress", {}).get("device_ms", {}).get("all", [])
         dec = t.get("decompress", {}).get("device_ms", {}).get("all", [])
+        # Nested under "graph" (only present when --graph was passed): {requested, active,
+        # incompatible_reason}. Older binaries without --graph support omit the block
+        # entirely — graph_active stays None ("requested but unknown") rather than False.
+        graph_block = rep.get("graph", {})
         return BenchmarkResult(
             compress_device_ms_all=[float(x) for x in comp],
             decompress_device_ms_all=[float(x) for x in dec],
             compressed_bytes=int(rep["size"]["compressed_bytes"]),
             stages=rep.get("stages", []), native_quality=rep.get("quality"),
             raw_json=rep, log_path=log,
+            graph_requested=spec.graph,
+            graph_active=graph_block.get("active"),
+            graph_reason=graph_block.get("incompatible_reason"),
         )

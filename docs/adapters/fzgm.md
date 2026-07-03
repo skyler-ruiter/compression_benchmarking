@@ -129,6 +129,76 @@ benchmarking quantizer pipelines). `eb_tol` defaults to 1e-3 to absorb the appro
 > row as bound-violating — the discrepancy is what led to checking the source. Exactly
 > the error-mode-normalization hazard DESIGN.md §5.4 was written to catch.
 
+## Graph mode
+
+FZGPUModules' `Pipeline` class supports capturing the compress path as a **CUDA Graph**
+(`enableGraphMode(true)` → `finalize()` → `warmup()` → `captureGraph()`, then `compress()`
+replays it), which amortizes kernel-launch overhead across a linear DAG — exactly the
+"launch/scheduling gap" noted above between `sum(stages[].device_ms)` and
+`timing.compress.device_ms`. `fzgmod-cli` gained a `--graph` flag on 2026-07-03
+(confirmed working against a live build on BigRed200); benchkit's plumbing (added
+2026-07-02, contract-verified against the real binary 2026-07-03) drives it.
+
+**Enabling it:** set `graph: true` on an FZGM run entry:
+
+```yaml
+runs:
+  - {compressor: fzgm, variant: cuszp2, pipeline: configs/pipelines/cuszp2.toml, graph: true}
+```
+
+This is validated at config-load time (`graph: true` on a non-`fzgm` entry is a config
+error) and threads through as `RunSpec.graph` → the adapter appends `--graph` to the
+`-b` benchmark invocation only (compress/decompress single-shot calls are for artifacts,
+not timing, and decompress isn't graph-captured by the library at all — only the forward
+compress pass is).
+
+**`report-json` contract (schema 1.1):** a `"graph"` object, present only when `--graph`
+was passed:
+```json
+"graph": {"requested": true, "active": true}
+"graph": {"requested": true, "active": false,
+          "incompatible_reason": "Cannot enable CUDA Graph capture mode: the following "
+                                  "stages are not graph-compatible: 'Huffman' (Huffman)..."}
+```
+`incompatible_reason` is the stage-compatibility error straight from
+`CompressionDAG::setCaptureMode`, omitted (not null) when `active` is true. The adapter
+reads `rep.get("graph", {})` defensively — an older binary without `--graph` support omits
+the block entirely, and the row records `graph_active: null` ("requested but unknown")
+rather than asserting success or failure.
+
+**Fallback is silent and per-row, not a hard failure** — confirmed live: requesting
+`--graph` on `cusz.toml` (has Huffman) logs `"Graph capture failed (falling back to normal
+pipeline): ... 'Huffman' (Huffman) ..."` and completes the run normally with
+`graph.active: false`. This lets an experiment set `graph: true` broadly across many FZGM
+pipelines without benchkit pre-curating which ones qualify. **benchkit intentionally does
+not duplicate the compatibility matrix in Python** — the library already owns it.
+
+**Per-stage timing during graph replay:** `stages[]` for the *compress* phase is empty
+while graph mode is active (per-stage profiling is skipped during capture/replay — an
+early build tried to collect it anyway and hit `cudaEventElapsedTime` "invalid argument"
+errors that corrupted the CUDA context and crashed later, unrelated kernels; fixed by
+disabling per-stage collection during graph replay). `stages[]` for *decompress* is
+unaffected since decompress is never captured. `timing.compress.device_ms` itself is
+unaffected either way — it comes from a separate DAG-level event timer that brackets
+`cudaGraphLaunch()` the same as a normal `dag_->execute()`.
+
+**Confirmed compatible today** (live-tested on an A100, CESM/HURR/NYX/HACC):
+`configs/pipelines/cuszp2.toml` and `cuszp3.toml` — both `Quantizer[ABS,linear] →
+Lorenzo[block]/TiledLorenzo → AdaptiveBitpack[forward]`, `graph.active: true` on every
+field tested. Measured compress-phase speedup on CLDHGH (24.7 MB) was modest (~3%) at this
+field size/pipeline depth — worth re-checking on smaller fields or deeper pipelines where
+launch overhead is a bigger fraction of total time.
+
+**Known compatible stages** (per `docs/stages/*.md` in the FZGM repo — forward/
+compress direction only): `Quantizer` in `ABS` linear mode (no D2H), `Lorenzo` in block
+mode, `TiledLorenzo`, `AdaptiveBitpack` forward path, `Merge`, `RZE`/`RRE` forward path.
+**Known incompatible:** `Huffman`, `ANS`, `ADM`, `BitplaneRZE` (all have a D2H sync in
+their forward call), `Bitpack` with `setAutoDetect(true)`, `GInterp` profiling modes 1–4.
+`Quantizer` in `NOA` mode needs a precomputed value base (`setValueBase`) to avoid a
+data-dependent D2H scan — not something the CLI can supply without new plumbing of its
+own, so NOA-mode pipelines (`pfpl.toml`, `quantizer_lorenzo_bitpack.toml`) may still fall
+back even once `--graph` exists.
+
 ## Dim order
 
 FZGM takes `-l <fast>x<mid>x<slow>` (fast-to-slow). The dataset manifest must agree, and

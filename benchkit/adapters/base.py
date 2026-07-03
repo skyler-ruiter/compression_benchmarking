@@ -29,6 +29,7 @@ class RunSpec:
     error_bound: float | None   # None when error_mode == from_toml
     pipeline: str          # .toml path or --stages chain
     variant: str           # "reference" | "fzgm"
+    graph: bool = False    # request CUDA Graph capture (fzgm only; see fzgm.md)
 
 
 @dataclass
@@ -73,6 +74,12 @@ class BenchmarkResult:
     native_quality: dict | None = None     # tool's self-reported quality, for cross-check
     raw_json: dict | None = None
     log_path: Path | None = None
+    # CUDA Graph capture (fzgm only). graph_requested mirrors what we asked for;
+    # graph_active/graph_reason come from the tool (None if it predates --graph support).
+    # See docs/adapters/fzgm.md "Graph mode".
+    graph_requested: bool = False
+    graph_active: bool | None = None
+    graph_reason: str | None = None
 
 
 class AdapterError(RuntimeError):

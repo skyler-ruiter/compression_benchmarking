@@ -19,10 +19,13 @@ _COLS = [
     ("decompress_throughput_gbs", "dGB/s", 8),
     ("eb_satisfied", "eb_ok", 6),
     ("timing_reliable", "tOK", 5),
+    ("graph_active", "graph", 6),
 ]
 
 
 def _fmt(key: str, val) -> str:
+    if key == "graph_active":
+        return "on" if val else ("off" if val is False else "-")
     if val is None:
         return "-"
     if key == "error_bound":

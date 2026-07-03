@@ -109,6 +109,22 @@ original compressor on CR, quality (PSNR/NRMSE/eb-satisfaction), and throughput?
     across 4 independent tools/pipelines (native fzgpu, FZGM pfpl/cuszhi_tp/cuszhi_cr) —
     almost certainly a harness-side `eb_abs_effective` precision question or a genuine
     property of this field's data, not a per-tool bug. Low priority given the magnitude.
+- **Retest 3 (2026-07-03, FZGPUModules commit `bb96edb`) — E11 fixed.** Root cause: the
+  `cusz_hi_tp.toml` `GInterp` stage used `code_type = "uint16"` / `quant_radius = 32768`, but
+  native cuSZ-Hi's actual spline error-control emits 1-byte codes with `radius = 128` — the
+  FZGM preset was using 2× the code width with no outlier routing. Fixed to
+  `code_type = "uint8"` / `quant_radius = 128`, matching native exactly. **CR deficit closed
+  to within a few percent on all 3 fields** (CESM −6.5%, HURR −1.5%, NYX +0.3% — actually
+  ahead of native), PSNR unchanged. **E11 closed** — only the pre-existing E16 eb-overshoot
+  pattern remains on CESM, unrelated to this fix. **E17 (cuSZ-Hi CR mode's NYX gap) was not
+  addressed** — `cusz_hi_cr.toml` still uses the old `uint16`/wide-radius config; same root
+  cause family suspected but not yet applied there.
+- **Current state of the FZGM-vs-native validation: 6 of 7 algorithms fully validated**
+  (cuSZ, cuSZ-Hi TP, cuSZ-Hi CR, cuSZp2, FZ-GPU, PFPL all within single-digit % of native CR
+  at matched quality); **cuSZp3 partial** (2-D/3-D fine, 1-D preset mismatch, E12); one small
+  open gap (E17, cuSZ-Hi CR mode on NYX specifically); one low-priority cross-tool curiosity
+  (E16). This is a dramatically different picture than the first pass on 2026-07-02, which
+  had 2 of 7 algorithms broken/regressed and 2 more with large real CR deficits.
 - **Still not done:** the full SDRBench matrix (`sdrbench.yaml` / `sdrbench-miranda.yaml`,
   144 fields × 3 bounds × 2 pipelines = 864 cells) — configured for SLURM array
   submission but no results doc exists yet. This is the "real" paper-scale run that
@@ -157,12 +173,15 @@ combination fail, and why?
       ~63–67% CR deficit on all 3 fields is unchanged — a genuinely separate bug,
       still open). New: **E16** (cross-tool eb overshoot, low priority) and **E17**
       (cuSZ-Hi CR mode ~36% CR gap on NYX, smaller than E10's original finding).
-- [ ] Root-cause E11's remaining CR deficit (cuSZ-Hi TP mode, 63–67% below native on
-      all 3 working fields, unaffected by the crash/corruption fixes) — needs a
-      stage-by-stage size comparison against native cuszhi's TP backend.
+- [x] Root-cause + fix E11 (2026-07-03, commit `bb96edb`) — the `cusz_hi_tp.toml`
+      `GInterp` stage's `code_type`/`quant_radius` (`uint16`/32768) didn't match
+      native cuSZ-Hi's actual spline error-control (`uint8`/128). Fixed; CR deficit
+      closed to within a few percent on all 3 fields (NYX now slightly ahead of
+      native). **E11 closed.**
 - [ ] Root-cause E17 (cuSZ-Hi CR mode, ~36% CR gap on NYX/temperature specifically,
-      CESM/HURR are fine) — likely a smaller instance of the same class of issue
-      as E11.
+      CESM/HURR are fine) — `cusz_hi_cr.toml` still uses the pre-fix `uint16`/wide
+      radius config that caused E11; same root-cause family suspected (see the E17
+      update in observed_errors.md) but not yet applied to this preset.
 - [ ] Investigate E16 (cross-tool eb overshoot, CESM/CLDHGH, identical across 4
       tools) — check whether it's a harness-side `eb_abs_effective` precision issue
       or a genuine property of this field's data. Low priority (0.19% overshoot).

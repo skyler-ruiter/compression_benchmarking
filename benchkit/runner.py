@@ -78,7 +78,7 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             continue
         adapter = adapters[f"{entry.compressor}:{entry.variant}"]
         spec = RunSpec(field=fspec, error_mode=cfg.error_mode, error_bound=eb,
-                       pipeline=entry.pipeline, variant=entry.variant)
+                       pipeline=entry.pipeline, variant=entry.variant, graph=entry.graph)
         wd = store.workdir(run_id)
         ebtxt = "toml" if eb is None else f"{eb:g}"
         label = (f"{entry.compressor}:{entry.variant} [{Path(entry.pipeline).name}] "
@@ -120,6 +120,10 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             flag = "" if reliable else (
                 " !THERMAL-THROTTLE" if thermal else
                 f" !UNSTABLE(cv c={ct.cv:.2f} d={dt.cv:.2f})")
+            if bench.graph_requested:
+                gtxt = ("on" if bench.graph_active else
+                        "off(fallback)" if bench.graph_active is False else "?")
+                flag += f" graph={gtxt}"
             print(f"  [{idx}] OK   {label}  CR={size.cr:.2f} "
                   f"PSNR={qual.psnr:.2f}dB cT={ct.throughput_gbs:.1f} "
                   f"dT={dt.throughput_gbs:.1f}GB/s eb_ok={qual.eb_satisfied}{flag}",
@@ -198,6 +202,9 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench) -> 
         # cross-check: tool's own PSNR vs harness-computed (should agree closely)
         "native_psnr": (bench.native_quality or {}).get("psnr_db"),
         "stages": bench.stages,
+        "graph_requested": bench.graph_requested,
+        "graph_active": bench.graph_active,
+        "graph_reason": bench.graph_reason,
         "status": "ok",
         "error_message": None,
     }

@@ -119,6 +119,11 @@ class RunEntry:
     variant: str          # "reference" | "fzgm"
     pipeline: str         # path to a .toml pipeline, or a --stages chain for quick tests
     cli_path: str | None = None   # optional per-entry binary override
+    # Request CUDA Graph capture for the compress phase (fzgm only; see
+    # docs/adapters/fzgm.md "Graph mode"). The adapter passes --graph and the tool
+    # itself validates stage-level compatibility and falls back if unsupported —
+    # benchkit does not maintain its own compatibility matrix.
+    graph: bool = False
 
     @property
     def is_toml(self) -> bool:
@@ -150,10 +155,16 @@ class ExperimentConfig:
             runs = [RunEntry(compressor=r["compressor"],
                              variant=r.get("variant", r["compressor"]),
                              pipeline=r.get("pipeline", "default"),
-                             cli_path=r.get("cli_path"))
+                             cli_path=r.get("cli_path"),
+                             graph=bool(r.get("graph", False)))
                     for r in raw["runs"]]
         except KeyError as e:
             raise ValueError(f"{path}: missing required key {e}") from e
+        for r in runs:
+            if r.graph and r.compressor != "fzgm":
+                raise ValueError(
+                    f"{path}: run entry {r.compressor}:{r.variant} sets graph: true, but "
+                    f"graph mode is fzgm-only (CUDA Graph capture is an FZGM CLI feature)")
         mode = err.get("mode", "rel_range")
         if mode not in CANONICAL_MODES:
             raise ValueError(f"{path}: error.mode '{mode}' not in {sorted(CANONICAL_MODES)}")
