@@ -16,6 +16,8 @@
 module load python/3.12.11
 module load cudatoolkit                # CUDA 12.x — required by all GPU compressors
 module load gcc-native/12.3   # 13.2 has ICE on cuSZ's complex template code (hf_hl.cc)
+# module load cray-hdf5/1.14.3.5 # MANS
+
 
 # ── data & results paths ─────────────────────────────────────────────────────
 # $SCRATCH is set by SLURM inside jobs; fall back to the explicit path for
@@ -52,23 +54,27 @@ export FZGMOD_CLI=/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/f
 export CUSZ_CLI=/N/u/sruiter/BigRed200/research/compressors/cuSZ/build/cusz
 export PATH="/N/u/sruiter/BigRed200/research/compressors/cuSZ/build${PATH:+:$PATH}"
 
-# ── cuSZp ────────────────────────────────────────────────────────────────────
+# ── cuSZp2 ────────────────────────────────────────────────────────────────────
 # BUILD:
-#   cd ~/research/cuSZp && mkdir -p build && cd build
-#   cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=80
-#   make -j8
+#   cmake -S . -B build -DCMAKE_CUDA_ARCHITECTURES="80" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=$(which g++) -DCMAKE_C_COMPILER=$(which gcc)
 #
-# export CUSZP_CLI=/N/u/sruiter/BigRed200/research/cuSZp/build/bin/cuszp
-# export PATH="/N/u/sruiter/BigRed200/research/cuSZp/build/bin${PATH:+:$PATH}"
+export CUSZP2_CLI=/N/u/sruiter/BigRed200/research/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp
+
+# ── cuSZp3 ────────────────────────────────────────────────────────────────────
+# BUILD:
+#   cmake -S . -B build -DCMAKE_CUDA_ARCHITECTURES="80" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=$(which g++) -DCMAKE_C_COMPILER=$(which gcc)
+#
+export CUSZP3_CLI=/N/u/sruiter/BigRed200/research/compressors/cuSZp-V3.0.0/build/examples/bin/cuSZp
 
 # ── cuSZ-Hi ──────────────────────────────────────────────────────────────────
 # BUILD:
-#   cd ~/research/cuSZ-Hi && mkdir -p build && cd build
-#   cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=80
-#   make -j8
+#   cd ~/research/compressors/cuSZ-Hi && mkdir -p build
+#   cmake -S . -B build -DPSZ_BACKEND=cuda -DPSZ_BUILD_EXAMPLES=off \
+#     -DCMAKE_CUDA_ARCHITECTURES="80" -DCMAKE_BUILD_TYPE=Release \
+#     -DCMAKE_CXX_COMPILER=$(which g++) -DCMAKE_C_COMPILER=$(which gcc)
+#   cmake --build build -j8
 #
-# export CUSZHI_CLI=/N/u/sruiter/BigRed200/research/cuSZ-Hi/build/bin/cusz-hi
-# export PATH="/N/u/sruiter/BigRed200/research/cuSZ-Hi/build/bin${PATH:+:$PATH}"
+export CUSZHI_CLI=/N/u/sruiter/BigRed200/research/compressors/cuSZ-Hi/build/cuszhi
 
 # ── SZ3 ──────────────────────────────────────────────────────────────────────
 # BUILD:
@@ -78,6 +84,30 @@ export PATH="/N/u/sruiter/BigRed200/research/compressors/cuSZ/build${PATH:+:$PAT
 #
 # export SZ3_CLI=/N/u/sruiter/BigRed200/research/SZ3/build/bin/sz3
 # export PATH="/N/u/sruiter/BigRed200/research/SZ3/build/bin${PATH:+:$PATH}"
+
+# ── MANS ─────────────────────────────────────────────────────────────────────
+# BUILD:
+#   cmake -S . -B build -DTARGET_PLATFORM=cpu_nv \
+#     -DCMAKE_CUDA_COMPILER="/N/soft/sles15sp6/cuda/gnu/12.6/bin/nvcc" \
+#     -DBUILD_HDF5_PLUGIN=OFF -DCMAKE_CUDA_ARCHITECTURES=80 \
+#     -DCMAKE_CXX_COMPILER=$(which g++) -DCMAKE_C_COMPILER=$(which gcc)
+# NOTE: stub adapter — lossless int compressor; quantization wrapper needed.
+#
+export MANS_CLI=/N/u/sruiter/BigRed200/research/compressors/MANS/build/bin/nv/nv_mans_compress
+
+# ── FZ-GPU ───────────────────────────────────────────────────────────────────
+# NOTE: stub adapter — no file I/O in current binary; source changes required.
+#       See docs/adapters/fzgpu.md.
+#
+export FZGPU_CLI=/N/u/sruiter/BigRed200/research/compressors/FZ-GPU/fz-gpu
+
+# ── PFPL ─────────────────────────────────────────────────────────────────────
+# Update SM in Makefile to match GPU architecture (80 for A100, 86 for H100)
+# BUILD: make all
+# PFPL_BIN_DIR points to the bin/ directory containing f32/gpu/, f64/gpu/, etc.
+#
+export PFPL_BIN_DIR=/N/u/sruiter/BigRed200/research/compressors/PFPL/bin
+
 
 # ── Python venv ──────────────────────────────────────────────────────────────
 # Resolve relative to this script's own location so it works regardless of cwd

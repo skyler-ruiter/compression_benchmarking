@@ -1,0 +1,44 @@
+# Smoke test for M3 reference adapters: pfpl, cuszhi, cuszp2, cuszp3, fzgpu.
+# Run interactively on a GPU node after sourcing env-bigred200.sh:
+#
+#   source scripts/env-bigred200.sh
+#   python -m benchkit run configs/experiments/smoke-m3-refs.yaml
+#
+# All compressors use rel_range (NOA: eb × range) at 1e-3 for direct CR/quality
+# comparison. Timing comparability:
+#   CUDA-event device-only: cuszhi, cuszp2, cuszp3, pfpl  → directly comparable
+#   Wall-clock e2e (H2D+D2H+kernels): fzgpu               → throughput not comparable
+#
+# PFPL note: always produces 9 internal reps; warmup_reps=1 discards the cold
+# first-process rep. repetitions is advisory for PFPL (ignored in benchmark()).
+
+name: smoke-m3-refs
+description: End-to-end smoke check for pfpl/cuszhi/cuszp2/cuszp3/fzgpu reference adapters.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 1      # PFPL: discards cold 1st-process rep; others: standard warm-up
+lock_clocks: false
+retain_decompressed: false
+
+runs:
+  - {compressor: pfpl,   variant: pfpl,   pipeline: default}
+  - {compressor: cuszhi, variant: cuszhi, pipeline: default}
+  - {compressor: cuszp2, variant: cuszp2, pipeline: plain}
+  - {compressor: cuszp3, variant: cuszp3, pipeline: plain}
+  - {compressor: fzgpu,  variant: fzgpu,  pipeline: default}

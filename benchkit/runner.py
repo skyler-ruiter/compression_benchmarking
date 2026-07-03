@@ -125,12 +125,17 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                   f"dT={dt.throughput_gbs:.1f}GB/s eb_ok={qual.eb_satisfied}{flag}",
                   flush=True)
         except Exception as e:  # noqa: BLE001 - one bad cell shouldn't kill the matrix
+            msg = str(e)
+            phase = next((p for p in ("compress", "decompress", "benchmark", "prepare")
+                          if f"{p} failed" in msg), "unknown")
             store.append({"run_id": run_id, "session_id": store.session_id,
                           "cell_key": key,
                           "compressor": entry.compressor, "variant": entry.variant,
                           "pipeline": entry.pipeline, "dataset": fspec.dataset,
                           "field": fspec.field, "error_bound": eb,
-                          "status": "fail", "error_message": str(e)})
+                          "status": "fail", "fail_phase": phase,
+                          "error_type": type(e).__name__,
+                          "error_message": msg})
             print(f"  [{idx}] FAIL {label}  -> {e}", flush=True)
 
     rows = store.load_rows()

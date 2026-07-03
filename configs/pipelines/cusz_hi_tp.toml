@@ -1,0 +1,71 @@
+[pipeline]
+# cuSZ-Hi LC back-end — throughput (tp) mode (Huffman-free).
+#   predictor: GInterp (spline interpolation, cuSZ-Hi Spline path)
+#   codes:    GInterp -> TCMS1 -> BIT1 -> RRE1
+#   outliers: Merge([anchor | outlier_vals | outlier_idxs]) -> BIT4 -> RRE2 -> RZE1
+# TCMS = Zigzag (byte-transparent), BIT = Bitshuffle, RRE = RRE, RZE = RZE.
+# dims are intentionally omitted: the caller must set them (CLI -l / setDims())
+# for the actual data. A dims entry here would override setDims() at loadConfig
+# time (GInterp is ≥2-D), silently running the pipeline at the wrong shape.
+memory_strategy = "MINIMAL"
+
+[[stage]]
+name = "gi"
+type = "GInterp"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+outlier_capacity = 0.2
+
+# ── codes chain: TCMS1 -> BIT1 -> RRE1 ──
+[[stage]]
+name = "tcms"
+type = "Zigzag"
+input_type = "int8"
+output_type = "uint8"
+byte_transparent = true            # LC TCMS: zigzag the raw byte stream
+inputs = [{from = "gi", port = "codes"}]
+
+[[stage]]
+name = "bit1"
+type = "Bitshuffle"
+element_width = 1
+block_size = 16384
+inputs = [{from = "tcms", port = "output"}]
+
+[[stage]]
+name = "rre1"
+type = "RRE"
+word_size = 1
+inputs = [{from = "bit1", port = "output"}]
+
+# ── outlier chain (BITR): Merge([anchor|outlier_vals|outlier_idxs]) -> BIT4 -> RRE2 -> RZE1 ──
+[[stage]]
+name = "merge"
+type = "Merge"
+segments = ["anchor", "outlier_vals", "outlier_idxs"]
+inputs = [
+  {from = "gi", port = "anchor"},
+  {from = "gi", port = "outlier_vals"},
+  {from = "gi", port = "outlier_idxs"},
+]
+
+[[stage]]
+name = "bit4"
+type = "Bitshuffle"
+element_width = 4
+block_size = 16384
+inputs = [{from = "merge", port = "output"}]
+
+[[stage]]
+name = "rre2"
+type = "RRE"
+word_size = 2
+inputs = [{from = "bit4", port = "output"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1                       # LC RZE_1 (byte word size)
+inputs = [{from = "rre2", port = "output"}]

@@ -1,0 +1,46 @@
+# Throughput scaling experiment — FZGM v2: fzgpu MINIMAL + PFPL variants
+#
+# Extends fzgm_scaling.yaml with three new pipeline variants:
+#   fzgpu_minimal  — BitplaneRZE + MINIMAL  (predicted to reach ≥16 GB on A100-40GB)
+#   pfpl           — PREALLOCATE baseline for PFPL; expected OOM near 4-8 GB
+#   pfpl_minimal   — PFPL + MINIMAL; borderline at 8 GB (~33-35 GB footprint)
+#
+# Previous results (cusz, fzgpu, cusz_minimal, cusz_minimal_lowoutlier) are in
+# session 20260630-161841-x1001c1s7b0n1 (job 7519560, docs/experiments/fzgm_scaling_2026-06-30.md).
+#
+# Setup:
+#   # data must already exist — re-run make_scaling_data.py if not:
+#   python scripts/make_scaling_data.py \
+#       --source $BENCHKIT_DATA_ROOT/NYX_512x512x512/baryon_density.f32 \
+#       --out-dir $BENCHKIT_DATA_ROOT/SCALING-SYNTH
+#   sbatch scripts/submit_fzgm_scaling_v2.slurm
+
+name: fzgm_scaling_v2
+description: >
+  FZGM throughput vs. data size — fzgpu MINIMAL and PFPL (PREALLOCATE + MINIMAL).
+  Continues fzgm_scaling session; same synthetic 0.5-16 GB sweep + HACC/NYX anchors.
+
+datasets:
+  - SCALING-SYNTH
+  - HACC
+  - NYX
+
+fields:
+  SCALING-SYNTH: all
+  HACC: [vx]
+  NYX:  [baryon_density]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+timing_cv_threshold: 0.10
+
+runs:
+  - {compressor: fzgm, variant: fzgpu_minimal,  pipeline: configs/pipelines/fzgpu_minimal.toml}
+  - {compressor: fzgm, variant: pfpl,            pipeline: configs/pipelines/pfpl.toml}
+  - {compressor: fzgm, variant: pfpl_minimal,    pipeline: configs/pipelines/pfpl_minimal.toml}

@@ -1,0 +1,33 @@
+[pipeline]
+# Lorenzo-Quant → Huffman  (MINIMAL memory + low outlier capacity)
+#
+# MINIMAL memory strategy + outlier_capacity reduced from 0.2 → 0.05 (5%).
+# At 12 GB data, the outlier buffer alone costs ~4.8 GB at 20% capacity;
+# dropping to 5% saves ~3.6 GB. Combined with MINIMAL (no pre-allocation of
+# decompress buffers during compress), this variant is the best shot at
+# pushing single-shot compress past the ~8 GB ceiling seen with cusz.toml.
+#
+# Trade-off: if more than 5% of values fall outside the quant range they
+# overflow the outlier stack. At eb=1e-3 on scientific data this is rare
+# (NYX-tiled synthetic had near-zero outliers at that bound), but eb_satisfied
+# should still be checked — the harness flags it per row.
+memory_strategy = "MINIMAL"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.05
+zigzag_codes = true
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 1024
+encode_mode = "Fine"
+inputs = [{from = "lrz", port = "codes"}]

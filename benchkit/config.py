@@ -188,7 +188,10 @@ class ExperimentConfig:
         if self.fields == "all" or self.fields is None:
             return catalog.fields(dataset)
         if isinstance(self.fields, dict):
-            return list(self.fields.get(dataset, catalog.fields(dataset)))
+            val = self.fields.get(dataset)
+            if val is None or val == "all":
+                return catalog.fields(dataset)
+            return list(val)
         if isinstance(self.fields, list):
             return list(self.fields)
         raise ValueError(f"unsupported 'fields' value: {self.fields!r}")

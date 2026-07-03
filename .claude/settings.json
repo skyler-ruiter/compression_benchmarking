@@ -6,11 +6,22 @@
       "Bash(find /N/u/sruiter/BigRed200/research/compressors/cuSZ -type f \\\\\\( -name \"main.cc\" -o -name \"main.cu\" -o -name \"*cli*\" -o -name \"*app*\" \\\\\\) | grep -E \"\\(main|cli|app\\)\" | head -20)",
       "Bash(find /N/u/sruiter/BigRed200/research/compressors/cuSZ -type f -name \"*.h\" -o -name \"*.hpp\" | xargs grep -l \"psz_header\\\\|psz_cli_config\" | head -10)",
       "Read(//N/u/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli/**)",
-      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli/**)"
+      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli/**)",
+      "Read(//N/u/sruiter/BigRed200/research/compressors/MANS/nv/ans/**)",
+      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/MANS/nv/ans/**)",
+      "Bash(grep -n \"main\\\\|argc\\\\|argv\\\\|error_bound\\\\|eb\\\\|mode\\\\|abs\\\\|rel\" ~/research/compressors/FZ-GPU/src/fz.cu | head -40)",
+      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/FZ-GPU/src/**)",
+      "Bash(grep -rn \"compress_device_ms\\\\|decompress_device_ms\\\\|report-json\\\\|time.*json\\\\|{\\\\\"\" ~/research/compressors/cuSZ-Hi/src/ 2>/dev/null | head -20)",
+      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ-Hi/src/**)",
+      "Bash(grep -rn \"compress_device_ms\\\\|decompress_device_ms\\\\|report.*json\\\\|json.*time\" ~/research/compressors/cuSZ-Hi/src/ ~/research/compressors/cuSZ-Hi/include/ 2>/dev/null | head -20)"
     ],
     "additionalDirectories": [
       "/N/u/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli",
-      "/geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli"
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli",
+      "/N/u/sruiter/BigRed200/research/compressors/MANS/nv/ans",
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/MANS/nv/ans",
+      "/N/u/sruiter/BigRed200/research/compressors/FZ-GPU/src",
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/FZ-GPU/src"
     ]
   }
 }

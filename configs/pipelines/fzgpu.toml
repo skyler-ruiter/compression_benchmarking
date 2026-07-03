@@ -35,6 +35,6 @@ outlier_capacity = 0.2
 zigzag_codes = true
 
 [[stage]]
-name = "bprle"
-type = "BitplaneRLE"
+name = "bprze"
+type = "BitplaneRZE"
 inputs = [{from = "lrz", port = "codes"}]

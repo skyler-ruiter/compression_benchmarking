@@ -1,0 +1,28 @@
+[pipeline]
+# Lorenzo-Quant → Huffman  (cuSZ-style, MINIMAL memory strategy)
+#
+# Identical to cusz.toml except memory_strategy = "MINIMAL". Used in the
+# size-scaling experiment to test whether MINIMAL lifts the VRAM ceiling vs.
+# PREALLOCATE. MINIMAL allocates only the buffers needed for the current
+# operation phase rather than pre-allocating both compress and decompress
+# buffers at initialization, so peak GPU memory is lower in benchmark mode.
+memory_strategy = "MINIMAL"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 1024
+encode_mode = "Fine"
+inputs = [{from = "lrz", port = "codes"}]

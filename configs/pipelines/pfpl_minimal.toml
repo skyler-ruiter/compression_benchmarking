@@ -1,0 +1,43 @@
+[pipeline]
+# PFPL — Quantizer → Difference → Bitshuffle → RZE  (MINIMAL memory strategy)
+#
+# Same topology as pfpl.toml but with memory_strategy = "MINIMAL".
+# PFPL uses uint32 codes (4 bytes/element) so intermediate buffers are larger
+# than fzgpu (uint16). Estimated compress footprint for 8 GB f32 input:
+#   input (8 GB) + quant codes uint32 (8 GB) + outlier (0.8 GB)
+#   + difference out (8 GB) + bitshuffle out (8 GB) + RZE out (compressed)
+# ≈ 33-35 GB  — borderline on 40 GB; may OOM at 8 GB.
+# At 4 GB input (~17 GB footprint) should be safe.
+memory_strategy = "MINIMAL"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 32768
+outlier_capacity = 0.1
+zigzag_codes = true
+
+[[stage]]
+name = "diff"
+type = "Difference"
+input_type = "int32"
+output_type = "uint32"
+chunk_size = 16384
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "bshuf"
+type = "Bitshuffle"
+element_width = 2
+block_size = 16384
+inputs = [{from = "diff", port = "output"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+levels = 4
+inputs = [{from = "bshuf", port = "output"}]

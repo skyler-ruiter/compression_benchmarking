@@ -1,0 +1,55 @@
+# Throughput scaling experiment — FZGM vs. data size on BigRed200 A100-40GB.
+#
+# Goal: measure compress/decompress throughput (GB/s) as input size grows from
+# 0.5 GB to 16 GB in one FZGM call, using both synthetic size-sweep data and
+# real SDRBench fields as anchors. OOM cells are captured as status:fail rows —
+# the OOM boundary itself is the finding for the "max single-call size" result.
+#
+# Setup:
+#   export BENCHKIT_DATA_ROOT=/N/scratch/sruiter/sdrbench_data
+#   python scripts/make_scaling_data.py \
+#       --source $BENCHKIT_DATA_ROOT/NYX_512x512x512/baryon_density.f32 \
+#       --out-dir $BENCHKIT_DATA_ROOT/SCALING-SYNTH
+#   python -m benchkit run configs/experiments/fzgm_scaling.yaml
+#
+# Memory strategy variants (the core question):
+#   cusz (PREALLOCATE) — baseline, benchmarked first run
+#   fzgpu (PREALLOCATE) — BitplaneRZE back-end, fixed stage name
+#   cusz_minimal (MINIMAL) — does MINIMAL alone lift the benchmark ceiling?
+#   cusz_minimal_lowoutlier (MINIMAL + outlier_capacity=0.05) — combined push
+#
+# Resume behaviour: the harness skips cells already status:ok in this session,
+# so re-running after a partial run or adding new pipeline variants is safe.
+
+name: fzgm_scaling
+description: >
+  FZGM throughput vs. data size sweep on A100-40GB.
+  Synthetic 1-D f32 arrays (0.5–16 GB) + real HACC/NYX anchors.
+  Tests PREALLOCATE vs MINIMAL memory strategy and outlier_capacity impact
+  on the effective single-call VRAM ceiling.
+
+datasets:
+  - SCALING-SYNTH    # 0.5 / 1 / 2 / 4 / 8 / 12 / 16 GB synthetic 1-D arrays
+  - HACC             # ~1.12 GB real particle data (1-D), anchor
+  - NYX              # ~0.54 GB real cosmology cube (3-D), anchor
+
+fields:
+  SCALING-SYNTH: all
+  HACC: [vx]
+  NYX:  [baryon_density]
+
+error:
+  mode: rel_range    # NOA in FZGM — exact range-relative (err_over_bound ≈ 1.000003)
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+timing_cv_threshold: 0.10
+
+runs:
+  - {compressor: fzgm, variant: cusz,                   pipeline: configs/pipelines/cusz.toml}
+  - {compressor: fzgm, variant: fzgpu,                  pipeline: configs/pipelines/fzgpu.toml}
+  - {compressor: fzgm, variant: cusz_minimal,           pipeline: configs/pipelines/cusz_minimal.toml}
+  - {compressor: fzgm, variant: cusz_minimal_lowoutlier, pipeline: configs/pipelines/cusz_minimal_lowoutlier.toml}

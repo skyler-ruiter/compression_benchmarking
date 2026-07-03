@@ -1,0 +1,61 @@
+[pipeline]
+# cuSZ-Hi LC back-end — compression-ratio (cr) mode (Huffman + LC chain).
+#   predictor: GInterp (spline interpolation, cuSZ-Hi Spline path)
+#   codes -> Huffman ; Merge([Huffman | anchor | outlier_vals | outlier_idxs]) -> RRE4 -> TCMS8 -> RZE1
+# One LC chain runs over the *concatenation* of the Huffman output and the
+# outlier ports — hence the Merge stage. TCMS8 = Zigzag<int64> (byte-transparent).
+# dims are intentionally omitted: the caller must set them (CLI -l / setDims())
+# for the actual data. A dims entry here would override setDims() at loadConfig
+# time (GInterp is ≥2-D), silently running the pipeline at the wrong shape.
+memory_strategy = "MINIMAL"
+
+[[stage]]
+name = "gi"
+type = "GInterp"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 2048                 # explicit so Huffman bklen can match: bklen = 2*radius
+                                    # NOA eb=1e-3 auto-radius ≈ ceil(2/eb) = 2000; 2048 covers it
+outlier_capacity = 0.2
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 4096                        # = 2*quant_radius
+inputs = [{from = "gi", port = "codes"}]
+
+# Concatenate [Huffman(codes) | anchor | outlier_vals | outlier_idxs] into one blob.
+[[stage]]
+name = "merge"
+type = "Merge"
+segments = ["vle", "anchor", "outlier_vals", "outlier_idxs"]
+inputs = [
+  {from = "huf", port = "output"},
+  {from = "gi",  port = "anchor"},
+  {from = "gi",  port = "outlier_vals"},
+  {from = "gi",  port = "outlier_idxs"},
+]
+
+# ── RTR chain over the blob: RRE4 -> TCMS8 -> RZE1 ──
+[[stage]]
+name = "rre4"
+type = "RRE"
+word_size = 4
+inputs = [{from = "merge", port = "output"}]
+
+[[stage]]
+name = "tcms8"
+type = "Zigzag"
+input_type = "int64"
+output_type = "uint64"
+byte_transparent = true
+inputs = [{from = "rre4", port = "output"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1                       # LC RZE_1
+inputs = [{from = "tcms8", port = "output"}]

@@ -21,6 +21,14 @@ from pathlib import Path
 # (after "error_bound" the mode line has "_mode", so \s*= cannot match it).
 _EB_RE = re.compile(r"(?m)^(?P<pre>\s*error_bound\s*=\s*).*$")
 _MODE_RE = re.compile(r"(?m)^(?P<pre>\s*error_bound_mode\s*=\s*).*$")
+# [pipeline]-table sizing hints (config_file.md): some presets (e.g. cuSZ-Hi's
+# GInterp, which needs real x/y/z for its interpolation pyramid) declare these
+# with a placeholder value baked in for the preset's example data. PREALLOCATE
+# uses input_size as a hard buffer-size hint at finalize() — a stale value
+# fails outright on any dataset bigger than the placeholder, so it must be
+# re-rendered per field just like error_bound.
+_INPUT_SIZE_RE = re.compile(r"(?m)^(?P<pre>\s*input_size\s*=\s*).*$")
+_DIMS_RE = re.compile(r"(?m)^(?P<pre>\s*dims\s*=\s*).*$")
 
 
 def _fmt_float(x: float) -> str:
@@ -51,12 +59,26 @@ class PipelineToml:
         s = stages[0]
         return float(s["error_bound"]), str(s.get("error_bound_mode", "ABS"))
 
-    def render(self, eb: float, toml_mode: str) -> str:
-        """Return the template text with every lossy stage's bound+mode overridden."""
+    def render(self, eb: float, toml_mode: str,
+               dims: list[int] | None = None, input_size: int | None = None) -> str:
+        """Return the template text with every lossy stage's bound+mode overridden.
+
+        If the template's [pipeline] table declares `dims`/`input_size` (sizing
+        hints for PREALLOCATE), and the caller passes the real field's values,
+        those are overridden too — otherwise a placeholder baked into the preset
+        (sized for its own example data) silently mismatches any other dataset.
+        Templates that don't declare these keys are left untouched (no-op).
+        """
         text, n_eb = _EB_RE.subn(lambda m: m.group("pre") + _fmt_float(eb), self.text)
         text, n_mode = _MODE_RE.subn(lambda m: m.group("pre") + f'"{toml_mode}"', text)
         if n_eb == 0:
             raise ValueError(f"{self.path}: no error_bound line to render")
+        if dims is not None:
+            dims3 = list(dims) + [1] * (3 - len(dims))
+            dims_str = "[" + ", ".join(str(d) for d in dims3[:3]) + "]"
+            text, _ = _DIMS_RE.subn(lambda m: m.group("pre") + dims_str, text)
+        if input_size is not None:
+            text, _ = _INPUT_SIZE_RE.subn(lambda m: m.group("pre") + str(int(input_size)), text)
         tomllib.loads(text)  # validate the result re-parses
         return text
 

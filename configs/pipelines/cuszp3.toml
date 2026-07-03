@@ -1,0 +1,40 @@
+[pipeline]
+# cuSZp3 (plain, 2-D) — Quantizer(linear) → TiledLorenzo(8x8) → AdaptiveBitpack(64)
+#
+#   Quantizer        linear_mode: q = round(x/2eb), signed codes
+#   TiledLorenzo     8x8 tiles: dimension-aware separable delta, tile-major output
+#   AdaptiveBitpack  block_size=64: one block per tile (= tile_x*tile_y)
+#
+# For 3-D data use tile_x=tile_y=tile_z=4 (block_size stays 64). Other modes:
+# cuszp3_fixed.toml (no delta), cuszp3_outlier.toml (+ outlier selection).
+# cuSZp3: Huang et al., SC'25.
+#
+# Usage:
+#   fzgmod-cli -c examples/presets/cuszp3.toml \
+#              -i data/CLDHGH.f32 -l 3600x1800 -b --report --compare data/CLDHGH.f32
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "tl"}]

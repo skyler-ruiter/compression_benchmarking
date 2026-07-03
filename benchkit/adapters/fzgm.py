@@ -7,6 +7,7 @@ See docs/adapters/fzgm.md for the contract and confirmed gotchas.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from pathlib import Path
@@ -27,6 +28,25 @@ _MODE_MAP = {
 _NATIVE_BASIS = {"ABS": "abs", "NOA": "range", "REL": "maxabs"}
 # CLI lowercase form for the --stages path.
 _CLI_MODE = {"ABS": "abs", "NOA": "noa", "REL": "rel"}
+
+
+def _tool_error(report: Path, log: Path) -> str:
+    """Extract fzgmod-cli's error text from JSON report or log stderr section."""
+    if report.exists():
+        try:
+            msg = json.loads(report.read_text()).get("error_message", "")
+            if msg:
+                return f" — {msg}"
+        except Exception:
+            pass
+    if log.exists():
+        try:
+            for line in reversed(log.read_text().splitlines()):
+                if "[fzgmod-cli] error:" in line:
+                    return f" — {line.split('[fzgmod-cli] error:', 1)[1].strip()}"
+        except Exception:
+            pass
+    return ""
 
 
 def resolve_cli(explicit: str | None = None) -> str:
@@ -73,7 +93,10 @@ class FzgmAdapter(Adapter):
         else:
             native_mode, basis = _MODE_MAP[spec.error_mode]
             eb = float(spec.error_bound)
-            text = tpl.render(eb, native_mode)   # override every lossy stage's bound+mode
+            # Also fixes up [pipeline] dims/input_size if the template declares them
+            # (e.g. cuSZ-Hi presets) — no-op for templates that don't (cusz/fzgpu/pfpl).
+            text = tpl.render(eb, native_mode, dims=spec.field.dims,
+                              input_size=spec.field.original_bytes)
         out.write_text(text)
         return Prepared(
             config_args=["-c", str(out)], eb=eb, native_mode=native_mode, basis=basis,
@@ -102,7 +125,7 @@ class FzgmAdapter(Adapter):
                 *self._io(f), *prep.config_args, "--report-json", str(report)]
         proc = run_cli(argv, log)
         if proc.returncode != 0:
-            raise AdapterError(f"compress failed (exit {proc.returncode}); see {log}")
+            raise AdapterError(f"compress failed (exit {proc.returncode}){_tool_error(report, log)}; see {log}")
         rep = load_report_json(report)
         size = rep["size"]
         return CompressResult(compressed_path=out,
@@ -115,12 +138,19 @@ class FzgmAdapter(Adapter):
         out = workdir / "d.bin"
         report = workdir / "x.json"
         log = workdir / "decompress.log"
-        # .fzm is self-describing; --compare truncates output to the original length.
+        # .fzm is self-describing for standard stages, but TOML-based pipelines with
+        # non-standard stage types (e.g. Quantizer/Difference) need -c to reconstruct
+        # the pipeline during decompression; pipeline.toml is always written to workdir
+        # by _prepare_toml so it's available here.
+        config_args: list[str] = []
+        toml = workdir / "pipeline.toml"
+        if toml.exists():
+            config_args = ["-c", str(toml)]
         argv = [self.cli, "-x", "-i", str(compressed), "-o", str(out),
-                "--compare", str(f.path), "--report-json", str(report)]
+                *config_args, "--compare", str(f.path), "--report-json", str(report)]
         proc = run_cli(argv, log)
         if proc.returncode != 0:
-            raise AdapterError(f"decompress failed (exit {proc.returncode}); see {log}")
+            raise AdapterError(f"decompress failed (exit {proc.returncode}){_tool_error(report, log)}; see {log}")
         load_report_json(report)
         return DecompressResult(decompressed_path=out, raw_json={}, log_path=log)
 
@@ -133,7 +163,7 @@ class FzgmAdapter(Adapter):
                 "--report-json", str(report)]
         proc = run_cli(argv, log)
         if proc.returncode != 0:
-            raise AdapterError(f"benchmark failed (exit {proc.returncode}); see {log}")
+            raise AdapterError(f"benchmark failed (exit {proc.returncode}){_tool_error(report, log)}; see {log}")
         rep = load_report_json(report)
         t = rep["timing"]
         comp = t.get("compress", {}).get("device_ms", {}).get("all", [])

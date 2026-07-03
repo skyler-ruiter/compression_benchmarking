@@ -65,7 +65,7 @@ Note: `sum(stages[].device_ms)` ≈ per-kernel total (≈ cuSZ's "(total)" model
 **less than** `timing.compress.device_ms`, because the bracketed DAG time also includes
 inter-kernel launch gaps. That gap = launch/scheduling overhead, itself a useful signal.
 
-## Two gotchas confirmed against the real binary (2026-06-18)
+## Three gotchas confirmed against the real binary
 
 - **Chunk padding — truncate before computing quality.** Decompressed output is padded
   to chunk boundaries: a 25,920,000-byte original came back as 25,935,872 bytes from a
@@ -81,6 +81,16 @@ inter-kernel launch gaps. That gap = launch/scheduling overhead, itself a useful
   artifacts (compressed blob, decompressed array) that harness-owned metrics need, and
   their `device_ms` is ignored. Drop the first `warmup_reps` entries of `timing.*.all`
   before taking median/min (FZGM does only one internal warmup).
+- **Non-standard stage types must be registered in `createStage()`.** The `.fzm` header
+  stores stage types as integer enums and reconstructs stages via `createStage()` in
+  `stage_factory.h`. Stages not listed there (`Quantizer` = 14, `Difference` = 15, etc.)
+  exit with `Unknown stage type: N` on decompress. Fix: add a `case StageType::QUANTIZER:`
+  (and `DIFFERENCE` etc.) to `createStage()` in the FZGPUModules source and rebuild.
+  Note: `-c pipeline.toml` is **silently ignored** by `run_decompress()` in `cli.cpp` —
+  it calls `Pipeline::decompressFromFile()` unconditionally regardless of `config_path`.
+  Passing `-c` during `-x` does nothing in the current binary. The adapter passes it
+  anyway as a forward-compat hint in case `-x -c` is wired up in a future version.
+  (Diagnosed 2026-07-02 against pfpl/pfpl_minimal pipelines; fixed by binary patch.)
 
 ## Pipelines: TOML-first
 

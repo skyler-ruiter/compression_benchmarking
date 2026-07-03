@@ -26,12 +26,12 @@ inputs = [{from = "quant", port = "codes"}]
 [[stage]]
 name = "bshuf"
 type = "Bitshuffle"
-element_width = 2
+element_width = 4
 block_size = 16384
 inputs = [{from = "diff", port = "output"}]
 
 [[stage]]
 name = "rze"
 type = "RZE"
-levels = 4
+word_size = 1
 inputs = [{from = "bshuf", port = "output"}]

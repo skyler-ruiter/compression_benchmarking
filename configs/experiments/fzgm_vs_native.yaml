@@ -1,0 +1,62 @@
+# FZGM vs. native validation — quick pass across 8 target algorithms (MANS excluded,
+# stub adapter + no FZGM preset; see docs/BENCHMARK_PLAN.md).
+#
+# One field per shape class, same set used by smoke-cusz.yaml / smoke-m3-refs.yaml for
+# continuity with prior baselines. eb=1e-3, rel_range (canonical range-relative bound).
+#
+# Pairings (native : fzgm pipeline):
+#   cusz        : configs/pipelines/cusz.toml
+#   cuszhi (tp) : configs/pipelines/cusz_hi_tp.toml    (-s tp, spline predictor)
+#   cuszhi (cr) : configs/pipelines/cusz_hi_cr.toml    (-s cr, spline predictor)
+#   cuszp2 (outlier) : configs/pipelines/cuszp2.toml   (AdaptiveBitpack + outlier_selection)
+#   cuszp3 (plain)   : configs/pipelines/cuszp3.toml   (TiledLorenzo 8x8, 2-D)
+#   fzgpu       : configs/pipelines/fzgpu.toml
+#   pfpl        : configs/pipelines/pfpl.toml
+#
+# Known issues going in (see docs/experiments/observed_errors.md):
+#   - fzgm:cuszhi_tp: wrong CR + eb violation (FZGM port defect, not yet root-caused)
+#   - fzgm:cuszhi_cr: crashes (upstream FZGPUModules RRE stage bug, rre_stage.cu:444)
+#   - fzgm:pfpl: CR ~40% below native pfpl; marginal eb overshoot on CESM/CLDHGH
+# Run anyway per user direction — table should reflect actual current state.
+
+name: fzgm_vs_native
+description: >
+  Quick FZGM-vs-native validation across cuSZ, cuSZ-Hi (tp/cr), cuSZp2, cuSZp3,
+  FZ-GPU, and PFPL — one field per shape class, eb=1e-3 rel_range.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+
+runs:
+  - {compressor: cusz,   variant: cusz,       pipeline: default}
+  - {compressor: fzgm,   variant: cusz,       pipeline: configs/pipelines/cusz.toml}
+  - {compressor: cuszhi, variant: cuszhi_tp,  pipeline: tp}
+  - {compressor: fzgm,   variant: cuszhi_tp,  pipeline: configs/pipelines/cusz_hi_tp.toml}
+  - {compressor: cuszhi, variant: cuszhi_cr,  pipeline: cr}
+  - {compressor: fzgm,   variant: cuszhi_cr,  pipeline: configs/pipelines/cusz_hi_cr.toml}
+  - {compressor: cuszp2, variant: cuszp2,     pipeline: outlier}
+  - {compressor: fzgm,   variant: cuszp2,     pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: cuszp3, variant: cuszp3,     pipeline: plain}
+  - {compressor: fzgm,   variant: cuszp3,     pipeline: configs/pipelines/cuszp3.toml}
+  - {compressor: fzgpu,  variant: fzgpu,      pipeline: default}
+  - {compressor: fzgm,   variant: fzgpu,      pipeline: configs/pipelines/fzgpu.toml}
+  - {compressor: pfpl,   variant: pfpl,       pipeline: default}
+  - {compressor: fzgm,   variant: pfpl,       pipeline: configs/pipelines/pfpl.toml}
