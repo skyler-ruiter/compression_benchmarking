@@ -124,10 +124,22 @@ class RunEntry:
     # itself validates stage-level compatibility and falls back if unsupported —
     # benchkit does not maintain its own compatibility matrix.
     graph: bool = False
+    # Restrict this entry to a subset of cfg.datasets, or exclude some. Needed when a
+    # pipeline/preset is dimensionality-specific (e.g. a 2-D-tiled FZGM preset that
+    # doesn't apply to a 1-D dataset like HACC) — at most one of the two may be set.
+    only_datasets: list[str] | None = None
+    skip_datasets: list[str] | None = None
 
     @property
     def is_toml(self) -> bool:
         return self.pipeline.strip().endswith(".toml")
+
+    def applies_to(self, dataset: str) -> bool:
+        if self.only_datasets is not None:
+            return dataset in self.only_datasets
+        if self.skip_datasets is not None:
+            return dataset not in self.skip_datasets
+        return True
 
 
 @dataclass
@@ -156,7 +168,9 @@ class ExperimentConfig:
                              variant=r.get("variant", r["compressor"]),
                              pipeline=r.get("pipeline", "default"),
                              cli_path=r.get("cli_path"),
-                             graph=bool(r.get("graph", False)))
+                             graph=bool(r.get("graph", False)),
+                             only_datasets=list(r["only_datasets"]) if "only_datasets" in r else None,
+                             skip_datasets=list(r["skip_datasets"]) if "skip_datasets" in r else None)
                     for r in raw["runs"]]
         except KeyError as e:
             raise ValueError(f"{path}: missing required key {e}") from e
@@ -165,6 +179,10 @@ class ExperimentConfig:
                 raise ValueError(
                     f"{path}: run entry {r.compressor}:{r.variant} sets graph: true, but "
                     f"graph mode is fzgm-only (CUDA Graph capture is an FZGM CLI feature)")
+            if r.only_datasets is not None and r.skip_datasets is not None:
+                raise ValueError(
+                    f"{path}: run entry {r.compressor}:{r.variant} sets both "
+                    f"only_datasets and skip_datasets — use at most one")
         mode = err.get("mode", "rel_range")
         if mode not in CANONICAL_MODES:
             raise ValueError(f"{path}: error.mode '{mode}' not in {sorted(CANONICAL_MODES)}")

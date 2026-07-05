@@ -1,0 +1,36 @@
+[pipeline]
+# cuSZp3 (outlier, 1-D) — Quantizer(linear) -> Lorenzo(block=32) -> AdaptiveBitpack
+#
+# 1-D counterpart of cuszp3_outlier.toml, using plain LorenzoStage(block=32)
+# instead of TiledLorenzo — see cuszp3_1d.toml for why. Native counterpart:
+# cuszp3 -m outlier (no -d flag / -d 1, both default to 1-D).
+# cuSZp3: Huang et al., SC'25.
+#
+# Usage:
+#   fzgmod-cli -c configs/pipelines/cuszp3_1d_outlier.toml \
+#              -i data/vx.f32 -l 1073741824 -b --report --compare data/vx.f32
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 32
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+outlier_selection = true
+inputs = [{from = "lrz"}]

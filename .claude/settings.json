@@ -13,7 +13,12 @@
       "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/FZ-GPU/src/**)",
       "Bash(grep -rn \"compress_device_ms\\\\|decompress_device_ms\\\\|report-json\\\\|time.*json\\\\|{\\\\\"\" ~/research/compressors/cuSZ-Hi/src/ 2>/dev/null | head -20)",
       "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ-Hi/src/**)",
-      "Bash(grep -rn \"compress_device_ms\\\\|decompress_device_ms\\\\|report.*json\\\\|json.*time\" ~/research/compressors/cuSZ-Hi/src/ ~/research/compressors/cuSZ-Hi/include/ 2>/dev/null | head -20)"
+      "Bash(grep -rn \"compress_device_ms\\\\|decompress_device_ms\\\\|report.*json\\\\|json.*time\" ~/research/compressors/cuSZ-Hi/src/ ~/research/compressors/cuSZ-Hi/include/ 2>/dev/null | head -20)",
+      "Bash(python3 -c ' *)",
+      "Bash(xargs ls -la)",
+      "Read(//N/u/sruiter/BigRed200/research/compressors/cuSZ-Hi/include/**)",
+      "Read(//geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ-Hi/include/**)",
+      "Read(//N/u/sruiter/BigRed200/research/compressors/cuSZ-Hi/src/**)"
     ],
     "additionalDirectories": [
       "/N/u/sruiter/BigRed200/research/compressors/cuSZ/psz/src/cli",
@@ -21,7 +26,14 @@
       "/N/u/sruiter/BigRed200/research/compressors/MANS/nv/ans",
       "/geode3/home/u090/sruiter/BigRed200/research/compressors/MANS/nv/ans",
       "/N/u/sruiter/BigRed200/research/compressors/FZ-GPU/src",
-      "/geode3/home/u090/sruiter/BigRed200/research/compressors/FZ-GPU/src"
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/FZ-GPU/src",
+      "/N/u/sruiter/BigRed200/research/compressors/cuSZ/psz/include/cusz",
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ/psz/include/cusz",
+      "/N/u/sruiter/BigRed200/research/compressors/cuSZ-Hi/include",
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ-Hi/include",
+      "/N/u/sruiter/BigRed200/research/compressors/cuSZ-Hi/src",
+      "/geode3/home/u090/sruiter/BigRed200/research/compressors/cuSZ-Hi/src",
+      "/N/scratch/sruiter"
     ]
   }
 }

@@ -1,0 +1,37 @@
+[pipeline]
+# cuSZp2 (plain) — Quantizer(linear) -> Lorenzo(block=32) -> AdaptiveBitpack
+#
+# Same stage chain as cuszp2.toml minus AdaptiveBitpack's outlier_selection: every
+# block is packed fixed-rate, no per-block raw-outlier escape. Native counterpart:
+# cuszp2 -m plain. Compare against cuszp2.toml (-m outlier) to see what the
+# per-block outlier selection buys on a given field.
+# cuSZp2: Huang et al., SC'24.
+#
+# Usage:
+#   fzgmod-cli -c configs/pipelines/cuszp2_plain.toml \
+#              -i data/CLDHGH.f32 -l 3600x1800 -b --report --compare data/CLDHGH.f32
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 32
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+outlier_selection = false
+inputs = [{from = "lrz"}]

@@ -3,10 +3,27 @@
 cuSZ-Hi differences from the patched cuSZ adapter:
 
   - Timing via -R time text table: cuSZ-Hi has not been patched to emit
-    JSON. benchmark() passes -R time to both -z and -x invocations and
-    parses the "(total)" row from the human-readable table. The row format
-    is "  (total)   <ms>   <GiB/s>" printed via printf %'12f (locale-aware
-    thousand separators). The adapter strips commas before parsing.
+    JSON. benchmark() passes -R time and parses "(total)" rows from the
+    human-readable table. The row format is "  (total)   <ms>   <GiB/s>"
+    printed via printf %'12f (locale-aware thousand separators). The
+    adapter strips commas before parsing.
+
+  - In-process repeat (--repeat N): this build of cuszhi has been patched
+    (local, unmerged — see ~/research/compressors/cuSZ-Hi git log) to loop
+    the compress/decompress task N times inside one process, sharing one
+    CUDA stream/context across reps, before exiting. benchmark() passes
+    `--repeat n_runs` and makes ONE subprocess call per phase instead of
+    looping n_runs subprocess calls itself — each rep prints its own
+    "(total)" row, so N reps show up as N rows in one process's stdout.
+    This replaced the old N-cold-subprocess loop, which measured a cold
+    CUDA-context/clock-ramp penalty on every single rep (confirmed
+    empirically: cold-process compress ~1.6ms vs in-process warm ~0.7ms,
+    decompress ~3.9ms cold vs ~0.8ms warm, on CESM-2D/CLDHGH eb=1e-3) —
+    the same failure mode documented in docs/adapters/fzgm.md for FZGM
+    itself, which is why FZGM has its own `-b --runs N`. `warmup_reps`
+    (dropped by `metrics.summarize_timing`) now discards the first
+    (cold) rep, matching how FZGM's own single internal warmup rep is
+    handled.
 
   - No -S write2disk: cuSZ-Hi always writes output files. This is fine
     for timing accuracy — file I/O occurs outside the CUDA event window.
@@ -56,23 +73,27 @@ def resolve_cli(explicit: str | None = None) -> str:
         "See scripts/env-bigred200.sh for build path.")
 
 
-def _parse_total_ms(stdout: str) -> float:
-    """Parse the '(total)' timing row from cuSZ-Hi -R time output.
+def _parse_all_total_ms(stdout: str) -> list[float]:
+    """Parse every '(total)' timing row from cuSZ-Hi -R time output.
 
     Row format (printf "  %-12s %'12f %'10.2f"):
       "  (total)        1234.567890    12.34"
     The %' modifier may add locale thousand-separators (commas); strip them.
+    With `--repeat N`, one process prints N such rows (one per rep) to stdout.
     """
+    out = []
     for line in stdout.splitlines():
         if "(total)" in line:
             # Extract numeric tokens — first is ms, second is GiB/s
             cleaned = line.replace(",", "")
             nums = re.findall(r"\d+\.\d+", cleaned)
             if nums:
-                return float(nums[0])
-    raise AdapterError(
-        "No '(total)' timing row found in cuszhi -R time output. "
-        "Was -R time passed and is this a cuszhi build with reporting?")
+                out.append(float(nums[0]))
+    if not out:
+        raise AdapterError(
+            "No '(total)' timing row found in cuszhi -R time output. "
+            "Was -R time passed and is this a cuszhi build with reporting?")
+    return out
 
 
 class CuszhiAdapter(Adapter):
@@ -178,54 +199,55 @@ class CuszhiAdapter(Adapter):
         return DecompressResult(decompressed_path=final_out, raw_json={}, log_path=log)
 
     def benchmark(self, spec: RunSpec, prep: Prepared, n_runs: int, workdir: Path) -> BenchmarkResult:
-        """cuSZ-Hi timing via -R time text table, N subprocess invocations each.
+        """cuSZ-Hi timing via -R time text table, one in-process --repeat n_runs call each.
 
         The "(total)" row from -R time is CUDA-event-measured kernel time
         (sum of all pipeline stage events). File I/O (disk reads/writes) happens
         outside the CUDA event window so it does NOT contaminate the reported ms.
-        cuszhi has no -S write2disk flag, but none is needed for timing accuracy.
-        Comparable to fzgm and cusz CUDA-event timing.
+
+        One subprocess per phase, each looping n_runs reps inside the binary
+        (--repeat, local patch — see module docstring) sharing one CUDA
+        stream/context across reps. This is what makes the timing comparable to
+        fzgm's `-b --runs N`: both share a warm process/context across all reps,
+        rather than cuszhi's old N-cold-subprocess loop.
         """
         link = self._link(spec, workdir)
         compressed = self._compressed_path(spec, workdir)
         log = workdir / "benchmark.log"
 
-        compress_ms: list[float] = []
-        decompress_ms: list[float] = []
-
-        c_argv = [self.cli, "-z", "-i", str(link), *prep.config_args, "-R", "time"]
-        d_argv = [self.cli, "-x", "-i", str(compressed), "-R", "time"]
+        c_argv = [self.cli, "-z", "-i", str(link), *prep.config_args,
+                  "-R", "time", "--repeat", str(n_runs)]
+        d_argv = [self.cli, "-x", "-i", str(compressed),
+                  "-R", "time", "--repeat", str(n_runs)]
 
         with open(log, "w") as fh:
-            for i in range(n_runs):
-                fh.write(f"\n# --- run {i} compress ---\n$ {' '.join(c_argv)}\n")
-                proc = subprocess.run(c_argv, capture_output=True, text=True)
-                fh.write(proc.stdout + proc.stderr)
-                if proc.returncode != 0:
-                    raise AdapterError(
-                        f"benchmark compress run {i} failed "
-                        f"(exit {proc.returncode}); see {log}")
-                try:
-                    compress_ms.append(_parse_total_ms(proc.stdout + proc.stderr))
-                except AdapterError as e:
-                    raise AdapterError(f"run {i}: {e}") from e
+            fh.write(f"\n# --- compress (--repeat {n_runs}) ---\n$ {' '.join(c_argv)}\n")
+            proc = subprocess.run(c_argv, capture_output=True, text=True)
+            fh.write(proc.stdout + proc.stderr)
+            if proc.returncode != 0:
+                raise AdapterError(
+                    f"benchmark compress failed (exit {proc.returncode}); see {log}")
+            compress_ms = _parse_all_total_ms(proc.stdout + proc.stderr)
+            if len(compress_ms) != n_runs:
+                raise AdapterError(
+                    f"benchmark compress: expected {n_runs} '(total)' rows, "
+                    f"got {len(compress_ms)}; see {log}")
 
-                # Decompress from the compressed file just written.
-                fh.write(f"\n# --- run {i} decompress ---\n$ {' '.join(d_argv)}\n")
-                proc = subprocess.run(d_argv, capture_output=True, text=True)
-                fh.write(proc.stdout + proc.stderr)
-                if proc.returncode != 0:
-                    raise AdapterError(
-                        f"benchmark decompress run {i} failed "
-                        f"(exit {proc.returncode}); see {log}")
-                try:
-                    decompress_ms.append(_parse_total_ms(proc.stdout + proc.stderr))
-                except AdapterError as e:
-                    raise AdapterError(f"run {i}: {e}") from e
+            fh.write(f"\n# --- decompress (--repeat {n_runs}) ---\n$ {' '.join(d_argv)}\n")
+            proc = subprocess.run(d_argv, capture_output=True, text=True)
+            fh.write(proc.stdout + proc.stderr)
+            if proc.returncode != 0:
+                raise AdapterError(
+                    f"benchmark decompress failed (exit {proc.returncode}); see {log}")
+            decompress_ms = _parse_all_total_ms(proc.stdout + proc.stderr)
+            if len(decompress_ms) != n_runs:
+                raise AdapterError(
+                    f"benchmark decompress: expected {n_runs} '(total)' rows, "
+                    f"got {len(decompress_ms)}; see {log}")
 
-                # Clean up .cuszx left by decompress to avoid stale reads.
-                raw = self._decompressed_raw(compressed)
-                raw.unlink(missing_ok=True)
+            # Clean up .cuszx left by decompress to avoid stale reads by a later cell.
+            raw = self._decompressed_raw(compressed)
+            raw.unlink(missing_ok=True)
 
         return BenchmarkResult(
             compress_device_ms_all=compress_ms,

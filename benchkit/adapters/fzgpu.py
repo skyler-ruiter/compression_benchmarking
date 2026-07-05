@@ -5,17 +5,25 @@ Its single binary does a full compress+decompress round-trip in GPU memory and
 prints wall-clock timing (std::chrono::system_clock) for both phases.
 
 The binary has been patched (see docs/adapters/fzgpu.md) to write compressed and
-decompressed files to disk when optional 6th and 7th positional args are given:
+decompressed files to disk when optional 6th and 7th positional args are given,
+and to loop the round-trip in-process when an optional 8th arg is given:
 
-    fz-gpu <input> <x> <y> <z> <eb> [compressed_out] [decompressed_out]
+    fz-gpu <input> <x> <y> <z> <eb> [compressed_out] [decompressed_out] [repeat]
 
-If those args are omitted the binary runs the original in-memory round-trip —
+If output paths are omitted the binary runs the in-memory round-trip —
 benchmark() uses this mode to avoid file-I/O overhead during timing.
+`repeat` (default 1) loops the round-trip N times sharing one CUDA
+stream/context, printing N pairs of e2e-time lines to stdout instead of
+paying a fresh CUDA-context/clock-ramp cold start on every subprocess launch
+(confirmed empirically: rep 1 ~2.0ms compress vs reps 2+ ~0.22ms warm on
+CESM-2D/CLDHGH — a ~9x gap). benchmark() passes `repeat=n_runs` and makes
+ONE subprocess call instead of looping n_runs subprocess calls itself. See
+docs/adapters/fzgpu.md "In-process repeat".
 
 Adapter model (same as cuSZp — single round-trip binary):
   - compress(): full round-trip, writes both files; timing from stdout.
   - decompress(): returns the decompressed file already written by compress().
-  - benchmark(): N subprocess calls without output paths, parses timing.
+  - benchmark(): one subprocess call, `repeat=n_runs`, parses N timing pairs.
 
 Limitations vs other adapters:
   - float32 only (no f64 support)
@@ -48,18 +56,24 @@ def _resolve_cli(explicit: str | None = None) -> str:
         "See scripts/env-bigred200.sh. Rebuild with 'make main' after patching src/fz.cu.")
 
 
-def _parse_time_s(stdout: str, phase: str) -> float:
-    """Extract wall-clock seconds from 'compression/decompression e2e time: X s'."""
+def _parse_all_times_s(stdout: str, phase: str) -> list[float]:
+    """Extract every wall-clock seconds value from 'phase e2e time: X s' lines.
+
+    With `repeat=N`, one process prints N such lines (one per rep).
+    """
     key = f"{phase} e2e time:"
+    out = []
     for line in stdout.splitlines():
         stripped = line.strip()
         if stripped.startswith(key):
             m = re.search(r"([0-9]+\.?[0-9]*(?:e[+-]?[0-9]+)?)\s*s", stripped)
             if m:
-                return float(m.group(1))
-    raise AdapterError(
-        f"No '{key}' line found in fz-gpu output. "
-        "Is this the patched binary? Check the log.")
+                out.append(float(m.group(1)))
+    if not out:
+        raise AdapterError(
+            f"No '{key}' line found in fz-gpu output. "
+            "Is this the patched binary? Check the log.")
+    return out
 
 
 def _parse_psnr(stdout: str) -> float | None:
@@ -168,38 +182,41 @@ class FzgpuAdapter(Adapter):
         )
 
     def benchmark(self, spec: RunSpec, prep: Prepared, n_runs: int, workdir: Path) -> BenchmarkResult:
-        """N subprocess calls without output paths (avoids file I/O overhead during timing).
+        """One subprocess call, `repeat=n_runs` in-process reps (avoids file I/O
+        overhead during timing and avoids N cold-process launches).
 
-        Each call does the full in-memory compress+decompress round-trip and prints
-        wall-clock timing for both phases. Timing is in seconds; the adapter converts to ms.
+        Each rep does the full in-memory compress+decompress round-trip and prints
+        a pair of wall-clock timing lines. Timing is in seconds; the adapter
+        converts to ms. One process, N reps sharing one CUDA stream/context —
+        see module docstring and docs/adapters/fzgpu.md "In-process repeat".
 
-        The VERIFICATION block in fz-gpu runs after the timing window, so it does not
-        affect the reported times — but it does print verification messages to stdout.
+        The VERIFICATION block in fz-gpu runs after each rep's timing window, so
+        it does not affect the reported times — but it does print verification
+        messages to stdout once per rep.
         """
         compressed_ref = workdir / "c.fzg"
         log = workdir / "benchmark.log"
 
-        # No output path args → pure in-memory run, no file I/O overhead
-        argv = [self.cli, *prep.config_args]
-
-        compress_ms: list[float] = []
-        decompress_ms: list[float] = []
+        # Empty output-path args → pure in-memory run, no file I/O overhead;
+        # trailing arg is the in-process repeat count.
+        argv = [self.cli, *prep.config_args, "", "", str(n_runs)]
 
         with open(log, "w") as fh:
-            for i in range(n_runs):
-                fh.write(f"\n# --- run {i} ---\n$ {' '.join(argv)}\n")
-                proc = subprocess.run(argv, capture_output=True, text=True)
-                fh.write(proc.stdout + proc.stderr)
-                if proc.returncode != 0:
-                    raise AdapterError(
-                        f"benchmark run {i} failed (exit {proc.returncode}); see {log}")
-                try:
-                    c_s = _parse_time_s(proc.stdout, "compression")
-                    d_s = _parse_time_s(proc.stdout, "decompression")
-                except AdapterError as e:
-                    raise AdapterError(f"run {i}: {e}") from e
-                compress_ms.append(c_s * 1000.0)
-                decompress_ms.append(d_s * 1000.0)
+            fh.write(f"\n# --- benchmark (repeat={n_runs}) ---\n$ {' '.join(argv)}\n")
+            proc = subprocess.run(argv, capture_output=True, text=True)
+            fh.write(proc.stdout + proc.stderr)
+            if proc.returncode != 0:
+                raise AdapterError(
+                    f"benchmark failed (exit {proc.returncode}); see {log}")
+            c_s = _parse_all_times_s(proc.stdout, "compression")
+            d_s = _parse_all_times_s(proc.stdout, "decompression")
+            if len(c_s) != n_runs or len(d_s) != n_runs:
+                raise AdapterError(
+                    f"benchmark: expected {n_runs} compress/decompress timing "
+                    f"pairs, got {len(c_s)}/{len(d_s)}; see {log}")
+
+        compress_ms = [s * 1000.0 for s in c_s]
+        decompress_ms = [s * 1000.0 for s in d_s]
 
         psnr = _parse_psnr(open(log).read()) if log.exists() else None
         native_quality = {"psnr_db": psnr} if psnr is not None else None

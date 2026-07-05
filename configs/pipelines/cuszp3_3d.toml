@@ -1,0 +1,42 @@
+[pipeline]
+# cuSZp3 (plain, 3-D) — Quantizer(linear) -> TiledLorenzo(4x4x4) -> AdaptiveBitpack
+#
+# 3-D counterpart of cuszp3.toml: same stage chain, but the tile shape follows
+# FZGM's own documented default for 3-D data (4x4x4 = 64 elements/tile, same
+# block_size as the 2-D 8x8 preset so AdaptiveBitpack still packs one block per
+# tile). Native counterpart: cuszp3 -m plain -d 3 dz dy dx.
+#
+# Use cuszp3.toml (8x8) for 2-D fields and cuszp3_1d.toml (plain Lorenzo,
+# block=32) for 1-D fields — see docs/adapters/cuszp.md for the full
+# preset-vs-native-pipeline-string mapping.
+# cuSZp3: Huang et al., SC'25.
+#
+# Usage:
+#   fzgmod-cli -c configs/pipelines/cuszp3_3d.toml \
+#              -i data/temperature.f32 -l 512x512x512 -b --report --compare data/temperature.f32
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 4
+tile_y = 4
+tile_z = 4
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "tl"}]

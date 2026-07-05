@@ -1,0 +1,35 @@
+[pipeline]
+# cuSZp2 (outlier) — same topology as cuszp2.toml, MINIMAL memory strategy
+#
+# Quantizer(linear) → Lorenzo(block=32) → AdaptiveBitpack(outlier_selection)
+#
+# MINIMAL allocates buffers per-phase instead of pre-allocating both compress
+# and decompress buffers up front. Used in the size-scaling experiment
+# (fzgm_scaling_v3) to test whether MINIMAL raises cuszp2's effective VRAM
+# ceiling on A100-40GB the way it did for fzgpu/pfpl in v1/v2 — exact
+# footprint numbers TBD from that run rather than estimated here.
+memory_strategy = "MINIMAL"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 32
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+outlier_selection = true
+inputs = [{from = "lrz"}]

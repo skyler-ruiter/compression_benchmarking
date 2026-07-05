@@ -7,9 +7,24 @@ cuSZ differences from fzgm that shape this adapter:
     line to stdout. benchmark() passes -R time, parses that JSON, and returns
     cuda_event_device_only ms — directly comparable to fzgm's timing.
 
-  - No native repeat mode: benchmark() runs N subprocesses and parses the
-    device_ms JSON from each. Warmup semantics are the same as fzgm (first
-    warmup_reps discarded before median is taken).
+  - In-process repeat (--repeat N): this build of cusz has been patched
+    (local, unmerged — see ~/research/compressors/cuSZ git log) to loop the
+    compress/decompress task N times inside one process, sharing one CUDA
+    stream/context across reps, before exiting. benchmark() passes
+    `--repeat n_runs` and makes ONE subprocess call per phase instead of
+    looping n_runs subprocess calls itself — each rep prints its own JSON
+    line, so N reps show up as N lines in one process's stdout. This
+    replaced the old N-cold-subprocess loop, which measured a cold
+    CUDA-context/clock-ramp penalty on every single rep — the same failure
+    mode documented in docs/adapters/fzgm.md for FZGM itself.
+    `warmup_reps` (dropped by `metrics.summarize_timing`) now discards the
+    first (cold) rep, matching how FZGM's own single internal warmup rep is
+    handled. See docs/adapters/cusz.md "Fairness caveat" for how the fix
+    was root-caused: the naive first attempt (just hoisting the CUDA
+    stream, matching cuSZ-Hi's fix) still segfaulted — the real bug was
+    `psz_release_resource()` deleting `args->cli` out from under the
+    caller on every rep (an aliased, not owned, pointer), fixed in
+    executor.cc.
 
   - Output path not configurable: cusz always writes <input>.cusza in the same
     directory as the input. We symlink the input into the workdir so that the
@@ -152,31 +167,39 @@ class CuszAdapter(Adapter):
 
         return DecompressResult(decompressed_path=final_out, raw_json={}, log_path=log)
 
-    def _parse_device_ms(
-        self, stdout: str, key: str, run_idx: int, phase: str, log: Path
-    ) -> float:
-        """Extract a device_ms value from a JSON line in cusz stdout."""
+    def _parse_all_device_ms(
+        self, stdout: str, key: str, expected_n: int, phase: str, log: Path
+    ) -> list[float]:
+        """Extract every device_ms value from JSON lines in cusz stdout.
+
+        With `--repeat N`, one process prints N such JSON lines (one per rep).
+        """
+        out = []
         for line in stdout.splitlines():
             line = line.strip()
             if line.startswith("{") and line.endswith("}"):
                 try:
                     data = json.loads(line)
                     if key in data:
-                        return float(data[key])
+                        out.append(float(data[key]))
                 except json.JSONDecodeError:
                     pass
-        raise AdapterError(
-            f"benchmark {phase} run {run_idx}: no '{key}' in cusz stdout — "
-            f"binary may not be built with device timing (executor.cc patch); see {log}")
+        if len(out) != expected_n:
+            raise AdapterError(
+                f"benchmark {phase}: expected {expected_n} '{key}' lines in cusz "
+                f"stdout, got {len(out)} — binary may not be built with device "
+                f"timing (executor.cc patch) or --repeat support; see {log}")
+        return out
 
     def benchmark(self, spec: RunSpec, prep: Prepared, n_runs: int, workdir: Path) -> BenchmarkResult:
-        """CUDA-event device-only timing via N subprocess invocations with -R time.
+        """CUDA-event device-only timing via one in-process --repeat n_runs call each.
 
-        cusz has no built-in repeat mode. We run N subprocesses each and parse
-        the JSON line written to stdout by the patched executor.cc. The reported
-        time spans only the GPU kernels (cudaEventRecord placed immediately before
-        and after psz_compress/decompress_float), excluding PCIe H2D/D2H and
-        file I/O. This is comparable to fzgm's cuda_event_device_only timing.
+        One subprocess per phase, each looping n_runs reps inside the binary
+        (--repeat, local patch — see module docstring) sharing one CUDA
+        stream/context across reps. The reported time spans only the GPU
+        kernels (cudaEventRecord placed immediately before and after
+        psz_compress/decompress_float), excluding PCIe H2D/D2H and file I/O —
+        comparable to fzgm's cuda_event_device_only timing.
 
         -S write2disk skips disk writes during timing runs; the .cusza file from
         compress() is reused for all decompress timing runs.
@@ -185,34 +208,29 @@ class CuszAdapter(Adapter):
         compressed = self._compressed_path(spec, workdir)
         log = workdir / "benchmark.log"
 
-        compress_ms: list[float] = []
-        decompress_ms: list[float] = []
-
         c_argv = [self.cli, "-z", "-i", str(link), *prep.config_args,
-                  "-S", "write2disk", "-R", "time"]
-        d_argv = [self.cli, "-x", "-i", str(compressed), "-S", "write2disk", "-R", "time"]
+                  "-S", "write2disk", "-R", "time", "--repeat", str(n_runs)]
+        d_argv = [self.cli, "-x", "-i", str(compressed),
+                  "-S", "write2disk", "-R", "time", "--repeat", str(n_runs)]
 
         with open(log, "w") as fh:
-            for i in range(n_runs):
-                fh.write(f"\n# --- run {i} compress ---\n$ {' '.join(c_argv)}\n")
-                proc = subprocess.run(c_argv, capture_output=True, text=True)
-                fh.write(proc.stdout + proc.stderr)
-                if proc.returncode != 0:
-                    raise AdapterError(
-                        f"benchmark compress run {i} failed "
-                        f"(exit {proc.returncode}); see {log}")
-                compress_ms.append(
-                    self._parse_device_ms(proc.stdout, "compress_device_ms", i, "compress", log))
+            fh.write(f"\n# --- compress (--repeat {n_runs}) ---\n$ {' '.join(c_argv)}\n")
+            proc = subprocess.run(c_argv, capture_output=True, text=True)
+            fh.write(proc.stdout + proc.stderr)
+            if proc.returncode != 0:
+                raise AdapterError(
+                    f"benchmark compress failed (exit {proc.returncode}); see {log}")
+            compress_ms = self._parse_all_device_ms(
+                proc.stdout, "compress_device_ms", n_runs, "compress", log)
 
-                fh.write(f"\n# --- run {i} decompress ---\n$ {' '.join(d_argv)}\n")
-                proc = subprocess.run(d_argv, capture_output=True, text=True)
-                fh.write(proc.stdout + proc.stderr)
-                if proc.returncode != 0:
-                    raise AdapterError(
-                        f"benchmark decompress run {i} failed "
-                        f"(exit {proc.returncode}); see {log}")
-                decompress_ms.append(
-                    self._parse_device_ms(proc.stdout, "decompress_device_ms", i, "decompress", log))
+            fh.write(f"\n# --- decompress (--repeat {n_runs}) ---\n$ {' '.join(d_argv)}\n")
+            proc = subprocess.run(d_argv, capture_output=True, text=True)
+            fh.write(proc.stdout + proc.stderr)
+            if proc.returncode != 0:
+                raise AdapterError(
+                    f"benchmark decompress failed (exit {proc.returncode}); see {log}")
+            decompress_ms = self._parse_all_device_ms(
+                proc.stdout, "decompress_device_ms", n_runs, "decompress", log)
 
         return BenchmarkResult(
             compress_device_ms_all=compress_ms,

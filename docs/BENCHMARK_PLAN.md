@@ -149,6 +149,13 @@ combination fail, and why?
   of memory strategy.
 - Open items tracked at the bottom of `fzgm_scaling_2026-06-30.md` (fzgpu+MINIMAL
   follow-up, lowoutlier@12GB, capturing 12/16 GB single-shot throughput numbers).
+- `configs/experiments/fzgm_scaling_v3.yaml` — **written, not yet run** (2026-07-03).
+  Adds `cuszp2` (PREALLOCATE + MINIMAL) to the same 1-D sweep; cuszp2's Lorenzo
+  predictor is dimension-agnostic so it drops into the existing `SCALING-SYNTH` data
+  with no new infra. `cuszp3` (TiledLorenzo, needs an explicit ≥2-D tile shape) and
+  `cuszhi` tp/cr (GInterp, needs ≥2-D input) do **not** fit this sweep as-is — extending
+  to them needs new 2-D/3-D shaped synthetic scaling data (a `make_scaling_data.py`
+  extension), deferred to a later round pending user confirmation of scope.
 
 ---
 
@@ -202,4 +209,17 @@ combination fail, and why?
 
 ## Future direction
 
-<!-- To be filled in as we plan next steps. -->
+### D. Baseline reference run (planning, 2026-07-03)
+
+Next big step after category B closes out: one large SLURM job array spanning
+multiple GPU nodes that produces a trustworthy baseline (CR/quality/throughput/
+memory) for every compressor and FZGM modular composition, across the full
+SDRBench corpus — the "strong reference" numbers other work (and the paper) cites.
+
+Full open-decision list (SLURM sizing, dataset scope, compressor/composition scope,
+error-bound sweep, parameter-sweep scope, sequencing, and questions to confirm with
+the user before writing the experiment YAML) is in `docs/BASELINE_RUN_PLAN.md` — kept
+separate from this file since it's a large planning surface, not a dated result.
+
+Gated on: finishing E17/E16/E4 (see gaps list above) — this is the "SDRBench full
+matrix" item already tracked there, now broken out into its own planning doc.

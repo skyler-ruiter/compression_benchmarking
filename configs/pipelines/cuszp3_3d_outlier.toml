@@ -1,0 +1,38 @@
+[pipeline]
+# cuSZp3 (outlier, 3-D) — cuszp3_3d.toml plus per-tile outlier selection
+#
+# Same as cuszp3_3d.toml (Quantizer(linear) -> TiledLorenzo(4x4x4) ->
+# AdaptiveBitpack) with AdaptiveBitpack outlier_selection = true. Native
+# counterpart: cuszp3 -m outlier -d 3 dz dy dx.
+# cuSZp3: Huang et al., SC'25.
+#
+# Usage:
+#   fzgmod-cli -c configs/pipelines/cuszp3_3d_outlier.toml \
+#              -i data/temperature.f32 -l 512x512x512 -b --report --compare data/temperature.f32
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 4
+tile_y = 4
+tile_z = 4
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+outlier_selection = true
+inputs = [{from = "tl"}]

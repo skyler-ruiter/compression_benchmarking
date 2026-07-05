@@ -70,16 +70,55 @@ The `provenance.timing_method` field is set to `"cuda_event_device_only"` for cu
 
 ## Benchmark mode
 
-`benchmark()` runs:
-- N compress subprocesses with `-S write2disk` (skip disk write — GPU kernels
-  only, no PCIe D2H for compressed data)
-- N decompress subprocesses with `-S write2disk` (skip writing `.cuszx`)
-
-The compressed `.cusza` file produced by `compress()` is reused for all decompress
-timing runs (not overwritten).
+`benchmark()` makes one subprocess call per phase, each looping `--repeat
+n_runs` reps inside the binary, sharing one CUDA stream/context across reps
+(see "In-process `--repeat`" below) — mirrors FZGM's `-b --runs N` and
+cuSZ-Hi's `--repeat`. `-S write2disk` skips disk writes during timing (GPU
+kernels only, no PCIe D2H). The compressed `.cusza` file produced by
+`compress()` is reused for all decompress timing reps (not overwritten).
 
 Warmup semantics: same as fzgm — the first `warmup_reps` timing values are
 discarded before computing the median.
+
+### In-process `--repeat`: fairness fix and the bug it took to get there
+
+This adapter used to run N cold subprocesses per phase — each paying fresh
+CUDA-context creation, module load, and whatever clock state the GPU
+happened to be in (clocks are unlocked on BigRed200), the same cold-start
+failure mode `docs/adapters/fzgm.md` documents for FZGM itself. A local
+patch (unmerged, `~/research/compressors/cuSZ`) adds `--repeat N`: `cli.cc`
+loops the existing `psz_compress_task`/`psz_decompress_task` calls N times
+in one process, sharing one CUDA stream across reps.
+
+Getting there took two attempts:
+
+1. **First attempt (insufficient):** just hoisting stream creation out of
+   the per-call task functions into `cli.cc` (matching cuSZ-Hi's
+   `dispatch()`, which creates one stream and reuses it). This still
+   segfaulted deterministically on rep 3 of every trial (rep 2 silently
+   produced no output — see next point).
+2. **Actual root cause, found via debug prints + `compute-sanitizer`:**
+   `psz_compress_task` (`executor.cc`) sets `m->cli = args->cli;` — an
+   *alias* to the caller's `psz_cli_config`, not a copy. `psz_release_resource()`
+   (`libcusz.cc:75`) unconditionally does `if (manager->cli) delete
+   manager->cli;`. Harmless for a single-shot process (it exits right
+   after), but fatal under `--repeat`: rep 1's cleanup deletes `args->cli`
+   out from under the still-running process. Rep 2 then reads a
+   just-freed pointer (glibc usually hasn't overwritten it yet, so it
+   silently reads stale-but-plausible values — no crash, no output). By
+   rep 3 that freed memory has been reused by later allocations, so
+   reading/writing through it corrupts real state and segfaults. Fixed by
+   setting `m->cli = nullptr;` right before `psz_release_resource(m)` in
+   `psz_compress_task`, so release only frees what it actually owns.
+   `psz_decompress_task` was never affected — its resource manager's
+   `cli` field defaults to `nullptr` and is never aliased.
+
+Verified with 20-rep and 5x-repeated-trial runs on CESM-2D/CLDHGH, both
+phases, zero crashes after the fix (previously: deterministic segfault by
+rep 3 on every trial). Compress settled to a stable ~0.43ms, decompress
+~1.56ms (cv well under the 0.15 threshold). `warmup_reps` (dropped by
+`metrics.summarize_timing`) discards the first (cold) rep, same as FZGM
+and cuSZ-Hi.
 
 ---
 

@@ -659,6 +659,34 @@ class of near-boundary case rather than chase a bug that isn't there.
 **First seen (as a distinct, cross-tool pattern):** fzgm_vs_native retest 2, 2026-07-02 —
 individual instances go back to E8 (2026-07-02, same day, earlier).
 
+**Update (2026-07-03, eb=1e-2/1e-3/1e-4 sweep):** Confirmed **flat** across all 3 bounds
+(`err_over_bound` 1.0018–1.0027, no trend with eb) on every tool that reaches this field —
+native fzgpu, fzgm pfpl, fzgm cuszhi_tp (eb=1e-2/1e-3 only; eb=1e-4 crashes, see E19), fzgm
+cuszhi_cr (all 3 bounds). The flatness (no growth as eb tightens) is itself informative: it
+rules out an outlier-capacity or quantization-radius explanation (which would predict a
+*growing* relative overshoot at tighter bounds, as seen in E21's pattern 2) and is consistent
+with hypothesis 1 (a fixed, eb-independent harness/data precision offset in how
+`eb_abs_effective` is computed for this field) over hypothesis 2. Still not root-caused; the
+needed diff (independent `numpy.float64` min/max vs. the harness's) is unchanged.
+
+**Update (2026-07-04, retest after upstream FZGM NOA fix, session `7548871`):** Partially
+resolved. The fix removes the overshoot on `fzgm:cuszhi_tp`, `fzgm:cuszhi_cr`, and
+`fzgm:fzgpu` — all three now report `eb_ok=True` on CESM/CLDHGH at every swept bound,
+matching (or beating) native. **`fzgm:pfpl` still reproduces the identical overshoot
+pattern** (`err_over_bound` 1.0018 / 1.0019 / 1.0027 at eb=1e-2/1e-3/1e-4 — same values as
+before the fix), while native `pfpl` on the same field/bounds is clean
+(`err_over_bound` 0.99999x, just under the bound). Native `fzgpu` is also still affected
+(`eb_ok=False` all 3 bounds) — expected and out of scope, since that's the third-party
+binary, not FZGM.
+
+This localizes the remaining bug: the three fixed pipelines drive their NOA bound through
+either `LorenzoQuant` (`fzgpu.toml`) or `GInterp` (`cusz_hi_tp.toml`/`cusz_hi_cr.toml`);
+the still-broken one drives it through the plain `Quantizer` stage (`pfpl.toml`'s `quant`
+stage, `error_bound_mode = "NOA"`, no `linear_mode`). Whatever the upstream fix touched,
+it looks like it landed in `LorenzoQuant`/`GInterp`'s NOA-bound computation but not in
+`Quantizer`'s. Worth checking `Quantizer`'s NOA/range-bound code path specifically against
+whatever the `LorenzoQuant`/`GInterp` fix changed.
+
 ---
 
 ## E17 — FZGM cuSZ-Hi CR-mode CR is ~36% below native on NYX/temperature (post-crash-fix)
@@ -694,3 +722,236 @@ CESM/HURR's already-matching numbers re-verified), but the same root-cause famil
 width/radius not matching native's actual spline error-control) is the first thing to check.
 
 **First seen:** fzgm_vs_native retest 2, cusz_hi_cr NYX/temperature, 2026-07-02
+
+---
+
+## E18 — Native cuSZ catastrophically fails on HACC/vx at eb=1e-4
+
+**Status:** Open — native tool finding, independent of FZGM
+
+**Symptom:** `cusz` (native) on HACC/vx at eb=1e-4 rel_range gives `PSNR = -23.61 dB`,
+`CR = 1.26`, and `err_over_bound = 266086×` — the realized max error is 266,000 times the
+requested bound. This is not a marginal overshoot (contrast E16's ~1.002×); the output is
+actively wrong. `timing_reliable: true`, so it isn't a transient/measurement artifact.
+Every other tool on HACC at eb=1e-4 (fzgm:cusz, cuszp2, cuszp3, fzgpu, pfpl) passes
+cleanly at normal PSNR (~85 dB) for this bound.
+
+**Affected pipelines:** native `cusz` reference adapter only, HACC/vx, eb=1e-4 specifically
+— eb=1e-3 and eb=1e-2 on the same field pass normally. Not reproduced on any other field
+at eb=1e-4 (CESM/HURR/NYX all pass at this bound with the same tool).
+
+**Root cause:** Not investigated. HACC/vx has an unusually large dynamic range relative to
+its typical magnitude for a velocity field (needs confirming), so eb=1e-4 rel_range may push
+cuSZ's Lorenzo quantizer into an integer-overflow or radius-exceeded edge case specific to
+this field's value distribution at this bound. Given FZGM's independently-implemented
+Lorenzo+Huffman port (`cusz.toml`) handles the same field/bound combination correctly, this
+looks like a genuine defect in native cuSZ's quantizer or Huffman codebook construction, not
+a property of the data itself.
+
+**Needs:** Reproduce directly (`cusz -z -i <HACC/vx path> -t f32 -m r2r -e 1e-4`), inspect
+the quantization code range for overflow/clamping, and compare against FZGM's `cusz.toml`
+port's quantizer codes on the same input to isolate where the two diverge.
+
+**First seen:** fzgm_vs_native, cusz HACC/vx eb=1e-4, 2026-07-03 (first bound-sweep run to
+include eb=1e-4; not tested at this bound previously)
+
+---
+
+## E19 — FZGM cuSZ-Hi TP-mode crashes (RRE illegal memory access) on CESM/CLDHGH at eb=1e-4
+
+**Status:** Resolved (2026-07-03) — fixed upstream in FZGM, confirmed by retest
+
+**Confirmed fix:** Re-ran the full `fzgm_vs_native` matrix on a fresh exclusive-node
+allocation (session `7548871`) after the user's upstream FZGM fix. `fzgm:cuszhi_tp` on
+CESM-2D/CLDHGH at eb=1e-4 now completes cleanly (`CR=5.41, PSNR=85.91dB, eb_ok=True`) —
+no crash, all 3 bounds on this pipeline/field pass. Fix not inspected on the FZGM side
+(out of scope for this repo; the benchmark only re-validates behavior), but the specific
+failure signature described below no longer reproduces.
+
+**Symptom:**
+```
+[fzgmod] CUDA error at modules/coders/rre/rre_stage.cu:455 —
+cudaStreamSynchronize(stream) → an illegal memory access was encountered
+```
+`benchmark()` fails (exit 1) for `fzgm:cuszhi_tp` on CESM-2D/CLDHGH at eb=1e-4 rel_range
+only — eb=1e-3 and eb=1e-2 on the same field/pipeline pass cleanly (with the known E16
+marginal eb overshoot, unrelated). HURR and NYX at eb=1e-4 with the same `cusz_hi_tp.toml`
+pipeline do not crash.
+
+**Affected pipelines:** `cusz_hi_tp.toml` only, CESM-2D/CLDHGH only, eb=1e-4 only (of the
+3 bounds swept). `cusz_hi_cr.toml` on the same field/bound does **not** crash (see the
+eb-satisfied table in E16's update) — so this is TP-mode-specific, not shared by both
+cuSZ-Hi presets the way E10/E11's now-fixed `__syncthreads()` bug was.
+
+**Root cause investigation (2026-07-03):** The `rre_stage.cu:455` error is a **downstream
+victim, not the actual fault** — `cudaStreamSynchronize` is simply the first call that
+observes an already-poisoned CUDA context. Confirmed with `compute-sanitizer --tool
+memcheck` against a direct repro (rendering the bound into the TOML by hand, since `-e`
+on the CLI is silently ignored once `-c` supplies a TOML — the bound must come from the
+TOML itself, matching how the runner actually invokes it):
+
+```
+========= Invalid __global__ write of size 1 bytes
+=========     at fz::rzeDecodeKernel<unsigned char>(...)+0x44f0 in rze_stage.cu:128
+=========     Address ... is out of bounds
+=========     and is 25 bytes after the nearest allocation ... of size 576,584 bytes
+```
+
+The real fault is in **`RZEStage`'s decode kernel** (the last stage of the outlier chain,
+`rre2 -> rze`), writing 25 bytes past a 576,584-byte output buffer — i.e. the buffer
+allocated for this stage's decoded output is 25 bytes too small for what the compressed
+stream's own header says it needs. Timing/trigger pattern (confirmed reproducible across
+repeated attempts): in a `-b --runs 6` loop, rep 1 compresses fine; a `MemoryPool: live
+allocations exceeded configured pool size` warning fires (the pool auto-grows); rep 2's
+compress **and decode** both succeed; rep 3's compress succeeds but its **decode** is what
+crashes. So it's specifically the *second* decode call in the process, after a pool-growth
+event, that overflows — not the first.
+
+**Leading suspect:** `RZEStage::estimateOutputSizes()` (`modules/coders/rze/rze_stage.h`,
+~line 104-117) — the inverse-path branch:
+```cpp
+if (is_inverse_) {
+    if (cached_orig_bytes_ > 0)
+        return {static_cast<size_t>(cached_orig_bytes_)};
+    return {input_sizes.empty() ? 0 : input_sizes[0]};   // wrong direction: compressed size, not decompressed
+}
+```
+falls back to the *compressed* input size (nonsensical for a decompressor's output) when
+`cached_orig_bytes_` hasn't been populated yet — populated only after a decode has
+actually run once and read the true `orig_total` from the compressed stream's own header.
+This is the same **bug family** as the already-fixed `CompressionDAG::reset()` issue
+(`dag.cpp`, cited in E10/E11's confirmed root cause: "MINIMAL buffers pinned at rep-1's
+shrunk post-compression size... rep 2+ under-allocated the buffer and the stage kernel
+wrote past it, e.g. `rrePackKernel` overrun") — same MINIMAL-strategy multi-rep
+buffer-sizing class of bug, now apparently manifesting in `rzeDecodeKernel` under a
+narrower trigger condition (pool growth + repeated `-b` reps + the larger outlier volume
+eb=1e-4 produces) that the prior fix didn't fully close. **Not 100% confirmed** — the
+"succeeds on the first decode, fails on the second" pattern doesn't perfectly fit a
+simple "cold cache on first call" story, so there may be a second factor (interaction with
+`reset()`'s `buffer.size = buffer.initial_size` restore, or the pool-growth event itself
+invalidating something `RZEStage` cached). Passing `--bounds-check` (the CLI's own runtime
+overrun guard) makes the crash **not reproduce** — consistent with the guard adding
+padding/margin around allocations that happens to absorb the 25-byte overflow, not with
+the bug being fixed; treat this as a workaround signal, not evidence of correctness.
+
+**Needs:** Instrument `RZEStage`'s decode path (or add a print) to log `cached_orig_bytes_`
+and the actual allocated size of `outputs[0]` on each `execute()` call across a `-b --runs
+6` loop on this exact repro, to see which rep's buffer-planning pass first computes the
+wrong (576,584-byte) size and why it doesn't get corrected by rep 3. Repro command (must
+render the bound into the TOML directly — `-e`/`-m` on the CLI are ignored once `-c` is
+given):
+```bash
+sed 's/error_bound = 1e-3/error_bound = 0.0001/' configs/pipelines/cusz_hi_tp.toml > /tmp/repro.toml
+compute-sanitizer --tool memcheck fzgmod-cli -i <CESM/CLDHGH path> -l 3600x1800 -t f32 \
+  -c /tmp/repro.toml -b --runs 6 --compare <CESM/CLDHGH path> --report-json /tmp/out.json
+```
+
+**First seen:** fzgm_vs_native, fzgm:cuszhi_tp CESM-2D/CLDHGH eb=1e-4, 2026-07-03 (first
+bound-sweep run to include eb=1e-4). **Root-cause investigation same day**, on an
+interactive allocation with `compute-sanitizer` (`/N/soft/sles15sp6/cuda/gnu/12.6/bin/`) —
+pinpointed to `RZEStage`'s decode buffer sizing but not yet fixed.
+
+---
+
+## E20 — Native cuSZ-Hi crashes intermittently on HACC/vx across different bounds (both tp and cr modes)
+
+**Status:** Open — native tool finding, independent of FZGM
+
+**Symptom:** Native `cuszhi` on HACC/vx crashes with two distinct signatures depending on
+mode/bound:
+```
+# cuszhi -s tp, eb=1e-4:
+terminate called after throwing an instance of 'psz_gpu_exception'
+  what():  GPU API failed ... compressor.inl:272 with error: invalid argument(1)
+
+# cuszhi -s cr, eb=1e-2 AND eb=1e-4:
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  [psz::fatal] exceeding max len: 27
+```
+Both exit -6 (SIGABRT). Of the 6 (mode × bound) combinations tested on HACC, only 2
+succeed: `tp` at eb=1e-3 (CR=5.08, matches the earlier session's baseline) and `cr` at
+eb=1e-3. Every other combination (`tp` at 1e-2/1e-4, `cr` at 1e-2/1e-4) crashes.
+
+**Affected pipelines:** native `cuszhi` reference adapter only, HACC/vx only. CESM/HURR/NYX
+are unaffected at any bound tested — this is specific to the 1-D field.
+
+**Root cause:** Not investigated. Native cuSZ-Hi evidently *can* handle 1-D input (unlike
+FZGM's `GInterp`-based port, E9) via some other internal predictor path, but that path
+looks fragile — succeeding only in a narrow eb window around 1e-3 and failing at both
+looser (1e-2) and tighter (1e-4) bounds with two unrelated-looking exceptions (`invalid
+argument` GPU exception vs. a `max len` sanity check). This smells like an under-tested
+code path (1-D fallback), not one narrow edge case.
+
+**Needs:** Reproduce directly at each failing (mode, eb) pair (`cuszhi -z -i <HACC/vx
+path> -t f32 -l 280953867 -m r2r -e <eb> -s <tp|cr>`) and determine which internal
+predictor/coder native cuSZ-Hi selects for 1-D input, to see whether the failures share a
+root cause or are two independent bugs in that fallback path.
+
+**First seen:** fzgm_vs_native, cuszhi HACC/vx (tp: eb=1e-4; cr: eb=1e-2, eb=1e-4),
+2026-07-03 (first bound-sweep run to include eb=1e-2 and eb=1e-4; the original session
+only tested eb=1e-3, where both modes happen to work)
+
+---
+
+## E21 — Native cuSZp outlier mode (v2 and v3) violates its own error bound in bound-dependent ways beyond E14
+
+**Status:** Open — native tool finding, independent of FZGM; supersedes/broadens E14
+
+**Symptom:** E14 (2026-07-02) found native cuszp2 `-m outlier` failing its error bound on
+HURR/TC at eb=1e-3 with catastrophic quality loss (PSNR 50.93 dB vs. an expected ~65 dB).
+The eb=1e-2/1e-3/1e-4 sweep confirms this is neither HURR-specific nor cuszp2-specific, and
+surfaces **two distinct symptom patterns**:
+
+1. **Catastrophic, worse at loose bounds (cuszp2, confirmed HURR only so far):**
+
+   | eb | PSNR | err_over_bound |
+   |---|---|---|
+   | 1e-2 | 35.44 dB | 391× |
+   | 1e-3 | 50.83 dB | 502× |
+   | 1e-4 | 84.79 dB | 1.0× (passes cleanly) |
+
+   Gets *worse* as the bound loosens, then passes cleanly at the tightest bound tested —
+   the opposite of what you'd expect from an outlier-capacity/rate limit.
+
+2. **Moderate, worse at tight bounds (cuszp3, CESM and HURR), PSNR looks normal despite
+   the bound violation:**
+
+   | Field | eb | PSNR | err_over_bound |
+   |---|---|---|---|
+   | CESM/CLDHGH | 1e-2 | 44.75 dB | 2.0× |
+   | CESM/CLDHGH | 1e-3 | 64.77 dB | 8.1× |
+   | CESM/CLDHGH | 1e-4 | 84.70 dB | 64.6× |
+   | HURR/TC | 1e-2 | 44.80 dB | 1.0× (passes) |
+   | HURR/TC | 1e-3 | 64.79 dB | 1.4× |
+   | HURR/TC | 1e-4 | 84.79 dB | 16.7× |
+
+   This is *not* E16's flat ~1.002× marginal pattern — the violation grows roughly
+   geometrically as the bound tightens, and PSNR staying "normal" (matching what the CR
+   would predict) while `max_abs_err` blows past the bound means a small number of
+   individual elements are the culprit, not the whole array — consistent with a broken
+   outlier-value reconstruction (the exact mechanism `outlier_selection` exists to handle
+   correctly) rather than a systematic quantization error.
+
+FZGM's ports of the same modes (`cuszp2.toml`, `cuszp3_outlier.toml` / `cuszp3_3d_outlier.toml`
+/ `cuszp3_1d_outlier.toml`) pass cleanly (`eb_satisfied: true`, normal PSNR) on every one of
+these same (field, bound) cells — this is exclusively a native-binary defect.
+
+**Affected pipelines:** native `cuszp2 -m outlier` (pattern 1, HURR only tested) and native
+`cuszp3 -m outlier` (pattern 2, CESM and HURR; NYX and HACC pass cleanly at all 3 bounds,
+not affected).
+
+**Root cause:** Not investigated for either pattern. Both point at the outlier-selection /
+outlier-value-reconstruction path specifically (the one thing `-m outlier` adds over
+`-m plain`), but the two bound-direction patterns are different enough (worse-at-loose vs.
+worse-at-tight) that they may be two independent bugs rather than one shared cause across
+cuSZp2 and cuSZp3's separate outlier implementations.
+
+**Needs:** Reproduce each cell directly, dump the outlier index/value stream from a
+`-m outlier` compress, and check for a fixed-width overflow (values that need more bits
+than the outlier slot allocates — consistent with pattern 2's error growing as more
+residuals become "outliers" at tighter bounds) or a raw/packed-format selection bug
+(consistent with pattern 1's bound-direction dependence).
+
+**First seen (original, catastrophic pattern):** fzgm_vs_native, cuszp2 HURR/TC eb=1e-3,
+2026-07-02 (E14). **Broadened (moderate pattern, cuszp3):** fzgm_vs_native, cuszp3_outlier
+CESM-2D/HURR, 2026-07-03 (first bound-sweep run to include eb=1e-2 and eb=1e-4).

@@ -5,6 +5,7 @@
         [--session-id ID] [--shard k/N]
     python -m benchkit merge    results/<session>/        # combine shard files -> runs.jsonl
     python -m benchkit report   results/<session>/        # print the table
+        [--aggregate]                                     # roll fields up into one CR per pipeline
     python -m benchkit download [DATA_DIR]                # fetch SDRBench datasets
 
 HPC: a SLURM job array runs `--shard $SLURM_ARRAY_TASK_ID/$N --session-id $SLURM_JOB_ID`;
@@ -18,7 +19,7 @@ import json
 import os
 from pathlib import Path
 
-from .analysis import print_table
+from .analysis import print_aggregate_table, print_table
 from .config import DatasetCatalog, ExperimentConfig
 from .runner import run_experiment
 from .site import Site
@@ -80,7 +81,10 @@ def cmd_report(args: argparse.Namespace) -> int:
         rows = ResultStore(target.parent, target.name).load_rows()
     else:
         rows = [json.loads(l) for l in target.read_text().splitlines() if l.strip()]
-    print_table(rows)
+    if args.aggregate:
+        print_aggregate_table(rows)
+    else:
+        print_table(rows)
     return 0
 
 
@@ -155,6 +159,10 @@ def main(argv: list[str] | None = None) -> int:
 
     rep = sub.add_parser("report", help="print a table from a session dir or runs.jsonl")
     rep.add_argument("target")
+    rep.add_argument("--aggregate", action="store_true",
+                     help="roll multi-field cells up into one aggregate CR per "
+                          "compressor/variant/pipeline/error_bound "
+                          "(ratio-of-sums and geometric mean, see docs/DESIGN.md)")
     rep.set_defaults(func=cmd_report)
 
     from .download import DATASET_KEYS

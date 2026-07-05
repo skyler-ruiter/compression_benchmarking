@@ -125,3 +125,41 @@ cmake --build build -j8
   yields one timing value. Set `repetitions: 5–10` in experiments.
 - **1D default for v3:** multi-dim processing may improve CR but requires
   verifying the dim order convention per dataset.
+
+---
+
+## FZGM pairing: preset ↔ native pipeline string
+
+FZGM has one preset per (algorithm, mode, dimensionality) triple; there is no
+single preset that's correct for every field, since `TiledLorenzoStage`'s tile
+shape is dimensionality-specific (`docs/stages/tiled_lorenzo.md`, FZGM repo).
+Match native `pipeline:` strings to FZGM presets like this:
+
+| Native `pipeline:` | Applies to | FZGM preset | Notes |
+|---|---|---|---|
+| `plain` (cuszp2) | all fields | `cuszp2_plain.toml` | `Lorenzo(block=32)`, no outlier |
+| `outlier` (cuszp2) | all fields | `cuszp2.toml` | `Lorenzo(block=32)` + outlier |
+| `plain:2d` (cuszp3) | CESM-2D | `cuszp3.toml` | `TiledLorenzo(8x8)`, no outlier |
+| `outlier:2d` (cuszp3) | CESM-2D | `cuszp3_outlier.toml` | `TiledLorenzo(8x8)` + outlier |
+| `plain:3d` (cuszp3) | HURR, NYX | `cuszp3_3d.toml` | `TiledLorenzo(4x4x4)`, no outlier |
+| `outlier:3d` (cuszp3) | HURR, NYX | `cuszp3_3d_outlier.toml` | `TiledLorenzo(4x4x4)` + outlier |
+| `plain` (cuszp3) | HACC | `cuszp3_1d.toml` | `Lorenzo(block=32)`, same stage chain as cuszp2 |
+| `outlier` (cuszp3) | HACC | `cuszp3_1d_outlier.toml` | `Lorenzo(block=32)` + outlier |
+
+cuSZp3 is dimension-matched end to end: `configs/experiments/fzgm_vs_native.yaml`
+scopes each native/FZGM pair to the fields whose true dimensionality they're
+built for, via `only_datasets` (D17, `docs/DESIGN.md`).
+
+**Why cuszp3 needs a 1-D preset (E12, fixed):** `cuszp3.toml`'s `TiledLorenzo(8x8)`
+is a 2-D preset; feeding it 1-D data (e.g. HACC, dims `[N,1,1]`) collapses tiles
+to degenerate 8×1 shapes and badly inflates the output (observed: CR 0.69, i.e.
+the file *grows*). FZGM's own docs are explicit that 1-D data should go through
+plain `LorenzoStage(block=32)` instead — identical to cuszp2's stage chain,
+since cuSZp3's 1-D delta *is* cuSZp2's delta.
+
+**Why cuszp3 needs a 3-D preset too (E12 follow-up, fixed):** the 2-D `8x8` tile
+also isn't the right shape for genuinely 3-D fields (HURR, NYX) — `tile_z=1`
+degrades to per-z-slice 2-D tiling rather than real 3-D locality, and pairing it
+against native's *default* (`-d 1`, fully flattened) pipeline string wasn't
+apples-to-apples on the native side either. Both sides now use FZGM's documented
+3-D default (`tile_x=tile_y=tile_z=4`) and native's `-d 3 dz dy dx`.

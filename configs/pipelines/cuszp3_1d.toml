@@ -1,0 +1,41 @@
+[pipeline]
+# cuSZp3 (plain, 1-D) — Quantizer(linear) -> Lorenzo(block=32) -> AdaptiveBitpack
+#
+# cuszp3.toml's TiledLorenzo targets the 2-D/3-D tiled case; for 1-D data FZGM's
+# own docs say to use plain LorenzoStage(block=32) instead — the same stage chain
+# as cuszp2.toml, since cuSZp3's 1-D delta path is identical to cuSZp2's
+# (docs/stages/tiled_lorenzo.md: "For 1-D data, LorenzoStage::setBlockSize(32)
+# already provides the cuSZp/cuSZp3 1-D block-local delta"). Feeding 1-D data
+# (e.g. HACC, dims [N,1,1]) through the 8x8-tiled cuszp3.toml instead produces
+# degenerate 8x1 tiles and a badly inflated CR — this preset is the fix.
+# Native counterpart: cuszp3 -m plain (no -d flag / -d 1, both default to 1-D).
+# cuSZp3: Huang et al., SC'25.
+#
+# Usage:
+#   fzgmod-cli -c configs/pipelines/cuszp3_1d.toml \
+#              -i data/vx.f32 -l 1073741824 -b --report --compare data/vx.f32
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 32
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+outlier_selection = false
+inputs = [{from = "lrz"}]

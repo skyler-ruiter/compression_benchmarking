@@ -1,28 +1,50 @@
-# FZGM vs. native validation — quick pass across 8 target algorithms (MANS excluded,
-# stub adapter + no FZGM preset; see docs/BENCHMARK_PLAN.md).
+# FZGM vs. native validation across 8 target algorithms (MANS excluded, stub
+# adapter + no FZGM preset; see docs/BENCHMARK_PLAN.md).
 #
 # One field per shape class, same set used by smoke-cusz.yaml / smoke-m3-refs.yaml for
-# continuity with prior baselines. eb=1e-3, rel_range (canonical range-relative bound).
+# continuity with prior baselines. Sweeps eb across three orders of magnitude
+# (rel_range, the canonical cross-tool-comparable mode — DESIGN.md §5.4).
 #
 # Pairings (native : fzgm pipeline):
-#   cusz        : configs/pipelines/cusz.toml
-#   cuszhi (tp) : configs/pipelines/cusz_hi_tp.toml    (-s tp, spline predictor)
-#   cuszhi (cr) : configs/pipelines/cusz_hi_cr.toml    (-s cr, spline predictor)
-#   cuszp2 (outlier) : configs/pipelines/cuszp2.toml   (AdaptiveBitpack + outlier_selection)
-#   cuszp3 (plain)   : configs/pipelines/cuszp3.toml   (TiledLorenzo 8x8, 2-D)
-#   fzgpu       : configs/pipelines/fzgpu.toml
-#   pfpl        : configs/pipelines/pfpl.toml
+#   cusz              : configs/pipelines/cusz.toml
+#   cuszhi (tp)        : configs/pipelines/cusz_hi_tp.toml    (-s tp, spline predictor)
+#   cuszhi (cr)        : configs/pipelines/cusz_hi_cr.toml    (-s cr, spline predictor)
+#   cuszp2 (outlier)   : configs/pipelines/cuszp2.toml         (Lorenzo block=32 + outlier)
+#   cuszp2 (plain)     : configs/pipelines/cuszp2_plain.toml   (Lorenzo block=32, no outlier)
+#   cuszp3 (plain)     : configs/pipelines/cuszp3.toml         (TiledLorenzo 8x8,   CESM-2D only)
+#                        configs/pipelines/cuszp3_3d.toml      (TiledLorenzo 4x4x4, HURR/NYX only)
+#                        configs/pipelines/cuszp3_1d.toml      (Lorenzo block=32,   HACC only)
+#   cuszp3 (outlier)   : configs/pipelines/cuszp3_outlier.toml    (TiledLorenzo 8x8   + outlier, CESM-2D only)
+#                        configs/pipelines/cuszp3_3d_outlier.toml (TiledLorenzo 4x4x4 + outlier, HURR/NYX only)
+#                        configs/pipelines/cuszp3_1d_outlier.toml (Lorenzo block=32   + outlier, HACC only)
+#   fzgpu              : configs/pipelines/fzgpu.toml
+#   pfpl               : configs/pipelines/pfpl.toml
 #
-# Known issues going in (see docs/experiments/observed_errors.md):
-#   - fzgm:cuszhi_tp: wrong CR + eb violation (FZGM port defect, not yet root-caused)
-#   - fzgm:cuszhi_cr: crashes (upstream FZGPUModules RRE stage bug, rre_stage.cu:444)
-#   - fzgm:pfpl: CR ~40% below native pfpl; marginal eb overshoot on CESM/CLDHGH
-# Run anyway per user direction — table should reflect actual current state.
+# Known/structural exclusions (see docs/adapters/cuszp.md, docs/adapters/cuszhi.md):
+#   - fzgm:cuszhi_tp / fzgm:cuszhi_cr skip HACC (only_datasets/skip_datasets, D17)
+#     — GInterpStage (the spline predictor both presets use) throws by design on 1-D
+#     input; this is a structural FZGM limitation, not a preset bug. Native cuszhi
+#     still runs against HACC as standalone reference data.
+#   - cuszp3 is now dimension-matched end to end (D17 scoping): CESM-2D gets the 2-D
+#     8x8 preset + native `plain:2d`/`outlier:2d`; HURR/NYX get the 3-D 4x4x4 preset +
+#     native `plain:3d`/`outlier:3d`; HACC gets the 1-D Lorenzo(block=32) preset +
+#     native's default 1-D-flatten mode. Previously HURR/NYX paired the 2-D preset
+#     against native's 1-D-flatten default (E12 follow-up) — fixed together with the
+#     original HACC preset bug.
+#
+# Aggregate CR across fields (ratio-of-sums and geometric mean of per-field CR):
+#   python -m benchkit report results/<session>/ --aggregate
+#
+# Re-run on an EXCLUSIVE node for a trustworthy read (prior sessions this artifact was
+# built from had wall-clock-timed adapters — chiefly native fzgpu — pick up contention
+# from other jobs sharing the node). Use scripts/submit_fzgm_vs_native.slurm
+# (#SBATCH --exclusive is already set there).
 
 name: fzgm_vs_native
 description: >
-  Quick FZGM-vs-native validation across cuSZ, cuSZ-Hi (tp/cr), cuSZp2, cuSZp3,
-  FZ-GPU, and PFPL — one field per shape class, eb=1e-3 rel_range.
+  FZGM-vs-native validation across cuSZ, cuSZ-Hi (tp/cr), cuSZp2 (plain/outlier),
+  cuSZp3 (plain/outlier), FZ-GPU, and PFPL — one field per shape class,
+  eb in {1e-2, 1e-3, 1e-4}, rel_range.
 
 datasets:
   - CESM-2D
@@ -38,7 +60,7 @@ fields:
 
 error:
   mode: rel_range
-  bounds: [1.0e-3]
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
 
 repetitions: 5
 warmup_reps: 1
@@ -46,17 +68,49 @@ lock_clocks: false
 retain_decompressed: false
 
 runs:
-  - {compressor: cusz,   variant: cusz,       pipeline: default}
-  - {compressor: fzgm,   variant: cusz,       pipeline: configs/pipelines/cusz.toml}
-  - {compressor: cuszhi, variant: cuszhi_tp,  pipeline: tp}
-  - {compressor: fzgm,   variant: cuszhi_tp,  pipeline: configs/pipelines/cusz_hi_tp.toml}
-  - {compressor: cuszhi, variant: cuszhi_cr,  pipeline: cr}
-  - {compressor: fzgm,   variant: cuszhi_cr,  pipeline: configs/pipelines/cusz_hi_cr.toml}
-  - {compressor: cuszp2, variant: cuszp2,     pipeline: outlier}
-  - {compressor: fzgm,   variant: cuszp2,     pipeline: configs/pipelines/cuszp2.toml}
-  - {compressor: cuszp3, variant: cuszp3,     pipeline: plain}
-  - {compressor: fzgm,   variant: cuszp3,     pipeline: configs/pipelines/cuszp3.toml}
-  - {compressor: fzgpu,  variant: fzgpu,      pipeline: default}
-  - {compressor: fzgm,   variant: fzgpu,      pipeline: configs/pipelines/fzgpu.toml}
-  - {compressor: pfpl,   variant: pfpl,       pipeline: default}
-  - {compressor: fzgm,   variant: pfpl,       pipeline: configs/pipelines/pfpl.toml}
+  - {compressor: cusz,   variant: cusz,           pipeline: default}
+  - {compressor: fzgm,   variant: cusz,           pipeline: configs/pipelines/cusz.toml}
+
+  - {compressor: cuszhi, variant: cuszhi_tp,      pipeline: tp}
+  - {compressor: fzgm,   variant: cuszhi_tp,      pipeline: configs/pipelines/cusz_hi_tp.toml,
+     skip_datasets: [HACC]}
+  - {compressor: cuszhi, variant: cuszhi_cr,      pipeline: cr}
+  - {compressor: fzgm,   variant: cuszhi_cr,      pipeline: configs/pipelines/cusz_hi_cr.toml,
+     skip_datasets: [HACC]}
+
+  - {compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier}
+  - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
+  - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:3d",
+     only_datasets: [HURR, NYX]}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [HURR, NYX]}
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: plain,
+     only_datasets: [HACC]}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_1d.toml,
+     only_datasets: [HACC]}
+
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:3d",
+     only_datasets: [HURR, NYX]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [HURR, NYX]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: outlier,
+     only_datasets: [HACC]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_1d_outlier.toml,
+     only_datasets: [HACC]}
+
+  - {compressor: fzgpu,  variant: fzgpu,          pipeline: default}
+  - {compressor: fzgm,   variant: fzgpu,          pipeline: configs/pipelines/fzgpu.toml}
+
+  - {compressor: pfpl,   variant: pfpl,           pipeline: default}
+  - {compressor: fzgm,   variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}

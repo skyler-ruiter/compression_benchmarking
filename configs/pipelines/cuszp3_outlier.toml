@@ -1,0 +1,44 @@
+[pipeline]
+# cuSZp3 (outlier, 2-D) — cuszp3.toml plus per-tile outlier selection
+#
+# Same pipeline as cuszp3.toml (Quantizer(linear) -> TiledLorenzo(8x8) ->
+# AdaptiveBitpack), with AdaptiveBitpack outlier_selection = true: each tile may
+# instead store element 0 as a raw 1..4-byte outlier and pack only the rest,
+# whichever is smaller. Native counterpart: cuszp3 -m outlier -d 2.
+#
+# For 3-D data use tile_x=tile_y=tile_z=4 (block_size stays 64). For 1-D data
+# (e.g. HACC) use cuszp3_1d_outlier.toml instead — TiledLorenzo targets the
+# 2-D/3-D tiled case; FZGM's own docs say 1-D should go through plain
+# LorenzoStage(block=32), same as cuszp2 (docs/stages/tiled_lorenzo.md).
+# cuSZp3: Huang et al., SC'25.
+#
+# Usage:
+#   fzgmod-cli -c configs/pipelines/cuszp3_outlier.toml \
+#              -i data/CLDHGH.f32 -l 3600x1800 -b --report --compare data/CLDHGH.f32
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+outlier_selection = true
+inputs = [{from = "tl"}]

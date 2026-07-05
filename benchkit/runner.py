@@ -31,6 +31,8 @@ def _iter_cells(cfg: ExperimentConfig, catalog: DatasetCatalog):
     # Deterministic order so `--shard k/N` partitions the same way across array tasks.
     for entry in cfg.runs:
         for dataset in cfg.datasets:
+            if not entry.applies_to(dataset):
+                continue
             for fname in cfg.fields_for(dataset, catalog):
                 fspec = catalog.resolve(dataset, fname)
                 for eb in cfg.error_bounds:

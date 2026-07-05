@@ -1,0 +1,57 @@
+# Throughput scaling experiment — FZGM v3: cuszp2 (PREALLOCATE + MINIMAL)
+#
+# Extends fzgm_scaling.yaml / fzgm_scaling_v2.yaml with the next compressor config:
+#   cuszp2          — PREALLOCATE baseline for cuSZp2 (Quantizer -> Lorenzo(block=32)
+#                      -> AdaptiveBitpack(outlier_selection)); expected to OOM at some
+#                      point <=8 GB like the other PREALLOCATE baselines have.
+#   cuszp2_minimal  — cuszp2 + MINIMAL; tests whether MINIMAL raises the ceiling the
+#                      way it did for fzgpu/pfpl.
+#
+# cuszp2 was chosen as the next config because its Lorenzo predictor is
+# dimension-agnostic and runs on flat 1-D data (already validated on HACC/vx in
+# fzgm_vs_native.yaml), so it drops straight into the existing 1-D SCALING-SYNTH
+# sweep with no new data generation needed. cuszp3 (TiledLorenzo, needs an explicit
+# >=2-D tile shape) and cuszhi tp/cr (GInterp, needs >=2-D input) do NOT fit this
+# sweep as-is — they would need new 2-D/3-D shaped synthetic scaling data
+# (a make_scaling_data.py extension), deferred to a later round.
+#
+# Previous results (cusz, fzgpu, cusz_minimal, cusz_minimal_lowoutlier,
+# fzgpu_minimal, pfpl, pfpl_minimal) are in docs/experiments/fzgm_scaling_2026-06-30.md
+# and the fzgm_scaling_v2 session.
+#
+# Setup:
+#   # data must already exist — re-run make_scaling_data.py if not:
+#   python scripts/make_scaling_data.py \
+#       --source $BENCHKIT_DATA_ROOT/NYX_512x512x512/baryon_density.f32 \
+#       --out-dir $BENCHKIT_DATA_ROOT/SCALING-SYNTH
+#   sbatch scripts/submit_fzgm_scaling_v3.slurm
+
+name: fzgm_scaling_v3
+description: >
+  FZGM throughput vs. data size — cuszp2 (PREALLOCATE + MINIMAL).
+  Continues fzgm_scaling / fzgm_scaling_v2 session; same synthetic 0.5-16 GB
+  sweep + HACC/NYX anchors.
+
+datasets:
+  - SCALING-SYNTH
+  - HACC
+  - NYX
+
+fields:
+  SCALING-SYNTH: all
+  HACC: [vx]
+  NYX:  [baryon_density]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+timing_cv_threshold: 0.10
+
+runs:
+  - {compressor: fzgm, variant: cuszp2,         pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: fzgm, variant: cuszp2_minimal, pipeline: configs/pipelines/cuszp2_minimal.toml}
