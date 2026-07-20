@@ -44,6 +44,7 @@ repetitions: 3
 warmup_reps: 1
 lock_clocks: false
 retain_decompressed: false
+retain_compressed: false  # disk budget: c.fzm/c.cuszp/etc. deleted after each cell; sizes/checksums still recorded
 
 runs:
   - {compressor: sz3,   variant: sz3,   pipeline: default}

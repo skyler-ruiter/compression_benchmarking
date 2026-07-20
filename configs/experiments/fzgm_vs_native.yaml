@@ -70,6 +70,7 @@ repetitions: 5
 warmup_reps: 1
 lock_clocks: true    # this VM is single-tenant/exclusive; run scripts/lock_clocks.sh first
 retain_decompressed: false
+retain_compressed: false  # disk budget: c.fzm/c.cuszp/etc. deleted after each cell; sizes/checksums still recorded
 
 runs:
   - {compressor: cusz,   variant: cusz,           pipeline: default}

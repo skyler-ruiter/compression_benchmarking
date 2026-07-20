@@ -57,8 +57,11 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
 - **HPC timing:** clocks usually can't be locked, so trust the variance flag
   (`timing_reliable`, cv ≤ 0.15) and prefer `*_device_ms_min`; a throttle sampler records
   why. Results from different GPUs are partitioned by provenance, never pooled.
-- **Disk:** `retain_decompressed: false` by default (deletes ~original-sized `d.bin`,
-  checksum kept, regenerable from `c.fzm`).
+- **Disk:** both `retain_decompressed` and `retain_compressed` default to `false` —
+  `d.bin` and `c.fzm`/`c.cuszp`/etc. are deleted after each cell's row is written;
+  sizes and checksums are recorded regardless. A single full `fzgm_vs_native.yaml`
+  session left `retain_compressed` unset (i.e. always-kept) and ate 16GB of disk in
+  compressed artifacts nobody read again — see D25.
 
 ## Status
 

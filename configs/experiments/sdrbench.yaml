@@ -42,6 +42,7 @@ repetitions: 10
 warmup_reps: 3
 lock_clocks: true           # exclusive SLURM node gives steadier GPU clocks
 retain_decompressed: false  # disk budget: checksum kept; regenerable from c.fzm
+retain_compressed: false  # disk budget: c.fzm/c.cuszp/etc. deleted after each cell; sizes/checksums still recorded
 timing_cv_threshold: 0.10   # tighter than default (0.15); exclusive nodes are stable
 
 runs:

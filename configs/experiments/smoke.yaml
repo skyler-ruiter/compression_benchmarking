@@ -19,6 +19,7 @@ repetitions: 10
 warmup_reps: 3
 lock_clocks: false          # desktop 3080 Ti; clock locking arrives in M2
 retain_decompressed: false  # default: delete the ~original-sized d.bin after metrics
+retain_compressed: false  # disk budget: c.fzm/c.cuszp/etc. deleted after each cell; sizes/checksums still recorded
                             # (checksum kept; regenerable from c.fzm). Set true to keep.
 
 runs:

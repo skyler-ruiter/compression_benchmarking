@@ -20,6 +20,7 @@ repetitions: 10
 warmup_reps: 3
 lock_clocks: true
 retain_decompressed: false
+retain_compressed: false  # disk budget: c.fzm/c.cuszp/etc. deleted after each cell; sizes/checksums still recorded
 timing_cv_threshold: 0.10
 
 runs:

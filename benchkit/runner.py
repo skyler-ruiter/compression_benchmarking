@@ -104,6 +104,12 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             dsha = sha256_file(dec.decompressed_path)
             if not cfg.retain_decompressed:
                 dec.decompressed_path.unlink(missing_ok=True)
+            # Same treatment for the compressed artifact itself, once nothing else in
+            # this cell needs it on disk (compress/decompress/benchmark have all run by
+            # this point). Its size is already captured in `size` independent of this.
+            csha = sha256_file(comp.compressed_path)
+            if not cfg.retain_compressed:
+                comp.compressed_path.unlink(missing_ok=True)
             tcv = cfg.timing_cv_threshold
             ct = metrics.summarize_timing(bench.compress_device_ms_all,
                                           size.original_bytes, cfg.warmup_reps, tcv)
@@ -116,6 +122,8 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             row["cell_key"] = key
             row["decompressed_sha256"] = dsha
             row["decompressed_retained"] = cfg.retain_decompressed
+            row["compressed_sha256"] = csha
+            row["compressed_retained"] = cfg.retain_compressed
             row["gpu_sampling"] = gpu
             row["timing_reliable"] = reliable
             store.append(row)

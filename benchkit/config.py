@@ -153,6 +153,7 @@ class ExperimentConfig:
     warmup_reps: int
     lock_clocks: bool
     retain_decompressed: bool
+    retain_compressed: bool
     timing_cv_threshold: float
     runs: list[RunEntry]
     pairings: list[dict[str, Any]] = field(default_factory=list)
@@ -200,6 +201,14 @@ class ExperimentConfig:
             # local disk budget. Its checksum is recorded regardless, and c.fzm is kept
             # so it can be regenerated. Toggle on for experiments that need the array.
             retain_decompressed=bool(raw.get("retain_decompressed", False)),
+            # The compressed artifact itself — off by default too (2026-07-20: a single
+            # full fzgm_vs_native.yaml session was found eating 16GB of disk, almost
+            # entirely c.fzm/c.cuszp/c.cusza/etc. files nobody was reading after the row
+            # was written). Its size was already captured into compressed_bytes at
+            # compress() time regardless of this flag; its checksum is recorded
+            # regardless too. Toggle on for experiments that need to inspect the actual
+            # compressed bytes afterward (e.g. debugging a format issue).
+            retain_compressed=bool(raw.get("retain_compressed", False)),
             # Coefficient-of-variation above which a cell's timing is flagged unreliable
             # (clock bounce / throttling on unlocked GPUs). Tighten on exclusive HPC nodes.
             timing_cv_threshold=float(raw.get("timing_cv_threshold", 0.15)),
