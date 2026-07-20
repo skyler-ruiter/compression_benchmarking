@@ -1,0 +1,18 @@
+{
+  "reconstructed": true,
+  "reconstruction_source": "raw_slurm_stdout.log",
+  "reconstruction_note": "This provenance.json was reconstructed from a stdout log, not captured natively by benchkit. Fields not derivable from the log (exact date, CUDA toolkit patch version, per-compressor CLI paths, host details) are left blank or approximate \u2014 fill in by hand if known, or replace this file entirely if the original provenance.json is ever recovered from the source machine.",
+  "gpu": {
+    "name": "NVIDIA A100-SXM4-40GB",
+    "memory_total": "40960 MiB",
+    "driver": "595.71.05"
+  },
+  "session_id": "7562329",
+  "experiment_config": "configs/experiments/fzgm_vs_native.yaml",
+  "original_results_path": "/N/scratch/sruiter/benchkit-results/7562329",
+  "node_job_label": "bkit-fzgm-vs-native sruiter",
+  "software": {
+    "modules": "cudatoolkit/24.11_12.6 (reloaded from cudatoolkit/12.6)"
+  },
+  "site": "BigRed200 (SLURM cluster, Indiana University)"
+}

@@ -1,0 +1,818 @@
+
+The following have been reloaded with a version change:
+  1) cudatoolkit/12.6 => cudatoolkit/24.11_12.6
+
+[gpu] NVIDIA A100-SXM4-40GB, 40960 MiB, 595.71.05
+[gpu] NVIDIA A100-SXM4-40GB, 40960 MiB, 595.71.05
+[gpu] NVIDIA A100-SXM4-40GB, 40960 MiB, 595.71.05
+[gpu] NVIDIA A100-SXM4-40GB, 40960 MiB, 595.71.05
+[node-jobs] bkit-fzgm-vs-native sruiter
+[benchkit] session = 7562329
+[benchkit] results = /N/scratch/sruiter/benchkit-results/7562329
+[benchkit] experiment = configs/experiments/fzgm_vs_native.yaml
+[benchkit] fzgmod-cli = /N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli
+[session] 7562329  ->  /N/scratch/sruiter/benchkit-results/7562329
+[plan] 210 cells this task, 0 already done (skipped)
+  [0] OK   cusz:cusz [default] CESM-2D/CLDHGH eb=0.01  CR=24.26 PSNR=44.75dB cT=56.9 dT=30.4GB/s eb_ok=True
+  [1] OK   cusz:cusz [default] CESM-2D/CLDHGH eb=0.001  CR=13.08 PSNR=64.77dB cT=54.8 dT=14.1GB/s eb_ok=True
+  [2] OK   cusz:cusz [default] CESM-2D/CLDHGH eb=0.0001  CR=4.70 PSNR=84.77dB cT=53.7 dT=11.4GB/s eb_ok=True
+  [3] OK   cusz:cusz [default] HURR/TC eb=0.01  CR=26.31 PSNR=44.80dB cT=111.1 dT=59.0GB/s eb_ok=True
+  [4] OK   cusz:cusz [default] HURR/TC eb=0.001  CR=16.65 PSNR=64.79dB cT=111.6 dT=50.0GB/s eb_ok=True
+  [5] OK   cusz:cusz [default] HURR/TC eb=0.0001  CR=9.12 PSNR=84.79dB cT=111.9 dT=39.0GB/s eb_ok=True
+  [6] OK   cusz:cusz [default] NYX/temperature eb=0.01  CR=29.89 PSNR=54.12dB cT=148.4 dT=79.3GB/s eb_ok=True
+  [7] OK   cusz:cusz [default] NYX/temperature eb=0.001  CR=26.48 PSNR=63.89dB cT=148.9 dT=83.1GB/s eb_ok=True
+  [8] OK   cusz:cusz [default] NYX/temperature eb=0.0001  CR=18.50 PSNR=84.77dB cT=151.2 dT=73.5GB/s eb_ok=True
+  [9] OK   cusz:cusz [default] HACC/vx eb=0.01  CR=14.58 PSNR=44.78dB cT=158.2 dT=54.9GB/s eb_ok=True
+  [10] OK   cusz:cusz [default] HACC/vx eb=0.001  CR=4.92 PSNR=64.77dB cT=149.3 dT=54.1GB/s eb_ok=True
+  [11] OK   cusz:cusz [default] HACC/vx eb=0.0001  CR=1.26 PSNR=-23.61dB cT=71.7 dT=318.0GB/s eb_ok=False
+  [12] OK   fzgm:cusz [cusz.toml] CESM-2D/CLDHGH eb=0.01  CR=24.26 PSNR=44.75dB cT=37.1 dT=33.2GB/s eb_ok=True
+  [13] OK   fzgm:cusz [cusz.toml] CESM-2D/CLDHGH eb=0.001  CR=13.80 PSNR=64.77dB cT=34.1 dT=16.7GB/s eb_ok=True
+  [14] OK   fzgm:cusz [cusz.toml] CESM-2D/CLDHGH eb=0.0001  CR=6.22 PSNR=84.77dB cT=31.5 dT=13.4GB/s eb_ok=True
+  [15] OK   fzgm:cusz [cusz.toml] HURR/TC eb=0.01  CR=26.59 PSNR=44.80dB cT=94.4 dT=75.3GB/s eb_ok=True
+  [16] OK   fzgm:cusz [cusz.toml] HURR/TC eb=0.001  CR=17.83 PSNR=64.79dB cT=88.0 dT=57.5GB/s eb_ok=True
+  [17] OK   fzgm:cusz [cusz.toml] HURR/TC eb=0.0001  CR=10.43 PSNR=84.79dB cT=81.6 dT=47.2GB/s eb_ok=True
+  [18] OK   fzgm:cusz [cusz.toml] NYX/temperature eb=0.01  CR=29.93 PSNR=54.12dB cT=103.8 dT=75.0GB/s eb_ok=True
+  [19] OK   fzgm:cusz [cusz.toml] NYX/temperature eb=0.001  CR=27.34 PSNR=63.89dB cT=104.3 dT=74.5GB/s eb_ok=True
+  [20] OK   fzgm:cusz [cusz.toml] NYX/temperature eb=0.0001  CR=18.77 PSNR=84.77dB cT=100.4 dT=72.4GB/s eb_ok=True
+  [21] OK   fzgm:cusz [cusz.toml] HACC/vx eb=0.01  CR=15.04 PSNR=44.78dB cT=72.6 dT=54.2GB/s eb_ok=True
+  [22] OK   fzgm:cusz [cusz.toml] HACC/vx eb=0.001  CR=6.32 PSNR=64.77dB cT=61.9 dT=44.6GB/s eb_ok=True
+  [23] OK   fzgm:cusz [cusz.toml] HACC/vx eb=0.0001  CR=3.63 PSNR=84.77dB cT=51.8 dT=38.7GB/s eb_ok=True
+  [24] OK   cuszhi:cuszhi_tp [tp] CESM-2D/CLDHGH eb=0.01  CR=61.92 PSNR=51.60dB cT=50.4 dT=83.8GB/s eb_ok=True
+  [25] OK   cuszhi:cuszhi_tp [tp] CESM-2D/CLDHGH eb=0.001  CR=13.33 PSNR=66.54dB cT=50.0 dT=83.3GB/s eb_ok=True
+  [26] OK   cuszhi:cuszhi_tp [tp] CESM-2D/CLDHGH eb=0.0001  CR=5.75 PSNR=85.43dB cT=48.3 dT=77.6GB/s eb_ok=True
+  [27] OK   cuszhi:cuszhi_tp [tp] HURR/TC eb=0.01  CR=352.73 PSNR=54.54dB cT=61.1 dT=68.8GB/s eb_ok=True
+  [28] OK   cuszhi:cuszhi_tp [tp] HURR/TC eb=0.001  CR=39.55 PSNR=67.97dB cT=61.2 dT=68.9GB/s eb_ok=True
+  [29] OK   cuszhi:cuszhi_tp [tp] HURR/TC eb=0.0001  CR=10.07 PSNR=85.21dB cT=61.2 dT=68.9GB/s eb_ok=True
+  [30] OK   cuszhi:cuszhi_tp [tp] NYX/temperature eb=0.01  CR=1240.33 PSNR=64.29dB cT=90.5 dT=95.1GB/s eb_ok=True
+  [31] OK   cuszhi:cuszhi_tp [tp] NYX/temperature eb=0.001  CR=209.76 PSNR=74.39dB cT=90.3 dT=95.1GB/s eb_ok=True
+  [32] OK   cuszhi:cuszhi_tp [tp] NYX/temperature eb=0.0001  CR=33.44 PSNR=88.26dB cT=90.3 dT=95.1GB/s eb_ok=True
+  [33] OK   cuszhi:cuszhi_tp [tp] HACC/vx eb=0.01  CR=9.94 PSNR=48.06dB cT=3.7 dT=4.2GB/s eb_ok=True
+  [34] OK   cuszhi:cuszhi_tp [tp] HACC/vx eb=0.001  CR=5.08 PSNR=66.69dB cT=3.6 dT=4.3GB/s eb_ok=True
+  [35] FAIL cuszhi:cuszhi_tp [tp] HACC/vx eb=0.0001  -> compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0035/compress.log
+  [36] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] CESM-2D/CLDHGH eb=0.01  CR=52.45 PSNR=51.50dB cT=18.4 dT=24.0GB/s eb_ok=True
+  [37] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] CESM-2D/CLDHGH eb=0.001  CR=12.46 PSNR=66.83dB cT=18.2 dT=24.0GB/s eb_ok=True
+  [38] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] CESM-2D/CLDHGH eb=0.0001  CR=5.41 PSNR=85.91dB cT=16.7 dT=21.6GB/s eb_ok=True
+  [39] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] HURR/TC eb=0.01  CR=344.35 PSNR=54.73dB cT=40.1 dT=47.6GB/s eb_ok=True
+  [40] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] HURR/TC eb=0.001  CR=38.98 PSNR=68.54dB cT=39.5 dT=47.4GB/s eb_ok=True
+  [41] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] HURR/TC eb=0.0001  CR=9.88 PSNR=85.43dB cT=37.7 dT=47.3GB/s eb_ok=True
+  [42] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] NYX/temperature eb=0.01  CR=1152.04 PSNR=64.21dB cT=48.4 dT=56.1GB/s eb_ok=True
+  [43] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] NYX/temperature eb=0.001  CR=210.34 PSNR=75.75dB cT=48.2 dT=56.1GB/s eb_ok=True
+  [44] OK   fzgm:cuszhi_tp [cusz_hi_tp.toml] NYX/temperature eb=0.0001  CR=36.91 PSNR=90.02dB cT=47.6 dT=55.9GB/s eb_ok=True
+  [45] OK   cuszhi:cuszhi_cr [cr] CESM-2D/CLDHGH eb=0.01  CR=52.65 PSNR=51.60dB cT=35.4 dT=35.1GB/s eb_ok=True
+  [46] OK   cuszhi:cuszhi_cr [cr] CESM-2D/CLDHGH eb=0.001  CR=13.30 PSNR=66.54dB cT=33.8 dT=31.9GB/s eb_ok=True
+  [47] OK   cuszhi:cuszhi_cr [cr] CESM-2D/CLDHGH eb=0.0001  CR=5.37 PSNR=85.43dB cT=33.1 dT=36.5GB/s eb_ok=True
+  [48] OK   cuszhi:cuszhi_cr [cr] HURR/TC eb=0.01  CR=257.41 PSNR=54.54dB cT=48.3 dT=74.4GB/s eb_ok=True
+  [49] OK   cuszhi:cuszhi_cr [cr] HURR/TC eb=0.001  CR=41.21 PSNR=67.97dB cT=48.1 dT=74.2GB/s eb_ok=True
+  [50] OK   cuszhi:cuszhi_cr [cr] HURR/TC eb=0.0001  CR=9.99 PSNR=85.21dB cT=48.1 dT=74.5GB/s eb_ok=True
+  [51] OK   cuszhi:cuszhi_cr [cr] NYX/temperature eb=0.01  CR=1274.99 PSNR=64.29dB cT=66.3 dT=98.3GB/s eb_ok=True
+  [52] OK   cuszhi:cuszhi_cr [cr] NYX/temperature eb=0.001  CR=287.83 PSNR=74.39dB cT=66.3 dT=98.4GB/s eb_ok=True
+  [53] OK   cuszhi:cuszhi_cr [cr] NYX/temperature eb=0.0001  CR=49.47 PSNR=88.26dB cT=66.3 dT=98.3GB/s eb_ok=True
+  [54] FAIL cuszhi:cuszhi_cr [cr] HACC/vx eb=0.01  -> compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0054/compress.log
+  [55] OK   cuszhi:cuszhi_cr [cr] HACC/vx eb=0.001  CR=5.08 PSNR=66.69dB cT=3.6 dT=4.2GB/s eb_ok=True
+  [56] FAIL cuszhi:cuszhi_cr [cr] HACC/vx eb=0.0001  -> compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0056/compress.log
+  [57] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] CESM-2D/CLDHGH eb=0.01  CR=53.21 PSNR=51.50dB cT=15.2 dT=11.8GB/s eb_ok=True
+  [58] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] CESM-2D/CLDHGH eb=0.001  CR=13.20 PSNR=66.83dB cT=14.8 dT=8.1GB/s eb_ok=True
+  [59] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] CESM-2D/CLDHGH eb=0.0001  CR=5.79 PSNR=85.91dB cT=12.3 dT=5.6GB/s eb_ok=True
+  [60] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] HURR/TC eb=0.01  CR=258.49 PSNR=54.73dB cT=35.2 dT=28.6GB/s eb_ok=True
+  [61] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] HURR/TC eb=0.001  CR=41.18 PSNR=68.54dB cT=35.1 dT=25.1GB/s eb_ok=True
+  [62] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] HURR/TC eb=0.0001  CR=10.19 PSNR=85.43dB cT=29.8 dT=12.7GB/s eb_ok=True
+  [63] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] NYX/temperature eb=0.01  CR=517.71 PSNR=64.21dB cT=42.6 dT=38.8GB/s eb_ok=True
+  [64] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] NYX/temperature eb=0.001  CR=185.10 PSNR=75.75dB cT=42.4 dT=38.2GB/s eb_ok=True
+  [65] OK   fzgm:cuszhi_cr [cusz_hi_cr.toml] NYX/temperature eb=0.0001  CR=46.05 PSNR=90.02dB cT=40.3 dT=33.9GB/s eb_ok=True
+  [66] OK   cuszp2:cuszp2_outlier [outlier] CESM-2D/CLDHGH eb=0.01  CR=13.53 PSNR=44.75dB cT=50.5 dT=52.3GB/s eb_ok=True !UNSTABLE(cv c=0.02 d=1.45)
+  [67] OK   cuszp2:cuszp2_outlier [outlier] CESM-2D/CLDHGH eb=0.001  CR=8.80 PSNR=64.77dB cT=44.7 dT=41.4GB/s eb_ok=True !UNSTABLE(cv c=0.02 d=2.24)
+  [68] OK   cuszp2:cuszp2_outlier [outlier] CESM-2D/CLDHGH eb=0.0001  CR=4.91 PSNR=84.77dB cT=42.3 dT=26.1GB/s eb_ok=True !UNSTABLE(cv c=0.02 d=0.25)
+  [69] OK   cuszp2:cuszp2_outlier [outlier] HURR/TC eb=0.01  CR=16.56 PSNR=35.58dB cT=146.1 dT=223.4GB/s eb_ok=False !UNSTABLE(cv c=0.01 d=0.52)
+  [70] OK   cuszp2:cuszp2_outlier [outlier] HURR/TC eb=0.001  CR=10.88 PSNR=50.58dB cT=135.0 dT=110.2GB/s eb_ok=False !UNSTABLE(cv c=0.18 d=0.18)
+  [71] OK   cuszp2:cuszp2_outlier [outlier] HURR/TC eb=0.0001  CR=6.02 PSNR=84.79dB cT=122.5 dT=98.1GB/s eb_ok=True
+  [72] OK   cuszp2:cuszp2_outlier [outlier] NYX/temperature eb=0.01  CR=115.40 PSNR=54.12dB cT=402.7 dT=861.3GB/s eb_ok=True
+  [73] OK   cuszp2:cuszp2_outlier [outlier] NYX/temperature eb=0.001  CR=16.46 PSNR=63.89dB cT=293.6 dT=343.9GB/s eb_ok=True
+  [74] OK   cuszp2:cuszp2_outlier [outlier] NYX/temperature eb=0.0001  CR=10.64 PSNR=84.77dB cT=269.3 dT=282.0GB/s eb_ok=True
+  [75] OK   cuszp2:cuszp2_outlier [outlier] HACC/vx eb=0.01  CR=10.95 PSNR=44.78dB cT=341.7 dT=413.7GB/s eb_ok=True
+  [76] OK   cuszp2:cuszp2_outlier [outlier] HACC/vx eb=0.001  CR=5.65 PSNR=64.77dB cT=285.3 dT=275.2GB/s eb_ok=True
+  [77] OK   cuszp2:cuszp2_outlier [outlier] HACC/vx eb=0.0001  CR=3.59 PSNR=84.77dB cT=262.8 dT=229.4GB/s eb_ok=True
+  [78] OK   fzgm:cuszp2_outlier [cuszp2.toml] CESM-2D/CLDHGH eb=0.01  CR=12.24 PSNR=44.75dB cT=49.9 dT=45.3GB/s eb_ok=True
+  [79] OK   fzgm:cuszp2_outlier [cuszp2.toml] CESM-2D/CLDHGH eb=0.001  CR=8.24 PSNR=64.77dB cT=48.3 dT=45.9GB/s eb_ok=True
+  [80] OK   fzgm:cuszp2_outlier [cuszp2.toml] CESM-2D/CLDHGH eb=0.0001  CR=4.73 PSNR=84.77dB cT=46.8 dT=45.6GB/s eb_ok=True
+  [81] OK   fzgm:cuszp2_outlier [cuszp2.toml] HURR/TC eb=0.01  CR=14.66 PSNR=44.80dB cT=61.1 dT=49.0GB/s eb_ok=True
+  [82] OK   fzgm:cuszp2_outlier [cuszp2.toml] HURR/TC eb=0.001  CR=10.02 PSNR=64.79dB cT=56.6 dT=49.2GB/s eb_ok=True
+  [83] OK   fzgm:cuszp2_outlier [cuszp2.toml] HURR/TC eb=0.0001  CR=5.75 PSNR=84.79dB cT=55.5 dT=49.1GB/s eb_ok=True
+  [84] OK   fzgm:cuszp2_outlier [cuszp2.toml] NYX/temperature eb=0.01  CR=60.69 PSNR=54.12dB cT=81.5 dT=54.3GB/s eb_ok=True
+  [85] OK   fzgm:cuszp2_outlier [cuszp2.toml] NYX/temperature eb=0.001  CR=14.58 PSNR=63.89dB cT=64.3 dT=51.2GB/s eb_ok=True
+  [86] OK   fzgm:cuszp2_outlier [cuszp2.toml] NYX/temperature eb=0.0001  CR=9.83 PSNR=84.77dB cT=59.8 dT=48.9GB/s eb_ok=True
+  [87] OK   fzgm:cuszp2_outlier [cuszp2.toml] HACC/vx eb=0.01  CR=10.09 PSNR=44.78dB cT=62.2 dT=48.8GB/s eb_ok=True
+  [88] OK   fzgm:cuszp2_outlier [cuszp2.toml] HACC/vx eb=0.001  CR=5.41 PSNR=64.77dB cT=73.7 dT=57.1GB/s eb_ok=True
+  [89] OK   fzgm:cuszp2_outlier [cuszp2.toml] HACC/vx eb=0.0001  CR=3.49 PSNR=84.77dB cT=63.6 dT=55.2GB/s eb_ok=True
+  [90] OK   cuszp2:cuszp2_plain [plain] CESM-2D/CLDHGH eb=0.01  CR=6.20 PSNR=44.75dB cT=55.9 dT=60.3GB/s eb_ok=True !UNSTABLE(cv c=0.31 d=0.20)
+  [91] OK   cuszp2:cuszp2_plain [plain] CESM-2D/CLDHGH eb=0.001  CR=3.81 PSNR=64.77dB cT=51.0 dT=52.8GB/s eb_ok=True !UNSTABLE(cv c=0.50 d=0.54)
+  [92] OK   cuszp2:cuszp2_plain [plain] CESM-2D/CLDHGH eb=0.0001  CR=2.73 PSNR=84.77dB cT=48.4 dT=50.2GB/s eb_ok=True !UNSTABLE(cv c=1.05 d=0.83)
+  [93] OK   cuszp2:cuszp2_plain [plain] HURR/TC eb=0.01  CR=5.94 PSNR=44.80dB cT=147.5 dT=109.7GB/s eb_ok=True !UNSTABLE(cv c=0.29 d=0.26)
+  [94] OK   cuszp2:cuszp2_plain [plain] HURR/TC eb=0.001  CR=3.71 PSNR=64.79dB cT=131.7 dT=153.8GB/s eb_ok=True
+  [95] OK   cuszp2:cuszp2_plain [plain] HURR/TC eb=0.0001  CR=2.70 PSNR=84.79dB cT=120.9 dT=44.5GB/s eb_ok=True !UNSTABLE(cv c=0.00 d=0.33)
+  [96] OK   cuszp2:cuszp2_plain [plain] NYX/temperature eb=0.01  CR=115.37 PSNR=54.12dB cT=424.2 dT=969.8GB/s eb_ok=True
+  [97] OK   cuszp2:cuszp2_plain [plain] NYX/temperature eb=0.001  CR=13.72 PSNR=63.89dB cT=276.8 dT=314.3GB/s eb_ok=True
+  [98] OK   cuszp2:cuszp2_plain [plain] NYX/temperature eb=0.0001  CR=6.61 PSNR=84.77dB cT=261.8 dT=315.6GB/s eb_ok=True
+  [99] OK   cuszp2:cuszp2_plain [plain] HACC/vx eb=0.01  CR=10.03 PSNR=44.78dB cT=297.5 dT=337.9GB/s eb_ok=True !UNSTABLE(cv c=0.08 d=0.43)
+  [100] OK   cuszp2:cuszp2_plain [plain] HACC/vx eb=0.001  CR=5.18 PSNR=64.77dB cT=250.7 dT=343.2GB/s eb_ok=True
+  [101] OK   cuszp2:cuszp2_plain [plain] HACC/vx eb=0.0001  CR=3.39 PSNR=84.77dB cT=252.2 dT=376.3GB/s eb_ok=True !UNSTABLE(cv c=0.00 d=0.20)
+  [102] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] CESM-2D/CLDHGH eb=0.01  CR=6.20 PSNR=44.75dB cT=48.3 dT=44.9GB/s eb_ok=True
+  [103] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] CESM-2D/CLDHGH eb=0.001  CR=3.81 PSNR=64.77dB cT=44.5 dT=44.4GB/s eb_ok=True
+  [104] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] CESM-2D/CLDHGH eb=0.0001  CR=2.73 PSNR=84.77dB cT=39.6 dT=42.4GB/s eb_ok=True
+  [105] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] HURR/TC eb=0.01  CR=5.94 PSNR=44.80dB cT=56.7 dT=49.5GB/s eb_ok=True
+  [106] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] HURR/TC eb=0.001  CR=3.71 PSNR=64.79dB cT=51.8 dT=48.8GB/s eb_ok=True
+  [107] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] HURR/TC eb=0.0001  CR=2.70 PSNR=84.79dB cT=45.9 dT=46.4GB/s eb_ok=True
+  [108] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] NYX/temperature eb=0.01  CR=115.37 PSNR=54.12dB cT=82.1 dT=54.6GB/s eb_ok=True
+  [109] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] NYX/temperature eb=0.001  CR=13.72 PSNR=63.89dB cT=61.1 dT=51.5GB/s eb_ok=True
+  [110] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] NYX/temperature eb=0.0001  CR=6.61 PSNR=84.77dB cT=60.1 dT=51.8GB/s eb_ok=True
+  [111] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] HACC/vx eb=0.01  CR=10.03 PSNR=44.78dB cT=76.4 dT=62.2GB/s eb_ok=True
+  [112] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] HACC/vx eb=0.001  CR=5.18 PSNR=64.77dB cT=70.5 dT=60.3GB/s eb_ok=True
+  [113] OK   fzgm:cuszp2_plain [cuszp2_plain.toml] HACC/vx eb=0.0001  CR=3.39 PSNR=84.77dB cT=55.1 dT=52.1GB/s eb_ok=True
+  [114] OK   cuszp3:cuszp3_plain [plain:2d] CESM-2D/CLDHGH eb=0.01  CR=6.36 PSNR=44.75dB cT=54.7 dT=62.6GB/s eb_ok=True !UNSTABLE(cv c=5.18 d=0.42)
+  [115] OK   cuszp3:cuszp3_plain [plain:2d] CESM-2D/CLDHGH eb=0.001  CR=3.87 PSNR=64.77dB cT=53.3 dT=44.7GB/s eb_ok=True !UNSTABLE(cv c=0.11 d=2.47)
+  [116] OK   cuszp3:cuszp3_plain [plain:2d] CESM-2D/CLDHGH eb=0.0001  CR=2.76 PSNR=84.77dB cT=50.8 dT=39.1GB/s eb_ok=True !UNSTABLE(cv c=0.15 d=2.23)
+  [117] OK   fzgm:cuszp3_plain [cuszp3.toml] CESM-2D/CLDHGH eb=0.01  CR=6.36 PSNR=44.75dB cT=56.9 dT=47.2GB/s eb_ok=True
+  [118] OK   fzgm:cuszp3_plain [cuszp3.toml] CESM-2D/CLDHGH eb=0.001  CR=3.87 PSNR=64.77dB cT=49.7 dT=44.1GB/s eb_ok=True
+  [119] OK   fzgm:cuszp3_plain [cuszp3.toml] CESM-2D/CLDHGH eb=0.0001  CR=2.76 PSNR=84.77dB cT=41.5 dT=42.8GB/s eb_ok=True
+  [120] OK   cuszp3:cuszp3_plain [plain:3d] HURR/TC eb=0.01  CR=6.05 PSNR=44.80dB cT=150.0 dT=148.5GB/s eb_ok=True
+  [121] OK   cuszp3:cuszp3_plain [plain:3d] HURR/TC eb=0.001  CR=3.75 PSNR=64.79dB cT=140.7 dT=139.2GB/s eb_ok=True !UNSTABLE(cv c=0.01 d=0.81)
+  [122] OK   cuszp3:cuszp3_plain [plain:3d] HURR/TC eb=0.0001  CR=2.73 PSNR=84.79dB cT=126.2 dT=49.2GB/s eb_ok=True !UNSTABLE(cv c=0.01 d=0.31)
+  [123] OK   cuszp3:cuszp3_plain [plain:3d] NYX/temperature eb=0.01  CR=227.67 PSNR=54.12dB cT=408.3 dT=958.9GB/s eb_ok=True
+  [124] OK   cuszp3:cuszp3_plain [plain:3d] NYX/temperature eb=0.001  CR=15.19 PSNR=63.89dB cT=334.4 dT=557.4GB/s eb_ok=True
+  [125] OK   cuszp3:cuszp3_plain [plain:3d] NYX/temperature eb=0.0001  CR=6.82 PSNR=84.77dB cT=323.5 dT=530.4GB/s eb_ok=True
+  [126] OK   fzgm:cuszp3_plain [cuszp3_3d.toml] HURR/TC eb=0.01  CR=6.05 PSNR=44.80dB cT=66.2 dT=54.0GB/s eb_ok=True
+  [127] OK   fzgm:cuszp3_plain [cuszp3_3d.toml] HURR/TC eb=0.001  CR=3.75 PSNR=64.79dB cT=56.7 dT=41.9GB/s eb_ok=True
+  [128] OK   fzgm:cuszp3_plain [cuszp3_3d.toml] HURR/TC eb=0.0001  CR=2.73 PSNR=84.79dB cT=47.0 dT=31.1GB/s eb_ok=True
+  [129] OK   fzgm:cuszp3_plain [cuszp3_3d.toml] NYX/temperature eb=0.01  CR=227.67 PSNR=54.12dB cT=113.4 dT=68.8GB/s eb_ok=True
+  [130] OK   fzgm:cuszp3_plain [cuszp3_3d.toml] NYX/temperature eb=0.001  CR=15.19 PSNR=63.89dB cT=77.4 dT=60.6GB/s eb_ok=True
+  [131] OK   fzgm:cuszp3_plain [cuszp3_3d.toml] NYX/temperature eb=0.0001  CR=6.82 PSNR=84.77dB cT=73.2 dT=56.2GB/s eb_ok=True
+  [132] OK   cuszp3:cuszp3_plain [plain] HACC/vx eb=0.01  CR=10.03 PSNR=44.78dB cT=366.8 dT=402.0GB/s eb_ok=True
+  [133] OK   cuszp3:cuszp3_plain [plain] HACC/vx eb=0.001  CR=5.18 PSNR=64.77dB cT=351.3 dT=316.1GB/s eb_ok=True !UNSTABLE(cv c=0.02 d=0.37)
+  [134] OK   cuszp3:cuszp3_plain [plain] HACC/vx eb=0.0001  CR=3.39 PSNR=84.77dB cT=298.0 dT=368.4GB/s eb_ok=True !UNSTABLE(cv c=0.07 d=0.25)
+  [135] OK   fzgm:cuszp3_plain [cuszp3_1d.toml] HACC/vx eb=0.01  CR=10.03 PSNR=44.78dB cT=76.4 dT=62.2GB/s eb_ok=True
+  [136] OK   fzgm:cuszp3_plain [cuszp3_1d.toml] HACC/vx eb=0.001  CR=5.18 PSNR=64.77dB cT=73.9 dT=62.7GB/s eb_ok=True
+  [137] OK   fzgm:cuszp3_plain [cuszp3_1d.toml] HACC/vx eb=0.0001  CR=3.39 PSNR=84.77dB cT=53.8 dT=56.0GB/s eb_ok=True
+  [138] OK   cuszp3:cuszp3_outlier [outlier:2d] CESM-2D/CLDHGH eb=0.01  CR=14.68 PSNR=44.75dB cT=51.2 dT=69.7GB/s eb_ok=False !UNSTABLE(cv c=0.12 d=0.27)
+  [139] OK   cuszp3:cuszp3_outlier [outlier:2d] CESM-2D/CLDHGH eb=0.001  CR=8.29 PSNR=64.77dB cT=45.9 dT=43.9GB/s eb_ok=False !UNSTABLE(cv c=0.03 d=2.70)
+  [140] OK   cuszp3:cuszp3_outlier [outlier:2d] CESM-2D/CLDHGH eb=0.0001  CR=4.57 PSNR=84.70dB cT=46.0 dT=31.1GB/s eb_ok=False !UNSTABLE(cv c=0.32 d=2.36)
+  [141] OK   fzgm:cuszp3_outlier [cuszp3_outlier.toml] CESM-2D/CLDHGH eb=0.01  CR=13.89 PSNR=44.75dB cT=60.3 dT=47.1GB/s eb_ok=True
+  [142] OK   fzgm:cuszp3_outlier [cuszp3_outlier.toml] CESM-2D/CLDHGH eb=0.001  CR=8.03 PSNR=64.77dB cT=58.6 dT=47.1GB/s eb_ok=True
+  [143] OK   fzgm:cuszp3_outlier [cuszp3_outlier.toml] CESM-2D/CLDHGH eb=0.0001  CR=4.49 PSNR=84.77dB cT=53.5 dT=45.5GB/s eb_ok=True
+  [144] OK   cuszp3:cuszp3_outlier [outlier:3d] HURR/TC eb=0.01  CR=14.52 PSNR=44.80dB cT=144.6 dT=131.4GB/s eb_ok=True
+  [145] OK   cuszp3:cuszp3_outlier [outlier:3d] HURR/TC eb=0.001  CR=7.68 PSNR=64.79dB cT=130.8 dT=106.0GB/s eb_ok=False
+  [146] OK   cuszp3:cuszp3_outlier [outlier:3d] HURR/TC eb=0.0001  CR=4.30 PSNR=84.79dB cT=121.0 dT=105.6GB/s eb_ok=False
+  [147] OK   cuszp3:cuszp3_outlier [outlier:3d] NYX/temperature eb=0.01  CR=227.75 PSNR=54.12dB cT=404.4 dT=823.1GB/s eb_ok=True
+  [148] OK   cuszp3:cuszp3_outlier [outlier:3d] NYX/temperature eb=0.001  CR=21.83 PSNR=63.89dB cT=311.4 dT=398.7GB/s eb_ok=True
+  [149] OK   cuszp3:cuszp3_outlier [outlier:3d] NYX/temperature eb=0.0001  CR=12.61 PSNR=84.77dB cT=281.0 dT=295.9GB/s eb_ok=True
+  [150] OK   fzgm:cuszp3_outlier [cuszp3_3d_outlier.toml] HURR/TC eb=0.01  CR=13.74 PSNR=44.80dB cT=68.7 dT=53.9GB/s eb_ok=True
+  [151] OK   fzgm:cuszp3_outlier [cuszp3_3d_outlier.toml] HURR/TC eb=0.001  CR=7.46 PSNR=64.79dB cT=67.6 dT=53.7GB/s eb_ok=True
+  [152] OK   fzgm:cuszp3_outlier [cuszp3_3d_outlier.toml] HURR/TC eb=0.0001  CR=4.23 PSNR=84.79dB cT=60.3 dT=49.4GB/s eb_ok=True
+  [153] OK   fzgm:cuszp3_outlier [cuszp3_3d_outlier.toml] NYX/temperature eb=0.01  CR=120.53 PSNR=54.12dB cT=112.5 dT=68.7GB/s eb_ok=True
+  [154] OK   fzgm:cuszp3_outlier [cuszp3_3d_outlier.toml] NYX/temperature eb=0.001  CR=20.11 PSNR=63.89dB cT=86.7 dT=61.0GB/s eb_ok=True
+  [155] OK   fzgm:cuszp3_outlier [cuszp3_3d_outlier.toml] NYX/temperature eb=0.0001  CR=12.02 PSNR=84.77dB cT=75.8 dT=60.0GB/s eb_ok=True
+  [156] OK   cuszp3:cuszp3_outlier [outlier] HACC/vx eb=0.01  CR=10.95 PSNR=44.78dB cT=335.1 dT=393.8GB/s eb_ok=True !UNSTABLE(cv c=0.02 d=0.22)
+  [157] OK   cuszp3:cuszp3_outlier [outlier] HACC/vx eb=0.001  CR=5.65 PSNR=64.77dB cT=282.6 dT=333.7GB/s eb_ok=True !UNSTABLE(cv c=0.04 d=0.22)
+  [158] OK   cuszp3:cuszp3_outlier [outlier] HACC/vx eb=0.0001  CR=3.59 PSNR=84.77dB cT=265.4 dT=268.7GB/s eb_ok=True
+  [159] OK   fzgm:cuszp3_outlier [cuszp3_1d_outlier.toml] HACC/vx eb=0.01  CR=10.09 PSNR=44.78dB cT=77.0 dT=58.2GB/s eb_ok=True
+  [160] OK   fzgm:cuszp3_outlier [cuszp3_1d_outlier.toml] HACC/vx eb=0.001  CR=5.41 PSNR=64.77dB cT=73.4 dT=56.9GB/s eb_ok=True
+  [161] OK   fzgm:cuszp3_outlier [cuszp3_1d_outlier.toml] HACC/vx eb=0.0001  CR=3.49 PSNR=84.77dB cT=66.7 dT=57.3GB/s eb_ok=True
+  [162] OK   fzgpu:fzgpu [default] CESM-2D/CLDHGH eb=0.01  CR=13.88 PSNR=44.74dB cT=112.9 dT=138.3GB/s eb_ok=False
+  [163] OK   fzgpu:fzgpu [default] CESM-2D/CLDHGH eb=0.001  CR=8.31 PSNR=64.76dB cT=113.6 dT=137.4GB/s eb_ok=False
+  [164] OK   fzgpu:fzgpu [default] CESM-2D/CLDHGH eb=0.0001  CR=4.73 PSNR=84.76dB cT=113.0 dT=136.7GB/s eb_ok=False
+  [165] OK   fzgpu:fzgpu [default] HURR/TC eb=0.01  CR=14.37 PSNR=44.80dB cT=151.4 dT=130.1GB/s eb_ok=True
+  [166] OK   fzgpu:fzgpu [default] HURR/TC eb=0.001  CR=9.76 PSNR=64.79dB cT=151.3 dT=129.9GB/s eb_ok=True
+  [167] OK   fzgpu:fzgpu [default] HURR/TC eb=0.0001  CR=6.81 PSNR=84.79dB cT=150.8 dT=129.6GB/s eb_ok=True
+  [168] OK   fzgpu:fzgpu [default] NYX/temperature eb=0.01  CR=106.76 PSNR=54.12dB cT=171.3 dT=140.5GB/s eb_ok=True
+  [169] OK   fzgpu:fzgpu [default] NYX/temperature eb=0.001  CR=13.27 PSNR=63.89dB cT=170.4 dT=139.8GB/s eb_ok=True
+  [170] OK   fzgpu:fzgpu [default] NYX/temperature eb=0.0001  CR=9.07 PSNR=84.77dB cT=170.2 dT=139.7GB/s eb_ok=True
+  [171] OK   fzgpu:fzgpu [default] HACC/vx eb=0.01  CR=9.77 PSNR=44.78dB cT=203.5 dT=186.8GB/s eb_ok=True
+  [172] OK   fzgpu:fzgpu [default] HACC/vx eb=0.001  CR=5.16 PSNR=64.77dB cT=202.6 dT=185.9GB/s eb_ok=True
+  [173] OK   fzgpu:fzgpu [default] HACC/vx eb=0.0001  CR=3.38 PSNR=84.77dB cT=201.7 dT=185.0GB/s eb_ok=True
+  [174] OK   fzgm:fzgpu [fzgpu.toml] CESM-2D/CLDHGH eb=0.01  CR=14.57 PSNR=44.75dB cT=89.4 dT=98.2GB/s eb_ok=True
+  [175] OK   fzgm:fzgpu [fzgpu.toml] CESM-2D/CLDHGH eb=0.001  CR=8.94 PSNR=64.77dB cT=90.4 dT=98.0GB/s eb_ok=True
+  [176] OK   fzgm:fzgpu [fzgpu.toml] CESM-2D/CLDHGH eb=0.0001  CR=4.90 PSNR=84.77dB cT=89.1 dT=96.5GB/s eb_ok=True
+  [177] OK   fzgm:fzgpu [fzgpu.toml] HURR/TC eb=0.01  CR=15.03 PSNR=44.80dB cT=115.8 dT=103.3GB/s eb_ok=True
+  [178] OK   fzgm:fzgpu [fzgpu.toml] HURR/TC eb=0.001  CR=10.13 PSNR=64.79dB cT=116.4 dT=103.1GB/s eb_ok=True
+  [179] OK   fzgm:fzgpu [fzgpu.toml] HURR/TC eb=0.0001  CR=6.92 PSNR=84.79dB cT=114.1 dT=102.2GB/s eb_ok=True
+  [180] OK   fzgm:fzgpu [fzgpu.toml] NYX/temperature eb=0.01  CR=116.42 PSNR=54.12dB cT=150.3 dT=122.5GB/s eb_ok=True
+  [181] OK   fzgm:fzgpu [fzgpu.toml] NYX/temperature eb=0.001  CR=14.33 PSNR=63.89dB cT=149.7 dT=125.1GB/s eb_ok=True
+  [182] OK   fzgm:fzgpu [fzgpu.toml] NYX/temperature eb=0.0001  CR=9.39 PSNR=84.77dB cT=158.9 dT=127.4GB/s eb_ok=True
+  [183] OK   fzgm:fzgpu [fzgpu.toml] HACC/vx eb=0.01  CR=10.20 PSNR=44.78dB cT=148.0 dT=130.9GB/s eb_ok=True
+  [184] OK   fzgm:fzgpu [fzgpu.toml] HACC/vx eb=0.001  CR=5.27 PSNR=64.77dB cT=150.9 dT=133.3GB/s eb_ok=True
+  [185] OK   fzgm:fzgpu [fzgpu.toml] HACC/vx eb=0.0001  CR=3.29 PSNR=84.77dB cT=141.0 dT=129.9GB/s eb_ok=True
+  [186] OK   pfpl:pfpl [default] CESM-2D/CLDHGH eb=0.01  CR=27.30 PSNR=44.75dB cT=90.6 dT=114.8GB/s eb_ok=True
+  [187] OK   pfpl:pfpl [default] CESM-2D/CLDHGH eb=0.001  CR=11.19 PSNR=64.77dB cT=88.7 dT=114.0GB/s eb_ok=True
+  [188] OK   pfpl:pfpl [default] CESM-2D/CLDHGH eb=0.0001  CR=5.50 PSNR=84.77dB cT=89.0 dT=129.5GB/s eb_ok=True
+  [189] OK   pfpl:pfpl [default] HURR/TC eb=0.01  CR=54.73 PSNR=44.80dB cT=127.1 dT=131.8GB/s eb_ok=True
+  [190] OK   pfpl:pfpl [default] HURR/TC eb=0.001  CR=15.58 PSNR=64.79dB cT=125.9 dT=130.9GB/s eb_ok=True
+  [191] OK   pfpl:pfpl [default] HURR/TC eb=0.0001  CR=6.96 PSNR=84.79dB cT=123.3 dT=129.1GB/s eb_ok=True
+  [192] OK   pfpl:pfpl [default] NYX/temperature eb=0.01  CR=954.15 PSNR=54.12dB cT=159.7 dT=168.8GB/s eb_ok=True
+  [193] OK   pfpl:pfpl [default] NYX/temperature eb=0.001  CR=48.32 PSNR=63.89dB cT=147.5 dT=174.5GB/s eb_ok=True
+  [194] OK   pfpl:pfpl [default] NYX/temperature eb=0.0001  CR=15.13 PSNR=84.77dB cT=146.8 dT=135.5GB/s eb_ok=True
+  [195] OK   pfpl:pfpl [default] HACC/vx eb=0.01  CR=12.69 PSNR=44.78dB cT=148.9 dT=135.8GB/s eb_ok=True
+  [196] OK   pfpl:pfpl [default] HACC/vx eb=0.001  CR=5.68 PSNR=64.77dB cT=146.6 dT=133.5GB/s eb_ok=True
+  [197] OK   pfpl:pfpl [default] HACC/vx eb=0.0001  CR=3.56 PSNR=84.77dB cT=143.1 dT=131.5GB/s eb_ok=True
+  [198] OK   fzgm:pfpl [pfpl.toml] CESM-2D/CLDHGH eb=0.01  CR=27.24 PSNR=44.74dB cT=50.9 dT=60.4GB/s eb_ok=False
+  [199] OK   fzgm:pfpl [pfpl.toml] CESM-2D/CLDHGH eb=0.001  CR=11.19 PSNR=64.76dB cT=50.4 dT=60.2GB/s eb_ok=False
+  [200] OK   fzgm:pfpl [pfpl.toml] CESM-2D/CLDHGH eb=0.0001  CR=5.55 PSNR=84.76dB cT=49.4 dT=59.4GB/s eb_ok=False
+  [201] OK   fzgm:pfpl [pfpl.toml] HURR/TC eb=0.01  CR=54.49 PSNR=44.80dB cT=62.6 dT=72.5GB/s eb_ok=True
+  [202] OK   fzgm:pfpl [pfpl.toml] HURR/TC eb=0.001  CR=15.68 PSNR=64.79dB cT=62.4 dT=72.1GB/s eb_ok=True
+  [203] OK   fzgm:pfpl [pfpl.toml] HURR/TC eb=0.0001  CR=7.11 PSNR=84.79dB cT=60.6 dT=71.7GB/s eb_ok=True
+  [204] OK   fzgm:pfpl [pfpl.toml] NYX/temperature eb=0.01  CR=854.56 PSNR=54.12dB cT=71.5 dT=84.9GB/s eb_ok=True
+  [205] OK   fzgm:pfpl [pfpl.toml] NYX/temperature eb=0.001  CR=48.04 PSNR=63.89dB cT=68.4 dT=77.7GB/s eb_ok=True
+  [206] OK   fzgm:pfpl [pfpl.toml] NYX/temperature eb=0.0001  CR=15.11 PSNR=84.77dB cT=67.4 dT=77.3GB/s eb_ok=True
+  [207] OK   fzgm:pfpl [pfpl.toml] HACC/vx eb=0.01  CR=12.67 PSNR=44.78dB cT=81.0 dT=88.0GB/s eb_ok=True
+  [208] OK   fzgm:pfpl [pfpl.toml] HACC/vx eb=0.001  CR=5.68 PSNR=64.77dB cT=75.0 dT=87.5GB/s eb_ok=True
+  [209] OK   fzgm:pfpl [pfpl.toml] HACC/vx eb=0.0001  CR=3.56 PSNR=84.77dB cT=75.6 dT=86.8GB/s eb_ok=True
+
+[timing] 24 cell(s) flagged unreliable (high variance / thermal throttle) — see timing_reliable in rows. On unlocked GPUs prefer the *_device_ms_min columns.
+
+comp    variant     dataset         field         eb        CR        PSNR      cGB/s     dGB/s     eb_ok   tOK    graph 
+-------------------------------------------------------------------------------------------------------------------------
+cusz    cusz        CESM-2D         CLDHGH        0.01      24.26     44.75     56.88     30.42     True    True   -     
+cusz    cusz        CESM-2D         CLDHGH        0.001     13.08     64.77     54.79     14.06     True    True   -     
+cusz    cusz        CESM-2D         CLDHGH        0.0001    4.70      84.77     53.74     11.35     True    True   -     
+cusz    cusz        HURR            TC            0.01      26.31     44.80     111.10    59.01     True    True   -     
+cusz    cusz        HURR            TC            0.001     16.65     64.79     111.61    49.98     True    True   -     
+cusz    cusz        HURR            TC            0.0001    9.12      84.79     111.86    39.03     True    True   -     
+cusz    cusz        NYX             temperature   0.01      29.89     54.12     148.44    79.28     True    True   -     
+cusz    cusz        NYX             temperature   0.001     26.48     63.89     148.90    83.13     True    True   -     
+cusz    cusz        NYX             temperature   0.0001    18.50     84.77     151.22    73.46     True    True   -     
+cusz    cusz        HACC            vx            0.01      14.58     44.78     158.21    54.92     True    True   -     
+cusz    cusz        HACC            vx            0.001     4.92      64.77     149.34    54.07     True    True   -     
+cusz    cusz        HACC            vx            0.0001    1.26      -23.61    71.74     318.02    False   True   -     
+fzgm    cusz        CESM-2D         CLDHGH        0.01      24.26     44.75     37.06     33.17     True    True   -     
+fzgm    cusz        CESM-2D         CLDHGH        0.001     13.80     64.77     34.07     16.67     True    True   -     
+fzgm    cusz        CESM-2D         CLDHGH        0.0001    6.22      84.77     31.52     13.45     True    True   -     
+fzgm    cusz        HURR            TC            0.01      26.59     44.80     94.35     75.29     True    True   -     
+fzgm    cusz        HURR            TC            0.001     17.83     64.79     87.98     57.55     True    True   -     
+fzgm    cusz        HURR            TC            0.0001    10.43     84.79     81.58     47.25     True    True   -     
+fzgm    cusz        NYX             temperature   0.01      29.93     54.12     103.78    75.00     True    True   -     
+fzgm    cusz        NYX             temperature   0.001     27.34     63.89     104.25    74.50     True    True   -     
+fzgm    cusz        NYX             temperature   0.0001    18.77     84.77     100.42    72.38     True    True   -     
+fzgm    cusz        HACC            vx            0.01      15.04     44.78     72.56     54.16     True    True   -     
+fzgm    cusz        HACC            vx            0.001     6.32      64.77     61.90     44.55     True    True   -     
+fzgm    cusz        HACC            vx            0.0001    3.63      84.77     51.82     38.69     True    True   -     
+cuszhi  cuszhi_tp   CESM-2D         CLDHGH        0.01      61.92     51.60     50.42     83.82     True    True   -     
+cuszhi  cuszhi_tp   CESM-2D         CLDHGH        0.001     13.33     66.54     50.02     83.26     True    True   -     
+cuszhi  cuszhi_tp   CESM-2D         CLDHGH        0.0001    5.75      85.43     48.31     77.65     True    True   -     
+cuszhi  cuszhi_tp   HURR            TC            0.01      352.73    54.54     61.07     68.82     True    True   -     
+cuszhi  cuszhi_tp   HURR            TC            0.001     39.55     67.97     61.23     68.87     True    True   -     
+cuszhi  cuszhi_tp   HURR            TC            0.0001    10.07     85.21     61.19     68.87     True    True   -     
+cuszhi  cuszhi_tp   NYX             temperature   0.01      1240.33   64.29     90.47     95.12     True    True   -     
+cuszhi  cuszhi_tp   NYX             temperature   0.001     209.76    74.39     90.30     95.12     True    True   -     
+cuszhi  cuszhi_tp   NYX             temperature   0.0001    33.44     88.26     90.32     95.12     True    True   -     
+cuszhi  cuszhi_tp   HACC            vx            0.01      9.94      48.06     3.65      4.24      True    True   -     
+cuszhi  cuszhi_tp   HACC            vx            0.001     5.08      66.69     3.59      4.32      True    True   -     
+fzgm    cuszhi_tp   CESM-2D         CLDHGH        0.01      52.45     51.50     18.44     24.00     True    True   -     
+fzgm    cuszhi_tp   CESM-2D         CLDHGH        0.001     12.46     66.83     18.16     24.01     True    True   -     
+fzgm    cuszhi_tp   CESM-2D         CLDHGH        0.0001    5.41      85.91     16.67     21.63     True    True   -     
+fzgm    cuszhi_tp   HURR            TC            0.01      344.35    54.73     40.11     47.60     True    True   -     
+fzgm    cuszhi_tp   HURR            TC            0.001     38.98     68.54     39.50     47.39     True    True   -     
+fzgm    cuszhi_tp   HURR            TC            0.0001    9.88      85.43     37.68     47.25     True    True   -     
+fzgm    cuszhi_tp   NYX             temperature   0.01      1152.04   64.21     48.38     56.12     True    True   -     
+fzgm    cuszhi_tp   NYX             temperature   0.001     210.34    75.75     48.17     56.08     True    True   -     
+fzgm    cuszhi_tp   NYX             temperature   0.0001    36.91     90.02     47.56     55.91     True    True   -     
+cuszhi  cuszhi_cr   CESM-2D         CLDHGH        0.01      52.65     51.60     35.44     35.09     True    True   -     
+cuszhi  cuszhi_cr   CESM-2D         CLDHGH        0.001     13.30     66.54     33.75     31.94     True    True   -     
+cuszhi  cuszhi_cr   CESM-2D         CLDHGH        0.0001    5.37      85.43     33.05     36.51     True    True   -     
+cuszhi  cuszhi_cr   HURR            TC            0.01      257.41    54.54     48.26     74.42     True    True   -     
+cuszhi  cuszhi_cr   HURR            TC            0.001     41.21     67.97     48.14     74.24     True    True   -     
+cuszhi  cuszhi_cr   HURR            TC            0.0001    9.99      85.21     48.13     74.47     True    True   -     
+cuszhi  cuszhi_cr   NYX             temperature   0.01      1274.99   64.29     66.30     98.32     True    True   -     
+cuszhi  cuszhi_cr   NYX             temperature   0.001     287.83    74.39     66.30     98.37     True    True   -     
+cuszhi  cuszhi_cr   NYX             temperature   0.0001    49.47     88.26     66.30     98.33     True    True   -     
+cuszhi  cuszhi_cr   HACC            vx            0.001     5.08      66.69     3.61      4.23      True    True   -     
+fzgm    cuszhi_cr   CESM-2D         CLDHGH        0.01      53.21     51.50     15.22     11.79     True    True   -     
+fzgm    cuszhi_cr   CESM-2D         CLDHGH        0.001     13.20     66.83     14.75     8.08      True    True   -     
+fzgm    cuszhi_cr   CESM-2D         CLDHGH        0.0001    5.79      85.91     12.31     5.60      True    True   -     
+fzgm    cuszhi_cr   HURR            TC            0.01      258.49    54.73     35.18     28.64     True    True   -     
+fzgm    cuszhi_cr   HURR            TC            0.001     41.18     68.54     35.08     25.09     True    True   -     
+fzgm    cuszhi_cr   HURR            TC            0.0001    10.19     85.43     29.85     12.74     True    True   -     
+fzgm    cuszhi_cr   NYX             temperature   0.01      517.71    64.21     42.61     38.80     True    True   -     
+fzgm    cuszhi_cr   NYX             temperature   0.001     185.10    75.75     42.38     38.18     True    True   -     
+fzgm    cuszhi_cr   NYX             temperature   0.0001    46.05     90.02     40.29     33.91     True    True   -     
+cuszp2  cuszp2_outlier  CESM-2D         CLDHGH        0.01      13.53     44.75     50.48     52.27     True    False  -     
+cuszp2  cuszp2_outlier  CESM-2D         CLDHGH        0.001     8.80      64.77     44.69     41.45     True    False  -     
+cuszp2  cuszp2_outlier  CESM-2D         CLDHGH        0.0001    4.91      84.77     42.30     26.10     True    False  -     
+cuszp2  cuszp2_outlier  HURR            TC            0.01      16.56     35.58     146.06    223.39    False   False  -     
+cuszp2  cuszp2_outlier  HURR            TC            0.001     10.88     50.58     135.03    110.23    False   False  -     
+cuszp2  cuszp2_outlier  HURR            TC            0.0001    6.02      84.79     122.51    98.11     True    True   -     
+cuszp2  cuszp2_outlier  NYX             temperature   0.01      115.40    54.12     402.68    861.30    True    True   -     
+cuszp2  cuszp2_outlier  NYX             temperature   0.001     16.46     63.89     293.65    343.86    True    True   -     
+cuszp2  cuszp2_outlier  NYX             temperature   0.0001    10.64     84.77     269.25    282.04    True    True   -     
+cuszp2  cuszp2_outlier  HACC            vx            0.01      10.95     44.78     341.68    413.65    True    True   -     
+cuszp2  cuszp2_outlier  HACC            vx            0.001     5.65      64.77     285.26    275.21    True    True   -     
+cuszp2  cuszp2_outlier  HACC            vx            0.0001    3.59      84.77     262.76    229.36    True    True   -     
+fzgm    cuszp2_outlier  CESM-2D         CLDHGH        0.01      12.24     44.75     49.93     45.27     True    True   -     
+fzgm    cuszp2_outlier  CESM-2D         CLDHGH        0.001     8.24      64.77     48.31     45.91     True    True   -     
+fzgm    cuszp2_outlier  CESM-2D         CLDHGH        0.0001    4.73      84.77     46.79     45.59     True    True   -     
+fzgm    cuszp2_outlier  HURR            TC            0.01      14.66     44.80     61.07     49.01     True    True   -     
+fzgm    cuszp2_outlier  HURR            TC            0.001     10.02     64.79     56.61     49.15     True    True   -     
+fzgm    cuszp2_outlier  HURR            TC            0.0001    5.75      84.79     55.45     49.09     True    True   -     
+fzgm    cuszp2_outlier  NYX             temperature   0.01      60.69     54.12     81.46     54.33     True    True   -     
+fzgm    cuszp2_outlier  NYX             temperature   0.001     14.58     63.89     64.32     51.23     True    True   -     
+fzgm    cuszp2_outlier  NYX             temperature   0.0001    9.83      84.77     59.80     48.91     True    True   -     
+fzgm    cuszp2_outlier  HACC            vx            0.01      10.09     44.78     62.23     48.79     True    True   -     
+fzgm    cuszp2_outlier  HACC            vx            0.001     5.41      64.77     73.73     57.06     True    True   -     
+fzgm    cuszp2_outlier  HACC            vx            0.0001    3.49      84.77     63.56     55.15     True    True   -     
+cuszp2  cuszp2_plain  CESM-2D         CLDHGH        0.01      6.20      44.75     55.93     60.28     True    False  -     
+cuszp2  cuszp2_plain  CESM-2D         CLDHGH        0.001     3.81      64.77     51.05     52.77     True    False  -     
+cuszp2  cuszp2_plain  CESM-2D         CLDHGH        0.0001    2.73      84.77     48.45     50.18     True    False  -     
+cuszp2  cuszp2_plain  HURR            TC            0.01      5.94      44.80     147.49    109.70    True    False  -     
+cuszp2  cuszp2_plain  HURR            TC            0.001     3.71      64.79     131.72    153.76    True    True   -     
+cuszp2  cuszp2_plain  HURR            TC            0.0001    2.70      84.79     120.87    44.45     True    False  -     
+cuszp2  cuszp2_plain  NYX             temperature   0.01      115.37    54.12     424.25    969.84    True    True   -     
+cuszp2  cuszp2_plain  NYX             temperature   0.001     13.72     63.89     276.82    314.26    True    True   -     
+cuszp2  cuszp2_plain  NYX             temperature   0.0001    6.61      84.77     261.77    315.60    True    True   -     
+cuszp2  cuszp2_plain  HACC            vx            0.01      10.03     44.78     297.50    337.94    True    False  -     
+cuszp2  cuszp2_plain  HACC            vx            0.001     5.18      64.77     250.72    343.21    True    True   -     
+cuszp2  cuszp2_plain  HACC            vx            0.0001    3.39      84.77     252.22    376.28    True    False  -     
+fzgm    cuszp2_plain  CESM-2D         CLDHGH        0.01      6.20      44.75     48.31     44.91     True    True   -     
+fzgm    cuszp2_plain  CESM-2D         CLDHGH        0.001     3.81      64.77     44.49     44.42     True    True   -     
+fzgm    cuszp2_plain  CESM-2D         CLDHGH        0.0001    2.73      84.77     39.55     42.42     True    True   -     
+fzgm    cuszp2_plain  HURR            TC            0.01      5.94      44.80     56.68     49.50     True    True   -     
+fzgm    cuszp2_plain  HURR            TC            0.001     3.71      64.79     51.75     48.78     True    True   -     
+fzgm    cuszp2_plain  HURR            TC            0.0001    2.70      84.79     45.93     46.36     True    True   -     
+fzgm    cuszp2_plain  NYX             temperature   0.01      115.37    54.12     82.10     54.55     True    True   -     
+fzgm    cuszp2_plain  NYX             temperature   0.001     13.72     63.89     61.13     51.51     True    True   -     
+fzgm    cuszp2_plain  NYX             temperature   0.0001    6.61      84.77     60.12     51.84     True    True   -     
+fzgm    cuszp2_plain  HACC            vx            0.01      10.03     44.78     76.44     62.22     True    True   -     
+fzgm    cuszp2_plain  HACC            vx            0.001     5.18      64.77     70.52     60.30     True    True   -     
+fzgm    cuszp2_plain  HACC            vx            0.0001    3.39      84.77     55.13     52.06     True    True   -     
+cuszp3  cuszp3_plain  CESM-2D         CLDHGH        0.01      6.36      44.75     54.66     62.56     True    False  -     
+cuszp3  cuszp3_plain  CESM-2D         CLDHGH        0.001     3.87      64.77     53.31     44.71     True    False  -     
+cuszp3  cuszp3_plain  CESM-2D         CLDHGH        0.0001    2.76      84.77     50.76     39.12     True    False  -     
+fzgm    cuszp3_plain  CESM-2D         CLDHGH        0.01      6.36      44.75     56.88     47.24     True    True   -     
+fzgm    cuszp3_plain  CESM-2D         CLDHGH        0.001     3.87      64.77     49.73     44.10     True    True   -     
+fzgm    cuszp3_plain  CESM-2D         CLDHGH        0.0001    2.76      84.77     41.50     42.76     True    True   -     
+cuszp3  cuszp3_plain  HURR            TC            0.01      6.05      44.80     150.01    148.53    True    True   -     
+cuszp3  cuszp3_plain  HURR            TC            0.001     3.75      64.79     140.68    139.22    True    False  -     
+cuszp3  cuszp3_plain  HURR            TC            0.0001    2.73      84.79     126.24    49.17     True    False  -     
+cuszp3  cuszp3_plain  NYX             temperature   0.01      227.67    54.12     408.30    958.92    True    True   -     
+cuszp3  cuszp3_plain  NYX             temperature   0.001     15.19     63.89     334.44    557.38    True    True   -     
+cuszp3  cuszp3_plain  NYX             temperature   0.0001    6.82      84.77     323.54    530.44    True    True   -     
+fzgm    cuszp3_plain  HURR            TC            0.01      6.05      44.80     66.16     53.96     True    True   -     
+fzgm    cuszp3_plain  HURR            TC            0.001     3.75      64.79     56.74     41.86     True    True   -     
+fzgm    cuszp3_plain  HURR            TC            0.0001    2.73      84.79     47.00     31.12     True    True   -     
+fzgm    cuszp3_plain  NYX             temperature   0.01      227.67    54.12     113.36    68.76     True    True   -     
+fzgm    cuszp3_plain  NYX             temperature   0.001     15.19     63.89     77.41     60.63     True    True   -     
+fzgm    cuszp3_plain  NYX             temperature   0.0001    6.82      84.77     73.23     56.17     True    True   -     
+cuszp3  cuszp3_plain  HACC            vx            0.01      10.03     44.78     366.82    401.99    True    True   -     
+cuszp3  cuszp3_plain  HACC            vx            0.001     5.18      64.77     351.27    316.06    True    False  -     
+cuszp3  cuszp3_plain  HACC            vx            0.0001    3.39      84.77     297.95    368.37    True    False  -     
+fzgm    cuszp3_plain  HACC            vx            0.01      10.03     44.78     76.44     62.22     True    True   -     
+fzgm    cuszp3_plain  HACC            vx            0.001     5.18      64.77     73.91     62.74     True    True   -     
+fzgm    cuszp3_plain  HACC            vx            0.0001    3.39      84.77     53.77     56.02     True    True   -     
+cuszp3  cuszp3_outlier  CESM-2D         CLDHGH        0.01      14.68     44.75     51.25     69.70     False   False  -     
+cuszp3  cuszp3_outlier  CESM-2D         CLDHGH        0.001     8.29      64.77     45.88     43.91     False   False  -     
+cuszp3  cuszp3_outlier  CESM-2D         CLDHGH        0.0001    4.57      84.70     46.02     31.08     False   False  -     
+fzgm    cuszp3_outlier  CESM-2D         CLDHGH        0.01      13.89     44.75     60.27     47.06     True    True   -     
+fzgm    cuszp3_outlier  CESM-2D         CLDHGH        0.001     8.03      64.77     58.59     47.15     True    True   -     
+fzgm    cuszp3_outlier  CESM-2D         CLDHGH        0.0001    4.49      84.77     53.51     45.46     True    True   -     
+cuszp3  cuszp3_outlier  HURR            TC            0.01      14.52     44.80     144.59    131.40    True    True   -     
+cuszp3  cuszp3_outlier  HURR            TC            0.001     7.68      64.79     130.81    105.98    False   True   -     
+cuszp3  cuszp3_outlier  HURR            TC            0.0001    4.30      84.79     121.02    105.64    False   True   -     
+cuszp3  cuszp3_outlier  NYX             temperature   0.01      227.75    54.12     404.40    823.10    True    True   -     
+cuszp3  cuszp3_outlier  NYX             temperature   0.001     21.83     63.89     311.37    398.71    True    True   -     
+cuszp3  cuszp3_outlier  NYX             temperature   0.0001    12.61     84.77     280.96    295.89    True    True   -     
+fzgm    cuszp3_outlier  HURR            TC            0.01      13.74     44.80     68.68     53.89     True    True   -     
+fzgm    cuszp3_outlier  HURR            TC            0.001     7.46      64.79     67.63     53.68     True    True   -     
+fzgm    cuszp3_outlier  HURR            TC            0.0001    4.23      84.79     60.28     49.45     True    True   -     
+fzgm    cuszp3_outlier  NYX             temperature   0.01      120.53    54.12     112.48    68.73     True    True   -     
+fzgm    cuszp3_outlier  NYX             temperature   0.001     20.11     63.89     86.72     61.02     True    True   -     
+fzgm    cuszp3_outlier  NYX             temperature   0.0001    12.02     84.77     75.79     59.96     True    True   -     
+cuszp3  cuszp3_outlier  HACC            vx            0.01      10.95     44.78     335.13    393.79    True    False  -     
+cuszp3  cuszp3_outlier  HACC            vx            0.001     5.65      64.77     282.65    333.73    True    False  -     
+cuszp3  cuszp3_outlier  HACC            vx            0.0001    3.59      84.77     265.36    268.67    True    True   -     
+fzgm    cuszp3_outlier  HACC            vx            0.01      10.09     44.78     76.99     58.16     True    True   -     
+fzgm    cuszp3_outlier  HACC            vx            0.001     5.41      64.77     73.43     56.90     True    True   -     
+fzgm    cuszp3_outlier  HACC            vx            0.0001    3.49      84.77     66.72     57.26     True    True   -     
+fzgpu   fzgpu       CESM-2D         CLDHGH        0.01      13.88     44.74     112.94    138.30    False   True   -     
+fzgpu   fzgpu       CESM-2D         CLDHGH        0.001     8.31      64.76     113.64    137.36    False   True   -     
+fzgpu   fzgpu       CESM-2D         CLDHGH        0.0001    4.73      84.76     113.00    136.73    False   True   -     
+fzgpu   fzgpu       HURR            TC            0.01      14.37     44.80     151.42    130.14    True    True   -     
+fzgpu   fzgpu       HURR            TC            0.001     9.76      64.79     151.26    129.89    True    True   -     
+fzgpu   fzgpu       HURR            TC            0.0001    6.81      84.79     150.81    129.58    True    True   -     
+fzgpu   fzgpu       NYX             temperature   0.01      106.76    54.12     171.30    140.52    True    True   -     
+fzgpu   fzgpu       NYX             temperature   0.001     13.27     63.89     170.43    139.84    True    True   -     
+fzgpu   fzgpu       NYX             temperature   0.0001    9.07      84.77     170.17    139.65    True    True   -     
+fzgpu   fzgpu       HACC            vx            0.01      9.77      44.78     203.47    186.83    True    True   -     
+fzgpu   fzgpu       HACC            vx            0.001     5.16      64.77     202.57    185.94    True    True   -     
+fzgpu   fzgpu       HACC            vx            0.0001    3.38      84.77     201.70    185.01    True    True   -     
+fzgm    fzgpu       CESM-2D         CLDHGH        0.01      14.57     44.75     89.44     98.17     True    True   -     
+fzgm    fzgpu       CESM-2D         CLDHGH        0.001     8.94      64.77     90.40     97.99     True    True   -     
+fzgm    fzgpu       CESM-2D         CLDHGH        0.0001    4.90      84.77     89.13     96.46     True    True   -     
+fzgm    fzgpu       HURR            TC            0.01      15.03     44.80     115.84    103.26    True    True   -     
+fzgm    fzgpu       HURR            TC            0.001     10.13     64.79     116.40    103.08    True    True   -     
+fzgm    fzgpu       HURR            TC            0.0001    6.92      84.79     114.08    102.19    True    True   -     
+fzgm    fzgpu       NYX             temperature   0.01      116.42    54.12     150.27    122.54    True    True   -     
+fzgm    fzgpu       NYX             temperature   0.001     14.33     63.89     149.67    125.10    True    True   -     
+fzgm    fzgpu       NYX             temperature   0.0001    9.39      84.77     158.88    127.39    True    True   -     
+fzgm    fzgpu       HACC            vx            0.01      10.20     44.78     147.99    130.93    True    True   -     
+fzgm    fzgpu       HACC            vx            0.001     5.27      64.77     150.90    133.27    True    True   -     
+fzgm    fzgpu       HACC            vx            0.0001    3.29      84.77     141.05    129.90    True    True   -     
+pfpl    pfpl        CESM-2D         CLDHGH        0.01      27.30     44.75     90.56     114.80    True    True   -     
+pfpl    pfpl        CESM-2D         CLDHGH        0.001     11.19     64.77     88.66     114.02    True    True   -     
+pfpl    pfpl        CESM-2D         CLDHGH        0.0001    5.50      84.77     88.97     129.48    True    True   -     
+pfpl    pfpl        HURR            TC            0.01      54.73     44.80     127.07    131.79    True    True   -     
+pfpl    pfpl        HURR            TC            0.001     15.58     64.79     125.93    130.91    True    True   -     
+pfpl    pfpl        HURR            TC            0.0001    6.96      84.79     123.30    129.09    True    True   -     
+pfpl    pfpl        NYX             temperature   0.01      954.15    54.12     159.70    168.80    True    True   -     
+pfpl    pfpl        NYX             temperature   0.001     48.32     63.89     147.50    174.47    True    True   -     
+pfpl    pfpl        NYX             temperature   0.0001    15.13     84.77     146.82    135.47    True    True   -     
+pfpl    pfpl        HACC            vx            0.01      12.69     44.78     148.88    135.78    True    True   -     
+pfpl    pfpl        HACC            vx            0.001     5.68      64.77     146.62    133.48    True    True   -     
+pfpl    pfpl        HACC            vx            0.0001    3.56      84.77     143.10    131.54    True    True   -     
+fzgm    pfpl        CESM-2D         CLDHGH        0.01      27.24     44.74     50.93     60.38     False   True   -     
+fzgm    pfpl        CESM-2D         CLDHGH        0.001     11.19     64.76     50.42     60.24     False   True   -     
+fzgm    pfpl        CESM-2D         CLDHGH        0.0001    5.55      84.76     49.44     59.45     False   True   -     
+fzgm    pfpl        HURR            TC            0.01      54.49     44.80     62.64     72.54     True    True   -     
+fzgm    pfpl        HURR            TC            0.001     15.68     64.79     62.44     72.08     True    True   -     
+fzgm    pfpl        HURR            TC            0.0001    7.11      84.79     60.62     71.70     True    True   -     
+fzgm    pfpl        NYX             temperature   0.01      854.56    54.12     71.47     84.95     True    True   -     
+fzgm    pfpl        NYX             temperature   0.001     48.04     63.89     68.43     77.66     True    True   -     
+fzgm    pfpl        NYX             temperature   0.0001    15.11     84.77     67.41     77.27     True    True   -     
+fzgm    pfpl        HACC            vx            0.01      12.67     44.78     80.96     88.02     True    True   -     
+fzgm    pfpl        HACC            vx            0.001     5.68      64.77     75.01     87.47     True    True   -     
+fzgm    pfpl        HACC            vx            0.0001    3.56      84.77     75.60     86.83     True    True   -     
+
+207 ok, 3 failed
+  FAIL fzgm_vs_native-0035: compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0035/compress.log
+  FAIL fzgm_vs_native-0054: compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0054/compress.log
+  FAIL fzgm_vs_native-0056: compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0056/compress.log
+
+[done] rows -> /N/scratch/sruiter/benchkit-results/7562329/runs.jsonl
+[benchkit] run complete — printing reports
+comp    variant     dataset         field         eb        CR        PSNR      cGB/s     dGB/s     eb_ok   tOK    graph 
+-------------------------------------------------------------------------------------------------------------------------
+cusz    cusz        CESM-2D         CLDHGH        0.01      24.26     44.75     56.88     30.42     True    True   -     
+cusz    cusz        CESM-2D         CLDHGH        0.001     13.08     64.77     54.79     14.06     True    True   -     
+cusz    cusz        CESM-2D         CLDHGH        0.0001    4.70      84.77     53.74     11.35     True    True   -     
+cusz    cusz        HURR            TC            0.01      26.31     44.80     111.10    59.01     True    True   -     
+cusz    cusz        HURR            TC            0.001     16.65     64.79     111.61    49.98     True    True   -     
+cusz    cusz        HURR            TC            0.0001    9.12      84.79     111.86    39.03     True    True   -     
+cusz    cusz        NYX             temperature   0.01      29.89     54.12     148.44    79.28     True    True   -     
+cusz    cusz        NYX             temperature   0.001     26.48     63.89     148.90    83.13     True    True   -     
+cusz    cusz        NYX             temperature   0.0001    18.50     84.77     151.22    73.46     True    True   -     
+cusz    cusz        HACC            vx            0.01      14.58     44.78     158.21    54.92     True    True   -     
+cusz    cusz        HACC            vx            0.001     4.92      64.77     149.34    54.07     True    True   -     
+cusz    cusz        HACC            vx            0.0001    1.26      -23.61    71.74     318.02    False   True   -     
+fzgm    cusz        CESM-2D         CLDHGH        0.01      24.26     44.75     37.06     33.17     True    True   -     
+fzgm    cusz        CESM-2D         CLDHGH        0.001     13.80     64.77     34.07     16.67     True    True   -     
+fzgm    cusz        CESM-2D         CLDHGH        0.0001    6.22      84.77     31.52     13.45     True    True   -     
+fzgm    cusz        HURR            TC            0.01      26.59     44.80     94.35     75.29     True    True   -     
+fzgm    cusz        HURR            TC            0.001     17.83     64.79     87.98     57.55     True    True   -     
+fzgm    cusz        HURR            TC            0.0001    10.43     84.79     81.58     47.25     True    True   -     
+fzgm    cusz        NYX             temperature   0.01      29.93     54.12     103.78    75.00     True    True   -     
+fzgm    cusz        NYX             temperature   0.001     27.34     63.89     104.25    74.50     True    True   -     
+fzgm    cusz        NYX             temperature   0.0001    18.77     84.77     100.42    72.38     True    True   -     
+fzgm    cusz        HACC            vx            0.01      15.04     44.78     72.56     54.16     True    True   -     
+fzgm    cusz        HACC            vx            0.001     6.32      64.77     61.90     44.55     True    True   -     
+fzgm    cusz        HACC            vx            0.0001    3.63      84.77     51.82     38.69     True    True   -     
+cuszhi  cuszhi_tp   CESM-2D         CLDHGH        0.01      61.92     51.60     50.42     83.82     True    True   -     
+cuszhi  cuszhi_tp   CESM-2D         CLDHGH        0.001     13.33     66.54     50.02     83.26     True    True   -     
+cuszhi  cuszhi_tp   CESM-2D         CLDHGH        0.0001    5.75      85.43     48.31     77.65     True    True   -     
+cuszhi  cuszhi_tp   HURR            TC            0.01      352.73    54.54     61.07     68.82     True    True   -     
+cuszhi  cuszhi_tp   HURR            TC            0.001     39.55     67.97     61.23     68.87     True    True   -     
+cuszhi  cuszhi_tp   HURR            TC            0.0001    10.07     85.21     61.19     68.87     True    True   -     
+cuszhi  cuszhi_tp   NYX             temperature   0.01      1240.33   64.29     90.47     95.12     True    True   -     
+cuszhi  cuszhi_tp   NYX             temperature   0.001     209.76    74.39     90.30     95.12     True    True   -     
+cuszhi  cuszhi_tp   NYX             temperature   0.0001    33.44     88.26     90.32     95.12     True    True   -     
+cuszhi  cuszhi_tp   HACC            vx            0.01      9.94      48.06     3.65      4.24      True    True   -     
+cuszhi  cuszhi_tp   HACC            vx            0.001     5.08      66.69     3.59      4.32      True    True   -     
+fzgm    cuszhi_tp   CESM-2D         CLDHGH        0.01      52.45     51.50     18.44     24.00     True    True   -     
+fzgm    cuszhi_tp   CESM-2D         CLDHGH        0.001     12.46     66.83     18.16     24.01     True    True   -     
+fzgm    cuszhi_tp   CESM-2D         CLDHGH        0.0001    5.41      85.91     16.67     21.63     True    True   -     
+fzgm    cuszhi_tp   HURR            TC            0.01      344.35    54.73     40.11     47.60     True    True   -     
+fzgm    cuszhi_tp   HURR            TC            0.001     38.98     68.54     39.50     47.39     True    True   -     
+fzgm    cuszhi_tp   HURR            TC            0.0001    9.88      85.43     37.68     47.25     True    True   -     
+fzgm    cuszhi_tp   NYX             temperature   0.01      1152.04   64.21     48.38     56.12     True    True   -     
+fzgm    cuszhi_tp   NYX             temperature   0.001     210.34    75.75     48.17     56.08     True    True   -     
+fzgm    cuszhi_tp   NYX             temperature   0.0001    36.91     90.02     47.56     55.91     True    True   -     
+cuszhi  cuszhi_cr   CESM-2D         CLDHGH        0.01      52.65     51.60     35.44     35.09     True    True   -     
+cuszhi  cuszhi_cr   CESM-2D         CLDHGH        0.001     13.30     66.54     33.75     31.94     True    True   -     
+cuszhi  cuszhi_cr   CESM-2D         CLDHGH        0.0001    5.37      85.43     33.05     36.51     True    True   -     
+cuszhi  cuszhi_cr   HURR            TC            0.01      257.41    54.54     48.26     74.42     True    True   -     
+cuszhi  cuszhi_cr   HURR            TC            0.001     41.21     67.97     48.14     74.24     True    True   -     
+cuszhi  cuszhi_cr   HURR            TC            0.0001    9.99      85.21     48.13     74.47     True    True   -     
+cuszhi  cuszhi_cr   NYX             temperature   0.01      1274.99   64.29     66.30     98.32     True    True   -     
+cuszhi  cuszhi_cr   NYX             temperature   0.001     287.83    74.39     66.30     98.37     True    True   -     
+cuszhi  cuszhi_cr   NYX             temperature   0.0001    49.47     88.26     66.30     98.33     True    True   -     
+cuszhi  cuszhi_cr   HACC            vx            0.001     5.08      66.69     3.61      4.23      True    True   -     
+fzgm    cuszhi_cr   CESM-2D         CLDHGH        0.01      53.21     51.50     15.22     11.79     True    True   -     
+fzgm    cuszhi_cr   CESM-2D         CLDHGH        0.001     13.20     66.83     14.75     8.08      True    True   -     
+fzgm    cuszhi_cr   CESM-2D         CLDHGH        0.0001    5.79      85.91     12.31     5.60      True    True   -     
+fzgm    cuszhi_cr   HURR            TC            0.01      258.49    54.73     35.18     28.64     True    True   -     
+fzgm    cuszhi_cr   HURR            TC            0.001     41.18     68.54     35.08     25.09     True    True   -     
+fzgm    cuszhi_cr   HURR            TC            0.0001    10.19     85.43     29.85     12.74     True    True   -     
+fzgm    cuszhi_cr   NYX             temperature   0.01      517.71    64.21     42.61     38.80     True    True   -     
+fzgm    cuszhi_cr   NYX             temperature   0.001     185.10    75.75     42.38     38.18     True    True   -     
+fzgm    cuszhi_cr   NYX             temperature   0.0001    46.05     90.02     40.29     33.91     True    True   -     
+cuszp2  cuszp2_outlier  CESM-2D         CLDHGH        0.01      13.53     44.75     50.48     52.27     True    False  -     
+cuszp2  cuszp2_outlier  CESM-2D         CLDHGH        0.001     8.80      64.77     44.69     41.45     True    False  -     
+cuszp2  cuszp2_outlier  CESM-2D         CLDHGH        0.0001    4.91      84.77     42.30     26.10     True    False  -     
+cuszp2  cuszp2_outlier  HURR            TC            0.01      16.56     35.58     146.06    223.39    False   False  -     
+cuszp2  cuszp2_outlier  HURR            TC            0.001     10.88     50.58     135.03    110.23    False   False  -     
+cuszp2  cuszp2_outlier  HURR            TC            0.0001    6.02      84.79     122.51    98.11     True    True   -     
+cuszp2  cuszp2_outlier  NYX             temperature   0.01      115.40    54.12     402.68    861.30    True    True   -     
+cuszp2  cuszp2_outlier  NYX             temperature   0.001     16.46     63.89     293.65    343.86    True    True   -     
+cuszp2  cuszp2_outlier  NYX             temperature   0.0001    10.64     84.77     269.25    282.04    True    True   -     
+cuszp2  cuszp2_outlier  HACC            vx            0.01      10.95     44.78     341.68    413.65    True    True   -     
+cuszp2  cuszp2_outlier  HACC            vx            0.001     5.65      64.77     285.26    275.21    True    True   -     
+cuszp2  cuszp2_outlier  HACC            vx            0.0001    3.59      84.77     262.76    229.36    True    True   -     
+fzgm    cuszp2_outlier  CESM-2D         CLDHGH        0.01      12.24     44.75     49.93     45.27     True    True   -     
+fzgm    cuszp2_outlier  CESM-2D         CLDHGH        0.001     8.24      64.77     48.31     45.91     True    True   -     
+fzgm    cuszp2_outlier  CESM-2D         CLDHGH        0.0001    4.73      84.77     46.79     45.59     True    True   -     
+fzgm    cuszp2_outlier  HURR            TC            0.01      14.66     44.80     61.07     49.01     True    True   -     
+fzgm    cuszp2_outlier  HURR            TC            0.001     10.02     64.79     56.61     49.15     True    True   -     
+fzgm    cuszp2_outlier  HURR            TC            0.0001    5.75      84.79     55.45     49.09     True    True   -     
+fzgm    cuszp2_outlier  NYX             temperature   0.01      60.69     54.12     81.46     54.33     True    True   -     
+fzgm    cuszp2_outlier  NYX             temperature   0.001     14.58     63.89     64.32     51.23     True    True   -     
+fzgm    cuszp2_outlier  NYX             temperature   0.0001    9.83      84.77     59.80     48.91     True    True   -     
+fzgm    cuszp2_outlier  HACC            vx            0.01      10.09     44.78     62.23     48.79     True    True   -     
+fzgm    cuszp2_outlier  HACC            vx            0.001     5.41      64.77     73.73     57.06     True    True   -     
+fzgm    cuszp2_outlier  HACC            vx            0.0001    3.49      84.77     63.56     55.15     True    True   -     
+cuszp2  cuszp2_plain  CESM-2D         CLDHGH        0.01      6.20      44.75     55.93     60.28     True    False  -     
+cuszp2  cuszp2_plain  CESM-2D         CLDHGH        0.001     3.81      64.77     51.05     52.77     True    False  -     
+cuszp2  cuszp2_plain  CESM-2D         CLDHGH        0.0001    2.73      84.77     48.45     50.18     True    False  -     
+cuszp2  cuszp2_plain  HURR            TC            0.01      5.94      44.80     147.49    109.70    True    False  -     
+cuszp2  cuszp2_plain  HURR            TC            0.001     3.71      64.79     131.72    153.76    True    True   -     
+cuszp2  cuszp2_plain  HURR            TC            0.0001    2.70      84.79     120.87    44.45     True    False  -     
+cuszp2  cuszp2_plain  NYX             temperature   0.01      115.37    54.12     424.25    969.84    True    True   -     
+cuszp2  cuszp2_plain  NYX             temperature   0.001     13.72     63.89     276.82    314.26    True    True   -     
+cuszp2  cuszp2_plain  NYX             temperature   0.0001    6.61      84.77     261.77    315.60    True    True   -     
+cuszp2  cuszp2_plain  HACC            vx            0.01      10.03     44.78     297.50    337.94    True    False  -     
+cuszp2  cuszp2_plain  HACC            vx            0.001     5.18      64.77     250.72    343.21    True    True   -     
+cuszp2  cuszp2_plain  HACC            vx            0.0001    3.39      84.77     252.22    376.28    True    False  -     
+fzgm    cuszp2_plain  CESM-2D         CLDHGH        0.01      6.20      44.75     48.31     44.91     True    True   -     
+fzgm    cuszp2_plain  CESM-2D         CLDHGH        0.001     3.81      64.77     44.49     44.42     True    True   -     
+fzgm    cuszp2_plain  CESM-2D         CLDHGH        0.0001    2.73      84.77     39.55     42.42     True    True   -     
+fzgm    cuszp2_plain  HURR            TC            0.01      5.94      44.80     56.68     49.50     True    True   -     
+fzgm    cuszp2_plain  HURR            TC            0.001     3.71      64.79     51.75     48.78     True    True   -     
+fzgm    cuszp2_plain  HURR            TC            0.0001    2.70      84.79     45.93     46.36     True    True   -     
+fzgm    cuszp2_plain  NYX             temperature   0.01      115.37    54.12     82.10     54.55     True    True   -     
+fzgm    cuszp2_plain  NYX             temperature   0.001     13.72     63.89     61.13     51.51     True    True   -     
+fzgm    cuszp2_plain  NYX             temperature   0.0001    6.61      84.77     60.12     51.84     True    True   -     
+fzgm    cuszp2_plain  HACC            vx            0.01      10.03     44.78     76.44     62.22     True    True   -     
+fzgm    cuszp2_plain  HACC            vx            0.001     5.18      64.77     70.52     60.30     True    True   -     
+fzgm    cuszp2_plain  HACC            vx            0.0001    3.39      84.77     55.13     52.06     True    True   -     
+cuszp3  cuszp3_plain  CESM-2D         CLDHGH        0.01      6.36      44.75     54.66     62.56     True    False  -     
+cuszp3  cuszp3_plain  CESM-2D         CLDHGH        0.001     3.87      64.77     53.31     44.71     True    False  -     
+cuszp3  cuszp3_plain  CESM-2D         CLDHGH        0.0001    2.76      84.77     50.76     39.12     True    False  -     
+fzgm    cuszp3_plain  CESM-2D         CLDHGH        0.01      6.36      44.75     56.88     47.24     True    True   -     
+fzgm    cuszp3_plain  CESM-2D         CLDHGH        0.001     3.87      64.77     49.73     44.10     True    True   -     
+fzgm    cuszp3_plain  CESM-2D         CLDHGH        0.0001    2.76      84.77     41.50     42.76     True    True   -     
+cuszp3  cuszp3_plain  HURR            TC            0.01      6.05      44.80     150.01    148.53    True    True   -     
+cuszp3  cuszp3_plain  HURR            TC            0.001     3.75      64.79     140.68    139.22    True    False  -     
+cuszp3  cuszp3_plain  HURR            TC            0.0001    2.73      84.79     126.24    49.17     True    False  -     
+cuszp3  cuszp3_plain  NYX             temperature   0.01      227.67    54.12     408.30    958.92    True    True   -     
+cuszp3  cuszp3_plain  NYX             temperature   0.001     15.19     63.89     334.44    557.38    True    True   -     
+cuszp3  cuszp3_plain  NYX             temperature   0.0001    6.82      84.77     323.54    530.44    True    True   -     
+fzgm    cuszp3_plain  HURR            TC            0.01      6.05      44.80     66.16     53.96     True    True   -     
+fzgm    cuszp3_plain  HURR            TC            0.001     3.75      64.79     56.74     41.86     True    True   -     
+fzgm    cuszp3_plain  HURR            TC            0.0001    2.73      84.79     47.00     31.12     True    True   -     
+fzgm    cuszp3_plain  NYX             temperature   0.01      227.67    54.12     113.36    68.76     True    True   -     
+fzgm    cuszp3_plain  NYX             temperature   0.001     15.19     63.89     77.41     60.63     True    True   -     
+fzgm    cuszp3_plain  NYX             temperature   0.0001    6.82      84.77     73.23     56.17     True    True   -     
+cuszp3  cuszp3_plain  HACC            vx            0.01      10.03     44.78     366.82    401.99    True    True   -     
+cuszp3  cuszp3_plain  HACC            vx            0.001     5.18      64.77     351.27    316.06    True    False  -     
+cuszp3  cuszp3_plain  HACC            vx            0.0001    3.39      84.77     297.95    368.37    True    False  -     
+fzgm    cuszp3_plain  HACC            vx            0.01      10.03     44.78     76.44     62.22     True    True   -     
+fzgm    cuszp3_plain  HACC            vx            0.001     5.18      64.77     73.91     62.74     True    True   -     
+fzgm    cuszp3_plain  HACC            vx            0.0001    3.39      84.77     53.77     56.02     True    True   -     
+cuszp3  cuszp3_outlier  CESM-2D         CLDHGH        0.01      14.68     44.75     51.25     69.70     False   False  -     
+cuszp3  cuszp3_outlier  CESM-2D         CLDHGH        0.001     8.29      64.77     45.88     43.91     False   False  -     
+cuszp3  cuszp3_outlier  CESM-2D         CLDHGH        0.0001    4.57      84.70     46.02     31.08     False   False  -     
+fzgm    cuszp3_outlier  CESM-2D         CLDHGH        0.01      13.89     44.75     60.27     47.06     True    True   -     
+fzgm    cuszp3_outlier  CESM-2D         CLDHGH        0.001     8.03      64.77     58.59     47.15     True    True   -     
+fzgm    cuszp3_outlier  CESM-2D         CLDHGH        0.0001    4.49      84.77     53.51     45.46     True    True   -     
+cuszp3  cuszp3_outlier  HURR            TC            0.01      14.52     44.80     144.59    131.40    True    True   -     
+cuszp3  cuszp3_outlier  HURR            TC            0.001     7.68      64.79     130.81    105.98    False   True   -     
+cuszp3  cuszp3_outlier  HURR            TC            0.0001    4.30      84.79     121.02    105.64    False   True   -     
+cuszp3  cuszp3_outlier  NYX             temperature   0.01      227.75    54.12     404.40    823.10    True    True   -     
+cuszp3  cuszp3_outlier  NYX             temperature   0.001     21.83     63.89     311.37    398.71    True    True   -     
+cuszp3  cuszp3_outlier  NYX             temperature   0.0001    12.61     84.77     280.96    295.89    True    True   -     
+fzgm    cuszp3_outlier  HURR            TC            0.01      13.74     44.80     68.68     53.89     True    True   -     
+fzgm    cuszp3_outlier  HURR            TC            0.001     7.46      64.79     67.63     53.68     True    True   -     
+fzgm    cuszp3_outlier  HURR            TC            0.0001    4.23      84.79     60.28     49.45     True    True   -     
+fzgm    cuszp3_outlier  NYX             temperature   0.01      120.53    54.12     112.48    68.73     True    True   -     
+fzgm    cuszp3_outlier  NYX             temperature   0.001     20.11     63.89     86.72     61.02     True    True   -     
+fzgm    cuszp3_outlier  NYX             temperature   0.0001    12.02     84.77     75.79     59.96     True    True   -     
+cuszp3  cuszp3_outlier  HACC            vx            0.01      10.95     44.78     335.13    393.79    True    False  -     
+cuszp3  cuszp3_outlier  HACC            vx            0.001     5.65      64.77     282.65    333.73    True    False  -     
+cuszp3  cuszp3_outlier  HACC            vx            0.0001    3.59      84.77     265.36    268.67    True    True   -     
+fzgm    cuszp3_outlier  HACC            vx            0.01      10.09     44.78     76.99     58.16     True    True   -     
+fzgm    cuszp3_outlier  HACC            vx            0.001     5.41      64.77     73.43     56.90     True    True   -     
+fzgm    cuszp3_outlier  HACC            vx            0.0001    3.49      84.77     66.72     57.26     True    True   -     
+fzgpu   fzgpu       CESM-2D         CLDHGH        0.01      13.88     44.74     112.94    138.30    False   True   -     
+fzgpu   fzgpu       CESM-2D         CLDHGH        0.001     8.31      64.76     113.64    137.36    False   True   -     
+fzgpu   fzgpu       CESM-2D         CLDHGH        0.0001    4.73      84.76     113.00    136.73    False   True   -     
+fzgpu   fzgpu       HURR            TC            0.01      14.37     44.80     151.42    130.14    True    True   -     
+fzgpu   fzgpu       HURR            TC            0.001     9.76      64.79     151.26    129.89    True    True   -     
+fzgpu   fzgpu       HURR            TC            0.0001    6.81      84.79     150.81    129.58    True    True   -     
+fzgpu   fzgpu       NYX             temperature   0.01      106.76    54.12     171.30    140.52    True    True   -     
+fzgpu   fzgpu       NYX             temperature   0.001     13.27     63.89     170.43    139.84    True    True   -     
+fzgpu   fzgpu       NYX             temperature   0.0001    9.07      84.77     170.17    139.65    True    True   -     
+fzgpu   fzgpu       HACC            vx            0.01      9.77      44.78     203.47    186.83    True    True   -     
+fzgpu   fzgpu       HACC            vx            0.001     5.16      64.77     202.57    185.94    True    True   -     
+fzgpu   fzgpu       HACC            vx            0.0001    3.38      84.77     201.70    185.01    True    True   -     
+fzgm    fzgpu       CESM-2D         CLDHGH        0.01      14.57     44.75     89.44     98.17     True    True   -     
+fzgm    fzgpu       CESM-2D         CLDHGH        0.001     8.94      64.77     90.40     97.99     True    True   -     
+fzgm    fzgpu       CESM-2D         CLDHGH        0.0001    4.90      84.77     89.13     96.46     True    True   -     
+fzgm    fzgpu       HURR            TC            0.01      15.03     44.80     115.84    103.26    True    True   -     
+fzgm    fzgpu       HURR            TC            0.001     10.13     64.79     116.40    103.08    True    True   -     
+fzgm    fzgpu       HURR            TC            0.0001    6.92      84.79     114.08    102.19    True    True   -     
+fzgm    fzgpu       NYX             temperature   0.01      116.42    54.12     150.27    122.54    True    True   -     
+fzgm    fzgpu       NYX             temperature   0.001     14.33     63.89     149.67    125.10    True    True   -     
+fzgm    fzgpu       NYX             temperature   0.0001    9.39      84.77     158.88    127.39    True    True   -     
+fzgm    fzgpu       HACC            vx            0.01      10.20     44.78     147.99    130.93    True    True   -     
+fzgm    fzgpu       HACC            vx            0.001     5.27      64.77     150.90    133.27    True    True   -     
+fzgm    fzgpu       HACC            vx            0.0001    3.29      84.77     141.05    129.90    True    True   -     
+pfpl    pfpl        CESM-2D         CLDHGH        0.01      27.30     44.75     90.56     114.80    True    True   -     
+pfpl    pfpl        CESM-2D         CLDHGH        0.001     11.19     64.77     88.66     114.02    True    True   -     
+pfpl    pfpl        CESM-2D         CLDHGH        0.0001    5.50      84.77     88.97     129.48    True    True   -     
+pfpl    pfpl        HURR            TC            0.01      54.73     44.80     127.07    131.79    True    True   -     
+pfpl    pfpl        HURR            TC            0.001     15.58     64.79     125.93    130.91    True    True   -     
+pfpl    pfpl        HURR            TC            0.0001    6.96      84.79     123.30    129.09    True    True   -     
+pfpl    pfpl        NYX             temperature   0.01      954.15    54.12     159.70    168.80    True    True   -     
+pfpl    pfpl        NYX             temperature   0.001     48.32     63.89     147.50    174.47    True    True   -     
+pfpl    pfpl        NYX             temperature   0.0001    15.13     84.77     146.82    135.47    True    True   -     
+pfpl    pfpl        HACC            vx            0.01      12.69     44.78     148.88    135.78    True    True   -     
+pfpl    pfpl        HACC            vx            0.001     5.68      64.77     146.62    133.48    True    True   -     
+pfpl    pfpl        HACC            vx            0.0001    3.56      84.77     143.10    131.54    True    True   -     
+fzgm    pfpl        CESM-2D         CLDHGH        0.01      27.24     44.74     50.93     60.38     False   True   -     
+fzgm    pfpl        CESM-2D         CLDHGH        0.001     11.19     64.76     50.42     60.24     False   True   -     
+fzgm    pfpl        CESM-2D         CLDHGH        0.0001    5.55      84.76     49.44     59.45     False   True   -     
+fzgm    pfpl        HURR            TC            0.01      54.49     44.80     62.64     72.54     True    True   -     
+fzgm    pfpl        HURR            TC            0.001     15.68     64.79     62.44     72.08     True    True   -     
+fzgm    pfpl        HURR            TC            0.0001    7.11      84.79     60.62     71.70     True    True   -     
+fzgm    pfpl        NYX             temperature   0.01      854.56    54.12     71.47     84.95     True    True   -     
+fzgm    pfpl        NYX             temperature   0.001     48.04     63.89     68.43     77.66     True    True   -     
+fzgm    pfpl        NYX             temperature   0.0001    15.11     84.77     67.41     77.27     True    True   -     
+fzgm    pfpl        HACC            vx            0.01      12.67     44.78     80.96     88.02     True    True   -     
+fzgm    pfpl        HACC            vx            0.001     5.68      64.77     75.01     87.47     True    True   -     
+fzgm    pfpl        HACC            vx            0.0001    3.56      84.77     75.60     86.83     True    True   -     
+
+207 ok, 3 failed
+  FAIL fzgm_vs_native-0035: compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0035/compress.log
+  FAIL fzgm_vs_native-0054: compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0054/compress.log
+  FAIL fzgm_vs_native-0056: compress failed (exit -6); see /N/scratch/sruiter/benchkit-results/7562329/work/fzgm_vs_native-0056/compress.log
+
+compressor  variant     pipeline    error_bound  n_fields    ratio_of_sums_cr  geomean_cr
+-----------------------------------------------------------------------------------------
+cusz        cusz        default     0.000        4           1.91              5.63      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cusz        cusz        default     0.001        4           6.97              12.98     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cusz        cusz        default     0.010        4           17.88             22.97     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszhi      cuszhi_cr   cr          0.000        3           25.79             13.84     
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+cuszhi      cuszhi_cr   cr          0.001        4           7.85              29.92     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszhi      cuszhi_cr   cr          0.010        3           509.11            258.53    
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+cuszhi      cuszhi_tp   tp          0.000        3           21.74             12.46     
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+cuszhi      cuszhi_tp   tp          0.001        4           7.83              27.38     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszhi      cuszhi_tp   tp          0.010        4           15.65             128.11    
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszp2      cuszp2_outlier  outlier     0.000        4           4.63              5.80      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszp2      cuszp2_outlier  outlier     0.001        4           7.33              9.71      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszp2      cuszp2_outlier  outlier     0.010        4           15.50             23.07     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszp2      cuszp2_plain  plain       0.000        4           3.89              3.59      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszp2      cuszp2_plain  plain       0.001        4           6.17              5.63      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszp2      cuszp2_plain  plain       0.010        4           12.97             14.37     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+cuszp3      cuszp3_outlier  outlier     0.000        1           3.59              3.59      
+    fields: HACC/vx
+cuszp3      cuszp3_outlier  outlier     0.001        1           5.65              5.65      
+    fields: HACC/vx
+cuszp3      cuszp3_outlier  outlier     0.010        1           10.95             10.95     
+    fields: HACC/vx
+cuszp3      cuszp3_outlier  outlier:2d  0.000        1           4.57              4.57      
+    fields: CESM-2D/CLDHGH
+cuszp3      cuszp3_outlier  outlier:2d  0.001        1           8.29              8.29      
+    fields: CESM-2D/CLDHGH
+cuszp3      cuszp3_outlier  outlier:2d  0.010        1           14.68             14.68     
+    fields: CESM-2D/CLDHGH
+cuszp3      cuszp3_outlier  outlier:3d  0.000        2           9.68              7.37      
+    fields: HURR/TC, NYX/temperature
+cuszp3      cuszp3_outlier  outlier:3d  0.001        2           16.93             12.95     
+    fields: HURR/TC, NYX/temperature
+cuszp3      cuszp3_outlier  outlier:3d  0.010        2           68.91             57.51     
+    fields: HURR/TC, NYX/temperature
+cuszp3      cuszp3_plain  plain       0.000        1           3.39              3.39      
+    fields: HACC/vx
+cuszp3      cuszp3_plain  plain       0.001        1           5.18              5.18      
+    fields: HACC/vx
+cuszp3      cuszp3_plain  plain       0.010        1           10.03             10.03     
+    fields: HACC/vx
+cuszp3      cuszp3_plain  plain:2d    0.000        1           2.76              2.76      
+    fields: CESM-2D/CLDHGH
+cuszp3      cuszp3_plain  plain:2d    0.001        1           3.87              3.87      
+    fields: CESM-2D/CLDHGH
+cuszp3      cuszp3_plain  plain:2d    0.010        1           6.36              6.36      
+    fields: CESM-2D/CLDHGH
+cuszp3      cuszp3_plain  plain:3d    0.000        2           5.52              4.31      
+    fields: HURR/TC, NYX/temperature
+cuszp3      cuszp3_plain  plain:3d    0.001        2           10.28             7.55      
+    fields: HURR/TC, NYX/temperature
+cuszp3      cuszp3_plain  plain:3d    0.010        2           33.71             37.11     
+    fields: HURR/TC, NYX/temperature
+fzgm        cusz        configs/pipelines/cusz.toml  0.000        4           5.07              8.15      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cusz        configs/pipelines/cusz.toml  0.001        4           8.71              14.36     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cusz        configs/pipelines/cusz.toml  0.010        4           18.33             23.22     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cuszhi_cr   configs/pipelines/cusz_hi_cr.toml  0.000        3           25.55             13.95     
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+fzgm        cuszhi_cr   configs/pipelines/cusz_hi_cr.toml  0.001        3           90.89             46.51     
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+fzgm        cuszhi_cr   configs/pipelines/cusz_hi_cr.toml  0.010        3           346.82            192.38    
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+fzgm        cuszhi_tp   configs/pipelines/cusz_hi_tp.toml  0.000        3           22.50             12.55     
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+fzgm        cuszhi_tp   configs/pipelines/cusz_hi_tp.toml  0.001        3           92.08             46.75     
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+fzgm        cuszhi_tp   configs/pipelines/cusz_hi_tp.toml  0.010        3           529.98            275.05    
+    fields: CESM-2D/CLDHGH, HURR/TC, NYX/temperature
+fzgm        cuszp2_outlier  configs/pipelines/cuszp2.toml  0.000        4           4.47              5.52      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cuszp2_outlier  configs/pipelines/cuszp2.toml  0.001        4           6.93              8.98      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cuszp2_outlier  configs/pipelines/cuszp2.toml  0.010        4           13.83             18.21     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cuszp2_plain  configs/pipelines/cuszp2_plain.toml  0.000        4           3.89              3.59      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cuszp2_plain  configs/pipelines/cuszp2_plain.toml  0.001        4           6.17              5.63      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cuszp2_plain  configs/pipelines/cuszp2_plain.toml  0.010        4           12.97             14.37     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_1d_outlier.toml  0.000        1           3.49              3.49      
+    fields: HACC/vx
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_1d_outlier.toml  0.001        1           5.41              5.41      
+    fields: HACC/vx
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_1d_outlier.toml  0.010        1           10.09             10.09     
+    fields: HACC/vx
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_3d_outlier.toml  0.000        2           9.32              7.13      
+    fields: HURR/TC, NYX/temperature
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_3d_outlier.toml  0.001        2           15.88             12.25     
+    fields: HURR/TC, NYX/temperature
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_3d_outlier.toml  0.010        2           54.29             40.70     
+    fields: HURR/TC, NYX/temperature
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_outlier.toml  0.000        1           4.49              4.49      
+    fields: CESM-2D/CLDHGH
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_outlier.toml  0.001        1           8.03              8.03      
+    fields: CESM-2D/CLDHGH
+fzgm        cuszp3_outlier  configs/pipelines/cuszp3_outlier.toml  0.010        1           13.89             13.89     
+    fields: CESM-2D/CLDHGH
+fzgm        cuszp3_plain  configs/pipelines/cuszp3.toml  0.000        1           2.76              2.76      
+    fields: CESM-2D/CLDHGH
+fzgm        cuszp3_plain  configs/pipelines/cuszp3.toml  0.001        1           3.87              3.87      
+    fields: CESM-2D/CLDHGH
+fzgm        cuszp3_plain  configs/pipelines/cuszp3.toml  0.010        1           6.36              6.36      
+    fields: CESM-2D/CLDHGH
+fzgm        cuszp3_plain  configs/pipelines/cuszp3_1d.toml  0.000        1           3.39              3.39      
+    fields: HACC/vx
+fzgm        cuszp3_plain  configs/pipelines/cuszp3_1d.toml  0.001        1           5.18              5.18      
+    fields: HACC/vx
+fzgm        cuszp3_plain  configs/pipelines/cuszp3_1d.toml  0.010        1           10.03             10.03     
+    fields: HACC/vx
+fzgm        cuszp3_plain  configs/pipelines/cuszp3_3d.toml  0.000        2           5.52              4.31      
+    fields: HURR/TC, NYX/temperature
+fzgm        cuszp3_plain  configs/pipelines/cuszp3_3d.toml  0.001        2           10.28             7.55      
+    fields: HURR/TC, NYX/temperature
+fzgm        cuszp3_plain  configs/pipelines/cuszp3_3d.toml  0.010        2           33.71             37.11     
+    fields: HURR/TC, NYX/temperature
+fzgm        fzgpu       configs/pipelines/fzgpu.toml  0.000        4           4.27              5.69      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        fzgpu       configs/pipelines/fzgpu.toml  0.001        4           6.78              9.10      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        fzgpu       configs/pipelines/fzgpu.toml  0.010        4           14.49             22.58     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        pfpl        configs/pipelines/pfpl.toml  0.000        4           4.83              6.79      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        pfpl        configs/pipelines/pfpl.toml  0.001        4           8.21              14.79     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgm        pfpl        configs/pipelines/pfpl.toml  0.010        4           19.40             63.31     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgpu       fzgpu       default     0.000        4           4.34              5.61      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgpu       fzgpu       default     0.001        4           6.58              8.64      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+fzgpu       fzgpu       default     0.010        4           13.86             21.36     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+pfpl        pfpl        default     0.000        4           4.83              6.74      
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+pfpl        pfpl        default     0.001        4           8.21              14.79     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature
+pfpl        pfpl        default     0.010        4           19.44             65.22     
+    fields: CESM-2D/CLDHGH, HACC/vx, HURR/TC, NYX/temperature

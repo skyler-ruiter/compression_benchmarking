@@ -31,12 +31,17 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
 ## Project layout
 
 - `benchkit/` — the package: `config`, `datasets`(in config.py), `pipelines` (TOML
-  load/render), `adapters/{base,fzgm}`, `metrics` (harness-owned), `gpu` (throttle
-  sampler), `provenance`, `store` (JSONL), `runner`, `analysis`, `cli`, `site`.
+  load/render), `adapters/{base,fzgm,cusz_ref,cuszhi,cuszp,fzgpu,pfpl,mans,sz3,zfp,
+  mgard,sperr,lscomp}`, `metrics` (harness-owned), `gpu` (throttle sampler),
+  `provenance`, `store` (JSONL), `runner`, `analysis`, `cli`, `site`.
 - `configs/` — `datasets.yaml`, `experiments/*.yaml`, `pipelines/*.toml`,
   `site.example.yaml` (copy to gitignored `site.local.yaml`).
 - `docs/` — `DESIGN.md`, `adapters/`. `scripts/submit.slurm` — SLURM array template.
-- `results/` — gitignored run output (one dir per session).
+  `scripts/build_comparison_artifact.py`, `scripts/reconstruct_runs_from_stdout.py` —
+  see `results/baselines/README.md`.
+- `results/` — gitignored run output (one dir per session), **except**
+  `results/baselines/` — curated, git-tracked cross-machine snapshots (see
+  `results/baselines/README.md`, `docs/DESIGN.md` D24).
 
 ## Key facts (don't relearn these the hard way)
 
@@ -57,8 +62,12 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
 
 ## Status
 
-M1 (core loop) + M2 (HPC execution + timing reliability) complete. **Next: M3** — first
-reference adapter (cuSZ via submodule + build script), the first cross-tool comparison.
+M1 (core loop) + M2 (HPC execution + timing reliability) complete. M3 (reference
+adapters) well underway: cuSZ, cuSZ-Hi, cuSZp2/3, FZ-GPU, PFPL (GPU) and now SZ3, zfp,
+MGARD, SPERR (CPU/GPU, added on the JetStream2 H100 node — see docs/adapters/*.md) all
+have working adapters. MANS and lsCOMP remain stubs (lossless/quantized-integer
+compressors that don't map onto the abs/rel_range/rel_maxabs model without a
+quantization-wrapper design — see docs/adapters/mans.md, docs/adapters/lscomp.md).
 See the roadmap in `docs/DESIGN.md` §9.
 
 ## Conventions

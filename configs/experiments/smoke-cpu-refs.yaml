@@ -1,0 +1,52 @@
+# Smoke test for the sz3/zfp/mgard/sperr reference adapters (added on the JetStream2
+# H100 node — see docs/adapters/{sz3,zfp,mgard,sperr}.md).
+#
+#   source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/smoke-cpu-refs.yaml
+#
+# All four use rel_range at 1e-3 for direct CR/quality comparison against the GPU
+# adapters (smoke-m3-refs.yaml, smoke-cusz.yaml). None of these tools has a native
+# range-relative mode except sz3 (REL); zfp/mgard/sperr emulate it by reading the
+# input file and passing an absolute bound — see docs/DESIGN.md D19.
+#
+# Timing comparability: sz3/zfp/sperr are CPU-only (self-reported or external
+# wall-clock — see each adapter's docs) and mgard is GPU but pays a fresh CUDA
+# context init every subprocess call (no in-process repeat). None of these four
+# are throughput-comparable to the CUDA-event adapters (cuSZ, cuSZp, FZGM) — use
+# them for CR/quality baselines, not a throughput ranking.
+#
+# sperr is 2D/3D-only, excluded from HACC's 1-D data (see docs/adapters/sperr.md).
+# mgard OOMs on HACC's 280M-element 1-D field (confirmed: "GPUassert: out of
+# memory" on an 80GB H100 — likely padding-to-power-of-2 blowup in its 1-D
+# decomposition; 3-D HURR/NYX at similar total element counts are fine). See
+# docs/adapters/mgard.md "Known limitation: large 1-D arrays".
+
+name: smoke-cpu-refs
+description: End-to-end smoke check for the sz3/zfp/mgard/sperr reference adapters.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 3
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+
+runs:
+  - {compressor: sz3,   variant: sz3,   pipeline: default}
+  - {compressor: zfp,   variant: zfp,   pipeline: default}
+  - {compressor: mgard, variant: mgard, pipeline: default, skip_datasets: [HACC]}
+  - {compressor: sperr, variant: sperr, pipeline: default, skip_datasets: [HACC]}

@@ -1,5 +1,8 @@
-# Run output (sessions, artifacts, logs) — never tracked
-results/
+# Run output (sessions, artifacts, logs) — never tracked, except curated
+# cross-machine baseline snapshots under results/baselines/ (see
+# results/baselines/README.md and docs/DESIGN.md D24).
+results/*
+!results/baselines/
 
 # Per-machine site config (paths); commit site.example.yaml instead
 configs/site.local.yaml

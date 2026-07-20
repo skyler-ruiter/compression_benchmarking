@@ -130,3 +130,37 @@ and cuSZ-Hi.
 - Device timing requires the patched `executor.cc` (CUDA events added); a stock
   cuSZ binary will fail `benchmark()` with an AdapterError about missing JSON.
 - f64 (Miranda) not tested at time of writing — cuSZ supports f64 via `-t f64`.
+
+## Known issue: silent quantization-overflow corruption on HACC at eb=1e-4
+
+`fzgm_vs_native.yaml` (JetStream2 H100, 2026-07-19) surfaced a real native-cuSZ
+correctness bug, not an adapter bug — worth flagging prominently because it's a
+**silent** failure (`exit 0`, no error), the exact failure mode the harness's
+D4 "harness owns the metrics, never trust a tool's self-report" design exists
+to catch:
+
+```
+$ cusz -z -i vx.f32 -t f32 -l 280953867 -m r2r -e 0.0001 -R cr
+[Lorenzo, Hist, HF-fast2]  CR=1.26  mode=Rel  input_eb=1.000000e-04  final_eb=6.908748e-01
+
+$ cusz -x -i vx.f32.cusza --compare vx.f32
+[Lorenzo, Hist, HF-fast2]  CR=1.26  PSNR=-23.6  max_error=1.838321e+05  max_error_rel=2.660860e+01
+```
+
+`final_eb` (6.9e-1) is **~7000x looser** than `input_eb` (1e-4) — cuSZ's own
+printed numbers show `max_error_rel=26.6` (2660% over the requested bound) and
+negative PSNR, i.e. the decompressed data bears little resemblance to the
+original. cuSZ exits 0 and reports this as a completed, successful run.
+
+FZGM's cuSZ port (`configs/pipelines/cusz.toml`, `quant_radius=512`) handles
+the identical (HACC/vx, eb=1e-4) cell cleanly: CR=3.63, PSNR=84.77dB, eb
+satisfied. The pipeline's own comments describe a wraparound quantization
+scheme (`negative deltas wrap to [65536-radius+1..65535]`) rather than
+clamping/saturating — plausibly why an extreme Lorenzo residual that overflows
+native cuSZ's quantization dictionary doesn't corrupt FZGM's output the same
+way, though this is not confirmed by reading cuSZ's own quantization-overflow
+handling (not investigated further). This looks like it's specifically a
+large-1D-array-plus-very-tight-eb corner case in native cuSZ's default
+dictionary sizing (`-d`/`--dict-size`, not set explicitly by this adapter);
+worth revisiting if you need cuSZ to be reliable at tight bounds on
+outlier-heavy 1-D data.

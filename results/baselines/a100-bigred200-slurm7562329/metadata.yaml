@@ -1,0 +1,55 @@
+# Baseline: A100 / BigRed200
+# See results/baselines/README.md for the schema this file follows.
+
+baseline_id: a100-bigred200-slurm7562329
+gpu: NVIDIA A100-SXM4-40GB
+site: BigRed200 (SLURM HPC cluster, Indiana University)
+driver: "595.71.05"
+cuda_toolkit: "12.6 (module cudatoolkit/24.11_12.6)"
+date: unknown  # not recorded in the source log; SLURM job 7562329 predates 2026-07-19
+experiment_config: configs/experiments/fzgm_vs_native.yaml
+clocks_locked: false  # BigRed200 is a shared cluster; nvidia-smi -lgc is admin-only (see DESIGN.md D15)
+
+source:
+  kind: reconstructed_from_stdout_log
+  raw_log: raw_slurm_stdout.log
+  reconstructed_with: scripts/reconstruct_runs_from_stdout.py
+  fidelity: >
+    Partial. Reconstructed from the printed summary table in SLURM stdout
+    (comp/variant/dataset/field/eb/CR/PSNR/cGB per s/dGB per s/eb_ok/tOK
+    columns only). Missing relative to a native benchkit runs.jsonl:
+    per-rep timing arrays, cv/stability detail, stages[], gpu_sampling,
+    eb_abs_effective, compressed_bytes, checksums. The original runs.jsonl
+    this job produced (/N/scratch/sruiter/benchkit-results/7562329/runs.jsonl
+    on BigRed200) was never copied off that cluster. If it becomes
+    available, replace runs.jsonl and provenance.json in this directory
+    with the originals and delete this fidelity note.
+
+cells:
+  total: 210
+  ok: 207
+  failed: 3
+  known_failures: >
+    Native cuSZ-Hi on HACC (1-D, 280M elements), both tp/cr presets, C++
+    exceptions at specific error bounds — see docs/adapters/cuszhi.md.
+    Reproduces identically on the H100 baseline; not platform-specific.
+
+known_issues:
+  - >
+    Native cuSZp2 (not v3) carries its own instance of the uninitialized
+    `excl_sum` shared-memory bug (docs/DESIGN.md D23), independently
+    discovered via cross-referencing this baseline against the H100 one
+    after the H100-side bug was found and fixed. Manifests on 2 cells here
+    (different cells than it did on the unpatched H100 build, since it
+    depends on whatever garbage value that specific hardware's shared
+    memory happened to hold):
+      - cuszp2 outlier, HURR, eb=1e-2: PSNR 35.58 dB (expected ~44.8 dB)
+      - cuszp2 outlier, HURR, eb=1e-3: PSNR 50.58 dB (expected ~64.8 dB)
+    This baseline was captured before the bug was known and has not been
+    re-run since the fix. Treat those 2 cells' CR/PSNR as unreliable;
+    their throughput numbers are unaffected (same bug does not touch
+    timing). All other native cuSZp2 cells here are clean (verified by
+    comparing against the fixed H100 baseline's consistent PSNR-vs-eb
+    pattern — see the H100 baseline's metadata.yaml and DESIGN.md D23).
+
+related_decisions: [D23]

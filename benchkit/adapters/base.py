@@ -136,3 +136,25 @@ def load_report_json(path: Path) -> dict:
     if report.get("status") != "ok":
         raise AdapterError(f"tool reported failure: {report.get('error_message')}")
     return report
+
+
+def read_range_stats(field: FieldSpec) -> tuple[float, float]:
+    """Read a field's raw data and return (range, maxabs) = (max-min, max|x|).
+
+    For tools with no native range- or maxabs-relative error mode (zfp, SPERR,
+    MGARD's "rel" is a different smoothness-norm, not range/maxabs), rel_range /
+    rel_maxabs are emulated: the adapter reads the same file the harness will
+    later read for its own independent quality check, computes the same
+    range/maxabs, and passes the tool an absolute bound of eb * range (or
+    eb * maxabs). Because both sides compute the statistic from the identical
+    input file, the emulated bound and the harness's own eb_ok check agree.
+    """
+    import numpy as np
+
+    npdtype = {"f32": np.float32, "f64": np.float64}[field.dtype]
+    arr = np.fromfile(field.path, dtype=npdtype, count=field.num_elements)
+    if arr.size < field.num_elements:
+        raise AdapterError(
+            f"{field.path}: read {arr.size} elements, expected {field.num_elements}")
+    vmin, vmax = float(arr.min()), float(arr.max())
+    return vmax - vmin, float(np.abs(arr).max())

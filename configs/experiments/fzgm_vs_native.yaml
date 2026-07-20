@@ -39,6 +39,10 @@
 # built from had wall-clock-timed adapters — chiefly native fzgpu — pick up contention
 # from other jobs sharing the node). Use scripts/submit_fzgm_vs_native.slurm
 # (#SBATCH --exclusive is already set there).
+#
+# On a dedicated single-tenant GPU VM (e.g. JetStream2, no SLURM) exclusivity is
+# already guaranteed; run scripts/lock_clocks.sh first (needs sudo) and set
+# lock_clocks: true below to record it — see docs/hpc-setup.md and D15 in DESIGN.md.
 
 name: fzgm_vs_native
 description: >
@@ -64,7 +68,7 @@ error:
 
 repetitions: 5
 warmup_reps: 1
-lock_clocks: false
+lock_clocks: true    # this VM is single-tenant/exclusive; run scripts/lock_clocks.sh first
 retain_decompressed: false
 
 runs:

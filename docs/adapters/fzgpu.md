@@ -126,10 +126,29 @@ Five changes were made to the original source:
 ## Build
 
 ```bash
-cd ~/research/compressors/FZ-GPU
-# Edit Makefile SM if needed: nvcc ... -arch=sm_80 (A100)
+cd ~/compressors/FZ-GPU
+# Makefile now hardcodes -gencode arch=compute_90,code=sm_90 (H100). For other
+# GPUs, edit the GENCODE variable at the top of the Makefile.
 make main
 # binary: ./fz-gpu
 ```
 
-Set `FZGPU_CLI` in `scripts/env-bigred200.sh` (already set to the project directory binary).
+Set `FZGPU_CLI` in `scripts/env-jetstream2.sh` (already set to the project directory binary).
+
+### `sm_90` fix (2026-07-19)
+
+The stock Makefile passed no `-arch`/`-gencode` flag to `nvcc` at all, so every
+kernel was compiled only for nvcc's ancient default (`sm_52`), with `compute_52`
+PTX embedded alongside it. On this H100 the binary still *ran* — the driver
+JIT-recompiled the `sm_52` PTX to `sm_90` SASS on first launch (cached
+per-process in `~/.nv/ComputeCache`) — but that's a real, avoidable cost, and
+JIT-compiled-from-`compute_52` code doesn't get Hopper-specific codegen the way
+a native `-gencode arch=compute_90,code=sm_90` build does. Added an explicit
+`GENCODE` variable (`-gencode arch=compute_90,code=sm_90 -gencode
+arch=compute_90,code=compute_90`, the latter kept for forward-PTX-compat) to
+both build targets; rebuilt from scratch; confirmed via `cuobjdump -lelf` that
+the binary now embeds `sm_90` cubins directly. Found during the same audit that
+turned up the `cudaMalloc` bug in cuSZp (D20/D21 in `docs/DESIGN.md`) — FZ-GPU
+itself does **not** have that bug (see "In-process repeat" above: its one
+`cudaMalloc` block runs once per `runFzgpu()` call, entirely outside the
+`compressionStart`/`compressionEnd` timing window).

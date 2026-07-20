@@ -144,12 +144,12 @@ cmake --build build -j8
 
 ## FZGM pairing: 1-D data is structurally unsupported
 
-Native cuSZ-Hi handles 1-D fields fine (e.g. HACC/vx, CR ≈ 5.08 at eb=1e-3) — but
-there is no fair FZGM counterpart, and this is **not a preset bug**. Both FZGM
-cuSZ-Hi presets (`cusz_hi_tp.toml`, `cusz_hi_cr.toml`) are built entirely around
-`GInterpStage` (the spline-interpolation predictor, cuSZ-Hi's LC "Spline" path),
-and `GInterpStage::setDims` throws by design on 1-D input — confirmed in FZGM's
-own test suite (`tests/stages/test_ginterp.cpp`:
+Native cuSZ-Hi handles 1-D fields *inconsistently* with the `tp`/`cr` (spline)
+presets — but there is no fair FZGM counterpart regardless, and this is **not a
+preset bug**. Both FZGM cuSZ-Hi presets (`cusz_hi_tp.toml`, `cusz_hi_cr.toml`)
+are built entirely around `GInterpStage` (the spline-interpolation predictor,
+cuSZ-Hi's LC "Spline" path), and `GInterpStage::setDims` throws by design on
+1-D input — confirmed in FZGM's own test suite (`tests/stages/test_ginterp.cpp`:
 `EXPECT_THROW(s.setDims(1024, 1, 1), std::runtime_error)`). The spline predictor
 needs a real 2-D+ neighborhood to interpolate against; there's no reduced 1-D
 mode to fall back to inside `GInterpStage` itself.
@@ -162,3 +162,22 @@ cuSZ-Hi pipeline (real upstream work), not tweaking a preset's dims. Until then,
 `configs/experiments/fzgm_vs_native.yaml` scopes both FZGM cuSZ-Hi run entries
 with `skip_datasets: [HACC]` — native cuSZ-Hi still runs against HACC (useful
 reference data on its own), it just has no FZGM row to pair against.
+
+**Update (JetStream2 H100, full `fzgm_vs_native.yaml` run, 2026-07-19):** native
+cuSZ-Hi's 1-D handling is not just a different-predictor fallback — it's
+outright unstable at some (preset, eb) combinations on HACC's 280,953,867-element
+field, aborting with a C++ exception (exit -6) rather than producing a result:
+
+| Preset | eb=1e-2 | eb=1e-3 | eb=1e-4 |
+|---|---|---|---|
+| `tp` | ok (CR 9.77) | ok (CR 5.08) | **crash** — `psz_gpu_exception`, "invalid argument" at `compressor.inl:272` |
+| `cr` | **crash** — `std::runtime_error`, "exceeding max len: 27" | ok (CR 5.65) | **crash** — `psz_gpu_exception`, "invalid argument" at `compressor.inl:309` |
+
+Only eb=1e-3 survived for both presets — not a clean "1-D unsupported"
+failure mode, more likely internal array-length/quantization-level bookkeeping
+in the spline path that happens to fit for some eb-derived parameter ranges and
+overflow for others on a field this large. Recorded as `status: fail` rows in
+`runs.jsonl` (not swallowed) — this is itself a legitimate robustness data point
+for the native tool, not a benchkit bug. Not root-caused further; if you need
+the `tp`/`cr` presets to run cleanly against 1-D data, this is where to start
+digging in cuSZ-Hi's own source.

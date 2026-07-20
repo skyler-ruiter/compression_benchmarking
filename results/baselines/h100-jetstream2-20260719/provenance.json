@@ -1,0 +1,127 @@
+{
+  "session_id": "20260719-cuszp2-exclsum-fix-skyler-h100",
+  "timestamp": "2026-07-19T21:52:39.427803+00:00",
+  "shard": null,
+  "gpu": {
+    "available": true,
+    "name": "NVIDIA H100 80GB HBM3",
+    "driver": "595.71.05",
+    "memory_total": "81559 MiB",
+    "sm_clock": "1830 MHz",
+    "sm_clock_max": "1980 MHz",
+    "mem_clock": "2619 MHz",
+    "ecc": "Enabled",
+    "persistence": "Enabled"
+  },
+  "host": {
+    "node": "skyler-h100",
+    "system": "Linux",
+    "release": "7.0.0-28-generic",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "scheduler": {},
+  "software": {
+    "modules": "nvhpc/25.7/nvhpc/25.7",
+    "module_list": "Currently Loaded Modules:\n  1) nvhpc/25.7/nvhpc/25.7",
+    "spack_env": null,
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Tue_May_27_02:21:03_PDT_2025\nCuda compilation tools, release 12.9, V12.9.86\nBuild cuda_12.9.r12.9/compiler.36037853_0"
+  },
+  "harness": {
+    "git_sha": "37b4aee",
+    "config_sha256": "3b2398c55125897d87436f5f4be7b6bc0dc9331fbf3e69a34b65089c3326ad0c",
+    "python": "3.12.3"
+  },
+  "compressors": {
+    "cusz:cusz": {
+      "cli_path": "/home/exouser/compressors/cuSZ/build/cusz",
+      "name": "cusz",
+      "timing_method": "cuda_event_device_only"
+    },
+    "fzgm:cusz": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszhi:cuszhi_tp": {
+      "cli_path": "/home/exouser/compressors/cuSZ-Hi/build/cuszhi",
+      "name": "cuszhi",
+      "timing_method": "cuda_events_total_ms_from_report_table"
+    },
+    "fzgm:cuszhi_tp": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszhi:cuszhi_cr": {
+      "cli_path": "/home/exouser/compressors/cuSZ-Hi/build/cuszhi",
+      "name": "cuszhi",
+      "timing_method": "cuda_events_total_ms_from_report_table"
+    },
+    "fzgm:cuszhi_cr": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp2:cuszp2_outlier": {
+      "cli_path": "/home/exouser/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp",
+      "name": "cuszp2",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp2_outlier": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp2:cuszp2_plain": {
+      "cli_path": "/home/exouser/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp",
+      "name": "cuszp2",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp2_plain": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp3:cuszp3_plain": {
+      "cli_path": "/home/exouser/compressors/cuSZp-V3.0.0/build/examples/bin/cuSZp",
+      "name": "cuszp3",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp3_plain": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp3:cuszp3_outlier": {
+      "cli_path": "/home/exouser/compressors/cuSZp-V3.0.0/build/examples/bin/cuSZp",
+      "name": "cuszp3",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp3_outlier": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgpu:fzgpu": {
+      "cli_path": "/home/exouser/compressors/FZ-GPU/fz-gpu",
+      "name": "fz-gpu",
+      "timing_method": "wall_clock_chrono_e2e",
+      "timing_note": "std::chrono::system_clock around kernel launches + cudaDeviceSynchronize. More variance than CUDA-event adapters; cv threshold still applies.",
+      "dtype": "f32 only",
+      "error_mode": "rel_range only (NOA: eb \u00d7 range)"
+    },
+    "fzgm:fzgpu": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "pfpl:pfpl": {
+      "cli_path": "/home/exouser/compressors/PFPL/bin",
+      "name": "pfpl",
+      "timing_method": "cuda_events_seconds",
+      "timing_reps_per_call": 9
+    },
+    "fzgm:pfpl": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    }
+  },
+  "nvidia_smi": "Sun Jul 19 21:52:39 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 595.71.05              Driver Version: 595.71.05      CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H100 80GB HBM3          On  |   00000000:04:00.0 Off |                    0 |\n| N/A   40C    P0            126W /  700W |       0MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+"
+}

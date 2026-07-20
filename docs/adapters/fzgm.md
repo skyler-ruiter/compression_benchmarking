@@ -92,6 +92,23 @@ inter-kernel launch gaps. That gap = launch/scheduling overhead, itself a useful
   anyway as a forward-compat hint in case `-x -c` is wired up in a future version.
   (Diagnosed 2026-07-02 against pfpl/pfpl_minimal pipelines; fixed by binary patch.)
 
+## Why FZGM was never at risk of the cuSZp `cudaMalloc` bug
+
+D20/D21 in `docs/DESIGN.md` found native cuSZp2/cuSZp3 allocating/freeing
+scratch buffers with plain `cudaMalloc`/`cudaFree` on *every* compress/decompress
+call — catastrophic on this VM's GPU-passthrough allocator (up to 451ms per
+call). FZGM's `Pipeline` never had that failure mode available to begin with:
+buffers are allocated once under `MemoryStrategy::PREALLOCATE`, backed by a
+`MemoryPool` that uses CUDA's stream-ordered `cudaMallocFromPoolAsync` (see
+FZGPUModules `src/mem/mempool.cpp`), and the CLI's `-b --runs N` loop
+(`cli.cpp`) does one **untimed warmup** call before the timed loop, then
+brackets each subsequent call with `std::chrono` + `cudaDeviceSynchronize()`
+with no allocation inside that window — pool-owned pointers are explicitly
+never freed between reps (see the Memory Ownership table in FZGPUModules'
+`docs/architecture.md`). Each rep also independently records a device-only
+`dag_elapsed_ms` via internal CUDA events, so there are two corroborating
+timing sources per run rather than one self-reported number.
+
 ## Pipelines: TOML-first
 
 The adapter drives pipelines via TOML (`-c config.toml`), not the `--stages` text path.

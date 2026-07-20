@@ -1,0 +1,40 @@
+# Baseline: H100 / JetStream2
+# See results/baselines/README.md for the schema this file follows.
+
+baseline_id: h100-jetstream2-20260719
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (GPU-passthrough cloud VM, single-tenant/exclusive, host skyler-h100)
+driver: "595.71.05"
+cuda_toolkit: "12.9 (nvhpc/25.7)"
+date: "2026-07-19"
+experiment_config: configs/experiments/fzgm_vs_native.yaml
+clocks_locked: true  # exclusive GPU, sudo available -- scripts/lock_clocks.sh, max boost 1980 MHz
+
+source:
+  kind: benchkit_native_output
+  original_session_id: 20260719-cuszp2-exclsum-fix-skyler-h100
+  fidelity: full  # runs.jsonl + provenance.json copied verbatim, no reconstruction
+
+cells:
+  total: 210
+  ok: 207
+  failed: 3
+  known_failures: >
+    Native cuSZ-Hi on HACC (1-D, 280M elements), both tp/cr presets, C++
+    exceptions at specific error bounds — see docs/adapters/cuszhi.md.
+    Reproduces identically on the A100 baseline; not platform-specific.
+
+notes: >
+  Generated after this session's fixes: native sm_90 builds for FZ-GPU and
+  lsCOMP (were silently building for sm_52/JIT and sm_80/86 respectively —
+  D21), the cuSZp2/cuSZp3 scratch-buffer cudaMalloc-in-hot-path throughput
+  fix (D20), and the cuSZp2 excl_sum uninitialized-shared-memory correctness
+  fix (D23). This is the first baseline on either platform where native
+  cuSZp2 output is verified fully correct (0/24 checked cells fail cuSZp2's
+  own internal error check). All source patches applied outside this repo,
+  in ~/compressors/{cuSZp-V2.0.1,cuSZp-V3.0.0,FZ-GPU}/ and
+  ~/compressors/lsCOMP/ on this machine — not upstreamed, not tracked by
+  this repo's git. Re-apply from docs/adapters/{cuszp,fzgpu,lscomp}.md if
+  rebuilding from a fresh clone of those tools.
+
+related_decisions: [D20, D21, D22, D23]
