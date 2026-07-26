@@ -1,0 +1,65 @@
+# Baseline: H100 / JetStream2 — POST decompress-kernel-optimization
+# See results/baselines/README.md for the schema this file follows.
+#
+# This supersedes h100-jetstream2-20260719 as the current H100 reference. That
+# earlier baseline is retained deliberately as the PRE-optimization comparison
+# point — diff the two with scripts/build_comparison_artifact.py to see the
+# decompress-throughput deltas from this round of FZGM kernel work.
+
+baseline_id: h100-jetstream2-20260725
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (GPU-passthrough cloud VM, single-tenant/exclusive, host skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9 (nvhpc/25.7)"
+date: "2026-07-25"
+experiment_config: configs/experiments/fzgm_vs_native.yaml
+clocks_locked: true  # exclusive GPU, sudo available -- scripts/lock_clocks.sh, max boost 1980 MHz
+
+source:
+  kind: benchkit_native_output
+  original_session_id: 20260725-192940-skyler-h100-lorenzoopt
+  fidelity: full  # runs.jsonl + provenance.json copied verbatim, no reconstruction
+  # NOTE: provenance.json records gpu.available=False — the provenance nvml probe
+  # failed to enumerate the device in this run's environment, NOT an indication the
+  # GPU was absent. The run used the H100 (device kernel timings are present and
+  # consistent with clocks-locked expectations); driver/toolkit above are from a
+  # direct nvidia-smi/nvcc query at snapshot time.
+
+cells:
+  total: 210
+  ok: 207
+  failed: 3
+  known_failures: >
+    Native cuSZ-Hi on HACC (1-D, 280M elements): cuszhi_tp @ eb=1e-4 and cuszhi_cr
+    @ eb=1e-2 and 1e-4, C++ exceptions at compress time. Identical set to the
+    20260719 baseline (and the A100 baseline) — a pre-existing, platform-independent
+    native cuSZ-Hi limitation on 1-D input, unrelated to this round's FZGM changes.
+    See docs/adapters/cuszhi.md.
+
+optimizations: >
+  This baseline captures the FZGM decompress-path kernel optimizations landed
+  2026-07-24..25 (all decompress-only, bit-exact, archive format unchanged;
+  compress kernels untouched). See FZGPUModules/docs/decompress_kernel_optimizations.md
+  for full root-cause/fix/reasoning. Measured decompress-throughput gains vs the
+  20260719 baseline (aggregate over the eb/field sweep):
+    - cuszp2_plain    : ~136 -> ~282 GB/s  (~2.1x; plain Lorenzo 1-D warp-scan inverse + AdaptiveBitpack transpose decode)
+    - cuszp2_outlier  : ~136 -> ~273 GB/s  (~2.0x)
+    - cuszp3_plain    : ~134 -> ~257 GB/s  (~1.9x; TiledLorenzo per-row inverse + transpose decode; HACC-1D cell also gets the Lorenzo fix)
+    - cuszp3_outlier  : ~139 -> ~252 GB/s  (~1.8x)
+  Compress throughput and all other pipelines (cusz, fzgpu, pfpl, cuszhi) unchanged
+  within noise, confirming no regression. cuszp2/cuszp3 fraction of native decompress
+  roughly doubled.
+
+known_issues: >
+  Comparable cell-for-cell with the 20260719 baseline (same experiment_config,
+  same machine, same clocks-locked methodology, same native reference builds). PSNR
+  is identical for all 207 ok cells, and CR is identical for every FZGM cell (the
+  decompress-only FZGM changes are bit-exact). A CR/PSNR diff against 20260719 shows
+  14 CR mismatches — ALL of them native cuSZ-Hi (13) or native cuSZ (1) cells, with
+  sub-0.1% compressed-size jitter (e.g. cuszhi_cr CESM-2D eb=1e-4: 4,829,248 ->
+  4,831,201 bytes = 0.04%). This is inherent run-to-run non-determinism in those
+  external native tools' compression (cuSZ-Hi's spline autotuning in particular), not
+  an FZGM regression — no fzgm cell differs. Only decompress throughput should differ
+  materially, and only for the optimized cuszp2/cuszp3 pipelines.
+
+related_decisions: [D15, D20, D21, D22, D23, D24, D25]

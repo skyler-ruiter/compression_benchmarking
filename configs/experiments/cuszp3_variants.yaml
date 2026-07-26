@@ -1,0 +1,103 @@
+# Compares two native cuSZp3 builds on the same H100:
+#   baseline    - upstream cuSZp-V3.0.0 as already fixed by this repo (sm_90 arch,
+#                 persistent scratch buffers, batched example-driver timing -- see
+#                 docs/adapters/cuszp.md). This is the CUSZP3_CLI default.
+#   multiwarp   - baseline + threadfence-spin-loop fix + multi-warp-block two-level-
+#                 scan redesign (8 warps/block instead of 1), applied uniformly across
+#                 all 36 kernels (1D/2D/3D x f32/f64 x fixed/plain/outlier).
+#                 ~/compressors/cuSZp-V3.0.0_optimized/
+#
+# NOT included: the recompute-instead-of-spill fix that helped cuSZp2. Measured on
+# this codebase (1D f32, all 3 modes) it was a clean, reproducible ~15% COMPRESS
+# regression (719/676/639 -> 608/570/539 GB/s), the opposite of cuSZp2's result --
+# so it was left out of the "multiwarp" build entirely (both f32 and f64, all dims).
+# See conversation notes / cuSZp-V3.0.0_optimized source comments for the isolation
+# test that confirmed this. There is also no split (count/scan/pack) pipeline variant
+# here -- that was a cuSZp2-specific follow-up, out of scope for this comparison.
+#
+# Both are the same v3-shaped CLI (-i -t -m -d -eb -x -o), so this needs no new
+# adapter code -- just two `compressor: cuszp3` entries per mode/dim with different
+# `variant` labels and explicit `cli_path` overrides.
+#
+# Pipeline strings are dimension-matched per docs/adapters/cuszp.md's cuszp3 table:
+# HACC (1D) uses plain/outlier (adapter defaults to -d 1); CESM-2D uses plain:2d/
+# outlier:2d; CESMATM-3D/HURR/NYX (genuine 3D fields) use plain:3d/outlier:3d.
+#
+# Run:
+#   source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/cuszp3_variants.yaml
+
+name: cuszp3_variants
+description: >
+  Two-way native cuSZp3 comparison (baseline / fence-fix + multi-warp-block redesign)
+  across HACC (1D), CESM-2D, CESMATM-3D, HURR, NYX (3D) -- same representative field
+  subset used for the cuszp2_variants comparison, with cuszp3's dimension-matched
+  pipeline strings.
+
+datasets:
+  - HACC
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+
+fields:
+  HACC:        [vx, xx]
+  CESM-2D:     [CLDHGH, FLDS, FLNS, FSNS, LHFLX, ICEFRAC]
+  CESMATM-3D:  [CLOUD, T, RELHUM]
+  HURR:        [CLOUD, QVAPOR, TC]
+  NYX:         [baryon_density, temperature]
+
+error:
+  mode: rel_range   # NOA in fzgm terms: eb x (max-min); standard SDRBench comparison basis
+  bounds: [1.0e-2, 1.0e-4]   # loose / tight spread (skipping 1e-3 to keep wall time bounded)
+
+# cuSZp already does its own 10 GPU warmup iterations + 1 timed run *inside* every
+# subprocess call (see docs/adapters/cuszp.md "Timing") -- extra harness-level
+# warmup reps mostly just re-pay process-launch cost. 1 discards cross-subprocess
+# clock-startup effects without wasting many extra launches.
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false          # single persistent VM, no exclusive-node guarantee
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: cuszp3, variant: baseline,  pipeline: plain,
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [HACC]}
+  - {compressor: cuszp3, variant: baseline,  pipeline: outlier,
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [HACC]}
+  - {compressor: cuszp3, variant: multiwarp, pipeline: plain,
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0_optimized/build_sm90/examples/bin/cuSZp,
+     only_datasets: [HACC]}
+  - {compressor: cuszp3, variant: multiwarp, pipeline: outlier,
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0_optimized/build_sm90/examples/bin/cuSZp,
+     only_datasets: [HACC]}
+
+  - {compressor: cuszp3, variant: baseline,  pipeline: "plain:2d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: baseline,  pipeline: "outlier:2d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: multiwarp, pipeline: "plain:2d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0_optimized/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: multiwarp, pipeline: "outlier:2d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0_optimized/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESM-2D]}
+
+  - {compressor: cuszp3, variant: baseline,  pipeline: "plain:3d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESMATM-3D, HURR, NYX]}
+  - {compressor: cuszp3, variant: baseline,  pipeline: "outlier:3d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESMATM-3D, HURR, NYX]}
+  - {compressor: cuszp3, variant: multiwarp, pipeline: "plain:3d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0_optimized/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESMATM-3D, HURR, NYX]}
+  - {compressor: cuszp3, variant: multiwarp, pipeline: "outlier:3d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0_optimized/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESMATM-3D, HURR, NYX]}

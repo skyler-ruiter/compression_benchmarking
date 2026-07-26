@@ -1,0 +1,79 @@
+# Compares three native cuSZp2 builds on the same H100:
+#   baseline    - upstream cuSZp-V2.0.1 as fixed by this repo (sm_90 arch,
+#                 persistent scratch buffers, excl_sum=0 correctness fix --
+#                 see docs/adapters/cuszp.md). This is the CUSZP2_CLI default.
+#   multiwarp   - baseline + threadfence-spin-loop fix + f32 recompute-instead-
+#                 of-spill + multi-warp-block two-level-scan redesign (8 warps/
+#                 block instead of 1). ~/compressors/cuSZp-V2.0.1_optimized/
+#   split       - multiwarp + count->cub::DeviceScan->pack split pipeline for
+#                 f32 compress only (decompress still the multiwarp decoder).
+#                 ~/compressors/cuSZp-V2.0.1_split/
+#
+# All three are the *same* v2-shaped CLI (-i -t -m -eb -x -o), so this needs no
+# new adapter code -- just three `compressor: cuszp2` entries per mode with
+# different `variant` labels and explicit `cli_path` overrides (kept explicit
+# for all three, including baseline, so this experiment doesn't depend on
+# CUSZP2_CLI happening to be sourced correctly).
+#
+# f32 only: the split-pipeline variant only implements f32 compress kernels --
+# MIRANDA (f64) is deliberately excluded so all three variants run every cell.
+#
+# Field subset (not "fields: all"): a per-cell timing probe showed ~10-30s per
+# cell on this VM even at repetitions=3 (large fields like HACC/NYX dominate --
+# see conversation), so a full-matrix sweep (137 fields x 3 bounds x 6 entries)
+# would run many hours. This picks 2-6 representative fields per dataset
+# spanning distinct physical quantities and 1D/2D/3D shapes instead.
+#
+# Run:
+#   source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/cuszp2_variants.yaml
+
+name: cuszp2_variants
+description: >
+  Three-way native cuSZp2 comparison (baseline / multi-warp-block redesign /
+  count-scan-pack split pipeline) across HACC (1D), CESM-2D, CESMATM-3D, HURR,
+  NYX (3D) -- representative field subset, not the full SDRBench matrix.
+
+datasets:
+  - HACC
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+
+fields:
+  HACC:        [vx, xx]
+  CESM-2D:     [CLDHGH, FLDS, FLNS, FSNS, LHFLX, ICEFRAC]
+  CESMATM-3D:  [CLOUD, T, RELHUM]
+  HURR:        [CLOUD, QVAPOR, TC]
+  NYX:         [baryon_density, temperature]
+
+error:
+  mode: rel_range   # NOA in fzgm terms: eb x (max-min); standard SDRBench comparison basis
+  bounds: [1.0e-2, 1.0e-4]   # loose / tight spread (skipping 1e-3 to keep wall time bounded)
+
+# cuSZp already does its own 10 GPU warmup iterations + 1 timed run *inside* every
+# subprocess call (see docs/adapters/cuszp.md "Timing") -- extra harness-level
+# warmup reps mostly just re-pay process-launch cost. 1 discards cross-subprocess
+# clock-startup effects without wasting many extra launches.
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false          # single persistent VM, no exclusive-node guarantee
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: cuszp2, variant: baseline,  pipeline: plain,
+     cli_path: /home/exouser/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp}
+  - {compressor: cuszp2, variant: baseline,  pipeline: outlier,
+     cli_path: /home/exouser/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp}
+
+  - {compressor: cuszp2, variant: multiwarp, pipeline: plain,
+     cli_path: /home/exouser/compressors/cuSZp-V2.0.1_optimized/build_sm90/examples/bin/cuSZp}
+  - {compressor: cuszp2, variant: multiwarp, pipeline: outlier,
+     cli_path: /home/exouser/compressors/cuSZp-V2.0.1_optimized/build_sm90/examples/bin/cuSZp}
+
+  - {compressor: cuszp2, variant: split,     pipeline: plain,
+     cli_path: /home/exouser/compressors/cuSZp-V2.0.1_split/build_sm90/examples/bin/cuSZp}
+  - {compressor: cuszp2, variant: split,     pipeline: outlier,
+     cli_path: /home/exouser/compressors/cuSZp-V2.0.1_split/build_sm90/examples/bin/cuSZp}

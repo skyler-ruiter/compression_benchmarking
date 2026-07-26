@@ -19,6 +19,22 @@ CESM-CLDHGH-local:
       dims: [3600, 1800]
       path: CLDHGH.f32
 
+# Synthetic 1-D smooth field for ADMStage's decoupled-look-back path specifically.
+# All real SDRBench fields here (HACC/CESM/CESMATM/HURR/NYX) have far more than
+# ADM's kDecoupledMaxGsize*kBlockElems = 1024*512 = 524288 elements, so ADM always
+# takes the Thrust-fallback path on them -- the decoupled kernel this dataset
+# targets (and the multi-warp-block redesign applied to it) is never exercised by
+# any other entry in this manifest. 400000 elements -> gsize=782 (782 warp-blocks,
+# ~98 CUDA blocks at kWarpsPerBlock=8), comfortably under the 1024-warp threshold.
+ADM-decoupled-synthetic:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}
+  fields:
+    smooth_400000:
+      dims: [400000]
+      path: smooth_400000.f32
+
 
 # ----- SDRBench datasets (portable via ${BENCHKIT_DATA_ROOT}) -----------------
 # Download with:  bash scripts/download-sdrbench.sh $BENCHKIT_DATA_ROOT

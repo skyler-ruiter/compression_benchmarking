@@ -1,0 +1,61 @@
+# Compares two builds of FZGPUModules' ADMStage decoupled look-back kernel:
+#   baseline    - upstream fz::adm (mapping_uint16.cu/mapping_uint32.cu as vendored
+#                 from MANS), one warp per CUDA block, __threadfence() called on
+#                 every spin-loop iteration of the decoupled look-back.
+#                 ~/FZGPUModules_baseline/ (git worktree snapshot, untouched)
+#   multiwarp   - baseline + threadfence-spin-loop fix + multi-warp-block
+#                 two-level-scan redesign (kWarpsPerBlock=8 instead of 1 warp/block,
+#                 per-block look-back instead of per-warp). ~/FZGPUModules/
+#
+# ncu profiling (see conversation) found the ORIGINAL decoupled kernel achieved only
+# ~7% occupancy against a 50% theoretical ceiling, with 63% of warp cycles stalled on
+# the look-back's memory-barrier spin -- a serialization problem the multiwarp
+# redesign targets directly (unlike cuSZp3's compress kernels, which profiling showed
+# were spill-bandwidth-bound, not serialization-bound -- so no recompute-vs-spill lever
+# was needed or applied here).
+#
+# Pipeline: lorenzo->adm->ans (matches tests/stages/test_adm.cpp's
+# LorenzoQuantADMANS case: LorenzoQuantStage<f32,u16> -> ADMStage(U16) -> ANSStage).
+# "lorenzo" in fzgmod-cli's dynamic --stages builder IS the fused LorenzoQuant stage
+# (not a separate lorenzo+quantizer chain -- that combination isn't valid, since a
+# standalone "quantizer" after "lorenzo" would try to re-quantize already-quantized
+# uint16 codes as if they were the raw float input).
+#
+# Dataset: ADM's decoupled path only runs when gsize <= kDecoupledMaxGsize (1024
+# warps = 524288 elements) -- every real SDRBench field in datasets.yaml (HACC,
+# CESM*, HURR, NYX) is far larger than that and silently takes the Thrust fallback
+# instead, never touching the kernel this comparison targets. ADM-decoupled-synthetic
+# is a purpose-built smooth 400000-element field (gsize=782, ~98 CUDA blocks at
+# kWarpsPerBlock=8) added to datasets.yaml specifically for this comparison.
+#
+# Run:
+#   source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/adm_variants.yaml
+
+name: adm_variants
+description: >
+  Two-way ADMStage decoupled-look-back comparison (baseline / fence-fix +
+  multi-warp-block redesign) on a synthetic field sized to actually exercise the
+  decoupled path (every real SDRBench field falls back to Thrust instead).
+
+datasets:
+  - ADM-decoupled-synthetic
+
+fields:
+  ADM-decoupled-synthetic: [smooth_400000]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 10
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: baseline,  pipeline: "lorenzo->adm->ans",
+     cli_path: /home/exouser/FZGPUModules_baseline/build_benchmarking/bin/fzgmod-cli}
+  - {compressor: fzgm, variant: multiwarp, pipeline: "lorenzo->adm->ans",
+     cli_path: /home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli}
