@@ -6,10 +6,13 @@ the session_id as a foreign key (DESIGN.md principle #3).
 """
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import os
 import json
 import platform
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,16 +26,84 @@ def _sh(argv: list[str]) -> str | None:
         return None
 
 
-def _gpu_info() -> dict:
+def _gpu_info_nvidia() -> dict | None:
     q = _sh(["nvidia-smi",
              "--query-gpu=name,driver_version,memory.total,clocks.sm,clocks.max.sm,clocks.mem,ecc.mode.current,persistence_mode",
              "--format=csv,noheader"])
     if not q:
-        return {"available": False}
+        return None
     name, driver, mem, sm, smmax, memclk, ecc, persist = (x.strip() for x in q.split(",", 7))
-    return {"available": True, "name": name, "driver": driver, "memory_total": mem,
+    return {"available": True, "vendor": "nvidia",
+            "name": name, "driver": driver, "memory_total": mem,
             "sm_clock": sm, "sm_clock_max": smmax, "mem_clock": memclk,
             "ecc": ecc, "persistence": persist}
+
+
+def _gpu_info_amd() -> dict | None:
+    """ROCm equivalent. Field names mirror the NVIDIA dict so downstream analysis and
+    the baseline schema stay vendor-independent; anything ROCm doesn't expose is simply
+    absent rather than guessed (notably ECC mode and persistence, which have no direct
+    rocm-smi analogue)."""
+    # `rocm-smi --showproductname --csv` is a proper named-column table:
+    #   device,Card Series,Card Model,Card Vendor,Card SKU,...,GFX Version
+    # Parse it by header name. Positional/heuristic parsing gets this wrong — "Card
+    # Vendor" ("Advanced Micro Devices Inc. [AMD/ATI]") is the longest cell in the row
+    # but says nothing about *which* GPU, and the name is what partitions results by
+    # device (DESIGN.md §12), so MI100-vs-MI250 has to survive it.
+    name = gfx = None
+    prod = _sh(["rocm-smi", "--showproductname", "--csv"])
+    if prod:
+        try:
+            rows = list(csv.DictReader(io.StringIO(prod.strip())))
+        except csv.Error:
+            rows = []
+        for row in rows:
+            clean = {(k or "").strip(): (v or "").strip() for k, v in row.items()}
+            gfx = clean.get("GFX Version") or None
+            for key in ("Card Series", "Card Model", "Card SKU"):
+                val = clean.get(key)
+                if val and not val.startswith("0x"):
+                    name = val
+                    break
+            if name or gfx:
+                break
+    if name is None and gfx is None:
+        return None
+    # "AMD Instinct MI100 (gfx908)" — the gfx target is what the build was compiled for
+    # (CMAKE_HIP_ARCHITECTURES), so keeping both makes a row self-describing.
+    label = " ".join(x for x in (name, f"({gfx})" if gfx else None) if x) or "AMD GPU"
+
+    out: dict = {"available": True, "vendor": "amd", "name": label}
+    if gfx:
+        out["gfx_arch"] = gfx
+    drv = _sh(["rocm-smi", "--showdriverversion", "--csv"])
+    if drv:
+        m = re.search(r"(\d+\.\d[\d.\-]*)", drv)
+        if m:
+            out["driver"] = m.group(1)
+    vram = _sh(["rocm-smi", "--showmeminfo", "vram", "--csv"])
+    if vram:
+        m = re.search(r"(\d{6,})", vram)          # total VRAM in bytes
+        if m:
+            out["memory_total"] = f"{int(m.group(1)) // (1024*1024)} MiB"
+    clocks = _sh(["rocm-smi", "--showclocks", "--csv"])
+    if clocks:
+        m = re.search(r"sclk clock speed:?,?\s*\((\d+)Mhz\)", clocks, re.IGNORECASE)
+        if not m:
+            m = re.search(r"\((\d+)Mhz\)", clocks)
+        if m:
+            out["sm_clock"] = f"{m.group(1)} MHz"
+    return out
+
+
+def _gpu_info() -> dict:
+    """GPU description for the session manifest, whichever vendor is present.
+
+    Results from different GPUs are partitioned by provenance and never pooled
+    (DESIGN.md §12), so `vendor`/`name` here is what keeps an MI100 run from being
+    silently compared against an H200 one.
+    """
+    return _gpu_info_nvidia() or _gpu_info_amd() or {"available": False}
 
 
 def _git_sha(repo: Path) -> str | None:

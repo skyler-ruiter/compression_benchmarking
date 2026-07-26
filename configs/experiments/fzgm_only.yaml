@@ -1,0 +1,87 @@
+# FZGM-only counterpart to fzgm_vs_native.yaml — the same 13 FZGM pipelines, datasets,
+# fields, and error bounds, with every native-compressor entry removed.
+#
+# Why this file exists: the native references (cuSZ, cuSZ-Hi, cuSZp2/3, FZ-GPU, PFPL)
+# are CUDA-only codebases. On an AMD MI100 they cannot be built at all, so an
+# FZGM-vs-native matrix is not merely unbuilt there but structurally impossible; on
+# NVIDIA they're simply not built on this machine yet. Keeping the FZGM half in its own
+# config means the identical matrix runs on both GPUs and the rows line up 1:1 with the
+# `fzgm` rows of the existing A100/H100 baselines (102 ok rows each) in
+# results/baselines/. Run fzgm_vs_native.yaml instead once the natives are built.
+#
+#   source scripts/env-delta-mi100.sh    # or env-delta-h200.sh
+#   python -m benchkit run configs/experiments/fzgm_only.yaml
+#   python -m benchkit report results/<session>/ --aggregate
+#
+# Pairings are unchanged from fzgm_vs_native.yaml, so variant names stay comparable:
+#   cusz.toml, cusz_hi_tp/cr.toml, cuszp2(.plain).toml, cuszp3{,_3d,_1d}{,_outlier}.toml,
+#   fzgpu.toml, pfpl.toml
+#
+# Structural exclusions carried over from fzgm_vs_native.yaml (see docs/adapters/*.md):
+#   - fzgm:cuszhi_tp / fzgm:cuszhi_cr skip HACC — GInterpStage (the spline predictor
+#     both presets use) throws by design on 1-D input. Not a preset bug (D17).
+#   - cuszp3 is dimension-matched: CESM-2D -> 8x8 preset, HURR/NYX -> 4x4x4,
+#     HACC -> 1-D Lorenzo(block=32).
+#
+# HIP note: every pipeline below is HIP-clean. None uses ANSStage, the one stage
+# excluded from the HIP build (vendored dietgpu NVPTX assembly — see
+# Stage::isSupportedOnBackend). The GInterp-based cuszhi presets run f32 only, well
+# under MI100's fixed 64 KB LDS ceiling; only the double-precision 3-D path exceeds it.
+
+name: fzgm_only
+description: >
+  FZGM across cuSZ, cuSZ-Hi (tp/cr), cuSZp2 (plain/outlier), cuSZp3 (plain/outlier),
+  FZ-GPU, and PFPL pipelines — one field per shape class, eb in {1e-2, 1e-3, 1e-4},
+  rel_range. Native-reference half of fzgm_vs_native.yaml omitted.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false   # Delta: nvidia-smi -lgc / rocm-smi clock control are admin-only.
+                     # Jobs run --exclusive instead; trust timing_reliable + *_device_ms_min.
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: cusz,           pipeline: configs/pipelines/cusz.toml}
+
+  - {compressor: fzgm, variant: cuszhi_tp,      pipeline: configs/pipelines/cusz_hi_tp.toml,
+     skip_datasets: [HACC]}
+  - {compressor: fzgm, variant: cuszhi_cr,      pipeline: configs/pipelines/cusz_hi_cr.toml,
+     skip_datasets: [HACC]}
+
+  - {compressor: fzgm, variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: fzgm, variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  - {compressor: fzgm, variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm, variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [HURR, NYX]}
+  - {compressor: fzgm, variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_1d.toml,
+     only_datasets: [HACC]}
+
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [HURR, NYX]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_1d_outlier.toml,
+     only_datasets: [HACC]}
+
+  - {compressor: fzgm, variant: fzgpu,          pipeline: configs/pipelines/fzgpu.toml}
+
+  - {compressor: fzgm, variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}

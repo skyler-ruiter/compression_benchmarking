@@ -1,0 +1,41 @@
+# Smoke test for NCSA Delta (gpuMI100x8 or gpuH200x8) — run interactively before
+# submitting arrays. Same experiment file for both partitions; only the sourced env
+# script (and which FZGM build it points at) differs.
+#
+#   salloc --account=bdqz-delta-gpu --partition=gpuMI100x8-interactive \
+#     --nodes=1 --gpus-per-node=1 --time=00:30:00
+#   source scripts/env-delta-mi100.sh   # or env-delta-h200.sh on gpuH200x8
+#   bash scripts/download-sdrbench.sh "$BENCHKIT_DATA_ROOT"   # once, if not already present
+#   python -m benchkit run configs/experiments/smoke-delta.yaml
+#
+# One field per dataset shape class (2-D, 3-D, 1-D) x both pipelines x one bound.
+# Should finish in a few minutes; confirms fzgmod-cli, data, and benchkit all work.
+
+name: smoke-delta
+description: Quick end-to-end sanity check on NCSA Delta before submitting full arrays.
+
+datasets:
+  - CESM-2D        # 2-D surface field
+  - HURR           # 3-D field
+  - NYX            # 3-D field, different shape
+  - HACC           # 1-D particle data
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range   # NOA: eb x (max-min)
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false    # interactive node; not exclusive
+retain_decompressed: false
+retain_compressed: false  # disk budget: c.fzm/c.cuszp/etc. deleted after each cell; sizes/checksums still recorded
+
+runs:
+  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml}
+  - {compressor: fzgm, variant: cusz,  pipeline: configs/pipelines/cusz.toml}
