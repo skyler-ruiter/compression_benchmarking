@@ -1,0 +1,82 @@
+{
+  "session_id": "h200-fzgm-20486572",
+  "timestamp": "2026-07-26T11:26:25.762810+00:00",
+  "shard": null,
+  "gpu": {
+    "available": true,
+    "vendor": "nvidia",
+    "name": "NVIDIA H200",
+    "driver": "570.148.08",
+    "memory_total": "143771 MiB",
+    "sm_clock": "345 MHz",
+    "sm_clock_max": "1980 MHz",
+    "mem_clock": "3201 MHz",
+    "ecc": "Enabled",
+    "persistence": "Enabled\nNVIDIA H200, 570.148.08, 143771 MiB, 345 MHz, 1980 MHz, 3201 MHz, Enabled, Enabled\nNVIDIA H200, 570.148.08, 143771 MiB, 345 MHz, 1980 MHz, 3201 MHz, Enabled, Enabled\nNVIDIA H200, 570.148.08, 143771 MiB, 345 MHz, 1980 MHz, 3201 MHz, Enabled, Enabled\nNVIDIA H200, 570.148.08, 143771 MiB, 345 MHz, 1980 MHz, 3201 MHz, Enabled, Enabled\nNVIDIA H200, 570.148.08, 143771 MiB, 345 MHz, 1980 MHz, 3201 MHz, Enabled, Enabled\nNVIDIA H200, 570.148.08, 143771 MiB, 345 MHz, 1980 MHz, 3201 MHz, Enabled, Enabled\nNVIDIA H200, 570.148.08, 143771 MiB, 345 MHz, 1980 MHz, 3201 MHz, Enabled, Enabled"
+  },
+  "host": {
+    "node": "gpue07.delta.ncsa.illinois.edu",
+    "system": "Linux",
+    "release": "5.14.0-427.91.1.el9_4.x86_64",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "scheduler": {
+    "SLURM_JOB_ID": "20486572",
+    "SLURM_NODELIST": "gpue07",
+    "SLURM_JOB_PARTITION": "gpuH200x8",
+    "SLURM_JOB_GPUS": "0,1,2,3,4,5,6,7",
+    "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+    "_scheduler": "slurm"
+  },
+  "software": {
+    "modules": "gcc-native/13.2:craype/2.7.34:libfabric/1.22.0:craype-network-ofi:cray-mpich/8.1.32:cray-libsci/25.03.0:PrgEnv-gnu/8.6.0:cray-dsmml/0.3.1:craype-x86-milan:cudatoolkit/25.3_12.8:cue-login-env/1.1:slurm-env/0.1:default:craype-accel-nvidia90:python/3.13.5-gcc13.3.1",
+    "module_list": "Currently Loaded Modules:\n  1) gcc-native/13.2       9) craype-x86-milan\n  2) craype/2.7.34        10) cudatoolkit/25.3_12.8\n  3) libfabric/1.22.0     11) cue-login-env/1.1\n  4) craype-network-ofi   12) slurm-env/0.1\n  5) cray-mpich/8.1.32    13) default\n  6) cray-libsci/25.03.0  14) craype-accel-nvidia90\n  7) PrgEnv-gnu/8.6.0     15) python/3.13.5-gcc13.3.1\n  8) cray-dsmml/0.3.1",
+    "spack_env": null,
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0"
+  },
+  "harness": {
+    "git_sha": "b971ae7",
+    "config_sha256": "a9a7d44d04ffe087aab357dab17f03553347e5491af19e92009acbde6c379e40",
+    "python": "3.13.5"
+  },
+  "compressors": {
+    "fzgm:cusz": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszhi_tp": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszhi_cr": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp2_outlier": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp2_plain": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp3_plain": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp3_outlier": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:fzgpu": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:pfpl": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    }
+  },
+  "nvidia_smi": "Sun Jul 26 06:26:26 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.148.08             Driver Version: 570.148.08     CUDA Version: 12.8     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H200                    On  |   00000000:0A:00.0 Off |                    0 |\n| N/A   23C    P0             75W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H200                    On  |   00000000:18:00.0 Off |                    0 |\n| N/A   25C    P0             76W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H200                    On  |   00000000:3B:00.0 Off |                    0 |\n| N/A   26C    P0             76W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H200                    On  |   00000000:44:00.0 Off |                    0 |\n| N/A   24C    P0             76W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H200                    On  |   00000000:87:00.0 Off |                    0 |\n| N/A   23C    P0             74W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H200                    On  |   00000000:90:00.0 Off |                    0 |\n| N/A   24C    P0             77W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H200                    On  |   00000000:B9:00.0 Off |                    0 |\n| N/A   26C    P0             75W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H200                    On  |   00000000:C2:00.0 Off |                    0 |\n| N/A   24C    P0             76W /  700W |       0MiB / 143771MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+"
+}

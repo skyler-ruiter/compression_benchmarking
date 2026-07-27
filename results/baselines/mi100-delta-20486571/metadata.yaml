@@ -1,0 +1,102 @@
+# Baseline: MI100 / NCSA Delta — FIRST AMD/HIP BASELINE
+# See results/baselines/README.md for the schema this file follows.
+#
+# The first non-NVIDIA baseline in this directory, and the first evidence that the
+# FZGPUModules HIP backend produces bit-identical compression to the CUDA backend.
+# Pair it with h200-delta-20486572: same harness commit, same experiment config, same
+# datasets, same day, same cluster — the two differ only in GPU and compiled backend,
+# which is what makes the CUDA-vs-HIP comparison clean.
+#
+# READ FIRST if you are comparing this against a pre-2026-07-26 baseline: this ran
+# configs/experiments/fzgm_only.yaml (102 FZGM cells), NOT fzgm_vs_native.yaml (210
+# cells). It has no native-reference rows at all. See `known_issues`.
+
+baseline_id: mi100-delta-20486571
+gpu: AMD Instinct MI100 (gfx908, CDNA1, 32 GB HBM2)
+site: NCSA Delta (SLURM HPC cluster, UIUC) — partition gpuMI100x8, node gpud01
+driver: "6.14.14 (amdgpu KFD); ROCm 6.4.1"
+cuda_toolkit: "n/a — HIP/ROCm 6.4.1 backend (FZGMOD_BACKEND=HIP, CMAKE_HIP_ARCHITECTURES=gfx908)"
+date: "2026-07-26"
+experiment_config: configs/experiments/fzgm_only.yaml
+clocks_locked: false  # Delta: rocm-smi clock control is admin-only. Ran --exclusive
+                      # instead (whole node, no co-tenants). See D15.
+
+source:
+  kind: benchkit_native_output
+  original_session_id: mi100-fzgm-20486571
+  slurm_job_id: 20486571
+  fidelity: full  # runs.jsonl + provenance.json copied verbatim, no reconstruction
+
+cells:
+  total: 102
+  ok: 102
+  failed: 0
+  timing_reliable: 99
+  known_failures: none
+
+fzgm_build:
+  repo_commit: b3c2c25   # "fixes hip compatability with new modules"
+  backend: HIP
+  arch: gfx908
+  cli: FZGPUModules/build/hip/bin/fzgmod-cli
+  note: >
+    This commit exists because the HIP backend did not build at all beforehand.
+    Three defects, all in code added after the last HIP-verified commit: four stage
+    headers (clog/hclog/rare/raze) included <cuda_runtime.h> directly; backend/atomics.h
+    assumed ROCm declares atomicAdd_block/atomicOr_block (it does not — the HIP branch
+    now uses __hip_atomic_fetch_add/_or with __HIP_MEMORY_SCOPE_WORKGROUP); and
+    warpBitTranspose32 in adaptive_bitpack_kernels.cu called __shfl_xor_sync with a
+    32-bit mask and no explicit width, which on a 64-lane CDNA wavefront would have
+    silently corrupted the bit-matrix transpose. Full detail in FZGPUModules CHANGELOG.
+    ctest: 45/45 on this hardware.
+
+cross_backend_validation: >
+  The headline result. CR and PSNR are IDENTICAL (to within 0.5%, in practice exact)
+  on all 102 cells across four GPUs: this MI100 (HIP), h200-delta-20486572 (CUDA),
+  h100-jetstream2-20260725 (CUDA), and a100-bigred200-slurm7562329 (CUDA). FZGM's
+  HIP backend is therefore bit-equivalent to its CUDA backend on every pipeline
+  exercised here, which is the check the FZGPUModules CHANGELOG previously listed as
+  an open gap ("cross-backend wire-format identity is not [confirmed]" — no
+  CUDA-capable GPU was available in the environment where the HIP port was written).
+  It also independently corroborates the warpBitTranspose32 width fix above: a
+  wrong-width shuffle would have diverged the compressed output immediately.
+
+performance_summary: >
+  Decompress throughput, geometric mean over all 102 cells (decimal GB/s):
+    A100 51.7 | H100(post-opt) 138.7 | H200 164.8 | MI100 44.0
+  MI100 lands at ~0.27x H200 overall, but the spread by pipeline is wide and
+  informative: cuszp2/cuszp3 reach ~0.41x while fzgpu and cuszhi_tp sit at 0.16-0.20x.
+  MI100 is 2020 CDNA1 against 2024 Hopper so a gap is expected, but the *spread*
+  suggests the 64-wide wavefront penalises the shuffle-heavy paths specifically —
+  fzgpu has the best absolute NVIDIA numbers and the worst MI100 ratio. Treat this as
+  a hypothesis worth profiling, not a measured conclusion.
+
+known_issues: >
+  1. NOT CELL-COMPARABLE WITH THE 210-CELL BASELINES AS A WHOLE. This baseline ran
+     fzgm_only.yaml — the FZGM half of fzgm_vs_native.yaml with every native-reference
+     entry removed — so it has 102 cells and no cusz/cuszhi/cuszp2/cuszp3/fzgpu/pfpl
+     *native* rows. Its 102 FZGM cells DO line up 1:1 with the 102 fzgm rows of the
+     A100/H100 baselines, and that subset is what the comparison above uses. The
+     natives are absent by necessity, not oversight: they are CUDA-only codebases and
+     cannot be built for MI100 at all, so an FZGM-vs-native matrix is structurally
+     impossible on this hardware, not merely unbuilt.
+  2. NO THROTTLE-REASON DIAGNOSTICS. ROCm exposes no NVML-equivalent throttle-reason
+     bitmask, so AMD rows carry gpu_sampling.throttle_detection = "unavailable" and
+     deliberately OMIT throttled_thermal rather than reporting false — "never checked"
+     must not be readable as "checked and clean". Timing variance (compress_cv /
+     decompress_cv / timing_reliable) is vendor-independent and is the primary
+     reliability signal here, exactly as on the NVIDIA baselines.
+  3. SPARSE GPU SAMPLING. gpu_sampling is available on only 81/102 cells (vs 102/102
+     on H200). The AMD sampler reads sysfs gpu_busy_percent and keeps only samples
+     with busy > 0; short cells (a few ms of GPU work per rep) can fall entirely
+     between 0.1 s polls. Diagnostic only — it does not affect CR, PSNR, or timing.
+  4. The 3 timing-unreliable cells are all cuszhi_cr on NYX/temperature, all driven by
+     COMPRESS variance (compress_cv 0.24/0.24/0.013), none thermal. The same pipeline
+     is also the unreliable one on the H200 run (2 cells, compress_cv ~0.20), so this
+     looks like inherent run-to-run variance in the cuszhi_cr compress path rather
+     than anything platform-specific. Prefer *_device_ms_min for those cells.
+  5. cuszhi_tp / cuszhi_cr have no HACC rows by design — GInterpStage (the spline
+     predictor both presets use) throws on 1-D input (D17). Same exclusion as every
+     other baseline.
+
+related_decisions: [D12, D15, D17, D24, D25]

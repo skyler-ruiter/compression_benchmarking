@@ -1,0 +1,78 @@
+{
+  "session_id": "mi100-fzgm-20486571",
+  "timestamp": "2026-07-26T20:34:43.953642+00:00",
+  "shard": null,
+  "gpu": {
+    "available": true,
+    "vendor": "amd",
+    "name": "AMD Instinct MI100 (gfx908)",
+    "gfx_arch": "gfx908",
+    "driver": "6.14.14",
+    "memory_total": "32752 MiB",
+    "sm_clock": "1402 MHz"
+  },
+  "host": {
+    "node": "gpud01.delta.ncsa.illinois.edu",
+    "system": "Linux",
+    "release": "5.14.0-427.91.1.el9_4.x86_64",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "scheduler": {
+    "SLURM_JOB_ID": "20486571",
+    "SLURM_NODELIST": "gpud01",
+    "SLURM_JOB_PARTITION": "gpuMI100x8",
+    "SLURM_JOB_GPUS": "0,1,2,3,4,5,6,7,8",
+    "_scheduler": "slurm"
+  },
+  "software": {
+    "modules": "gcc-native/13.2:craype/2.7.34:libfabric/1.22.0:craype-network-ofi:cray-mpich/8.1.32:cray-libsci/25.03.0:PrgEnv-gnu/8.6.0:cray-dsmml/0.3.1:craype-x86-milan:cue-login-env/1.1:slurm-env/0.1:default:craype-accel-amd-gfx908:python/3.13.5-gcc13.3.1",
+    "module_list": "Currently Loaded Modules:\n  1) gcc-native/13.2      6) cray-libsci/25.03.0  11) slurm-env/0.1\n  2) craype/2.7.34        7) PrgEnv-gnu/8.6.0     12) default\n  3) libfabric/1.22.0     8) cray-dsmml/0.3.1     13) craype-accel-amd-gfx908\n  4) craype-network-ofi   9) craype-x86-milan     14) python/3.13.5-gcc13.3.1\n  5) cray-mpich/8.1.32   10) cue-login-env/1.1",
+    "spack_env": null,
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0"
+  },
+  "harness": {
+    "git_sha": "b971ae7",
+    "config_sha256": "a9a7d44d04ffe087aab357dab17f03553347e5491af19e92009acbde6c379e40",
+    "python": "3.13.5"
+  },
+  "compressors": {
+    "fzgm:cusz": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszhi_tp": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszhi_cr": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp2_outlier": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp2_plain": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp3_plain": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp3_outlier": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:fzgpu": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:pfpl": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/hip/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    }
+  },
+  "nvidia_smi": null
+}

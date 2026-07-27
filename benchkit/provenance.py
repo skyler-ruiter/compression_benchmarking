@@ -32,7 +32,13 @@ def _gpu_info_nvidia() -> dict | None:
              "--format=csv,noheader"])
     if not q:
         return None
-    name, driver, mem, sm, smmax, memclk, ecc, persist = (x.strip() for x in q.split(",", 7))
+    # One CSV line per *visible* GPU. Under `sbatch --exclusive` the whole node is
+    # allocated, so this is 8 lines on Delta's gpuH200x8/gpuMI100x8 — splitting the
+    # whole blob on "," made the 8th field swallow every subsequent line (observed:
+    # `persistence` = "Enabled\nNVIDIA H200, 570.148.08, ...x7"). Take the first row
+    # only; the benchmark itself pins one device.
+    first = q.strip().splitlines()[0]
+    name, driver, mem, sm, smmax, memclk, ecc, persist = (x.strip() for x in first.split(",", 7))
     return {"available": True, "vendor": "nvidia",
             "name": name, "driver": driver, "memory_total": mem,
             "sm_clock": sm, "sm_clock_max": smmax, "mem_clock": memclk,

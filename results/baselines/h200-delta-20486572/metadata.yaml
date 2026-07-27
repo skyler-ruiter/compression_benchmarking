@@ -1,0 +1,99 @@
+# Baseline: H200 / NCSA Delta
+# See results/baselines/README.md for the schema this file follows.
+#
+# The CUDA control for mi100-delta-20486571: same harness commit, same experiment
+# config, same datasets, same day, same cluster, same FZGPUModules commit — differing
+# only in GPU and compiled backend. That pairing is what makes the CUDA-vs-HIP
+# equivalence check clean, and it is the main reason to keep these two together.
+#
+# READ FIRST if you are comparing this against a pre-2026-07-26 baseline: this ran
+# configs/experiments/fzgm_only.yaml (102 FZGM cells), NOT fzgm_vs_native.yaml (210
+# cells). It has no native-reference rows at all. See `known_issues`.
+
+baseline_id: h200-delta-20486572
+gpu: NVIDIA H200 (Hopper, sm_90, 141 GB HBM3e)
+site: NCSA Delta (SLURM HPC cluster, UIUC) — partition gpuH200x8, node gpue07
+driver: "570.148.08"
+cuda_toolkit: "12.8 (module cudatoolkit/25.3_12.8, nvcc 12.8.93)"
+date: "2026-07-26"
+experiment_config: configs/experiments/fzgm_only.yaml
+clocks_locked: false  # Delta: nvidia-smi -lgc is admin-only. Ran --exclusive instead
+                      # (whole node, no co-tenants). Observed steady 1980 MHz = max
+                      # boost with no throttle reasons on every sampled cell. See D15.
+
+source:
+  kind: benchkit_native_output
+  original_session_id: h200-fzgm-20486572
+  slurm_job_id: 20486572
+  fidelity: full  # runs.jsonl + provenance.json copied verbatim, no reconstruction
+  # NOTE: provenance.json's gpu.persistence field is CORRUPTED in this snapshot — it
+  # contains the concatenated nvidia-smi rows of all 8 GPUs ("Enabled\nNVIDIA H200,
+  # ...x7"). Cause: --exclusive allocates the whole node, so nvidia-smi emitted one
+  # CSV line per visible GPU and the field-splitting in provenance.py consumed the
+  # rest of the blob. Harness bug, not a run anomaly; fixed after this snapshot was
+  # taken (provenance.py now reads only the first row). gpu.sm_clock ("345 MHz") is
+  # likewise GPU 0's *idle* clock at session start, not a benchmark-time reading —
+  # use the per-cell gpu_sampling.sm_clock_* fields for actual clocks under load
+  # (steady 1980 MHz). The correct scalar values are recorded in this file's `gpu`,
+  # `driver`, and `cuda_toolkit` fields above, queried directly. Everything else in
+  # provenance.json is unaffected; runs.jsonl is untouched by this.
+
+cells:
+  total: 102
+  ok: 102
+  failed: 0
+  timing_reliable: 100
+  known_failures: none
+
+fzgm_build:
+  repo_commit: b3c2c25   # "fixes hip compatability with new modules"
+  backend: CUDA
+  arch: sm_90
+  cli: FZGPUModules/build/cuda-h200/bin/fzgmod-cli
+  preset: cuda-h200      # added for this work; the project default (86) omits Hopper
+  note: >
+    Same FZGPUModules commit as the paired MI100 baseline. Although that commit exists
+    for HIP fixes, ctest is 45/45 on CUDA/H200 too, confirming the HIP work caused no
+    CUDA-side regression. Built via the `cuda-h200` CMake preset
+    (CMAKE_CUDA_ARCHITECTURES=90) — without it the project default of 86 silently
+    produced a non-Hopper build.
+
+cross_backend_validation: >
+  CR and PSNR are IDENTICAL on all 102 cells across this H200 (CUDA),
+  mi100-delta-20486571 (HIP), h100-jetstream2-20260725 (CUDA), and
+  a100-bigred200-slurm7562329 (CUDA). See the MI100 baseline's metadata for why that
+  matters — it closes the cross-backend wire-format question the FZGPUModules
+  CHANGELOG had left open.
+
+performance_summary: >
+  Decompress throughput, geometric mean over all 102 cells (decimal GB/s):
+    A100 51.7 | H100(pre-opt) 83.2 | H100(post-opt) 138.7 | H200 164.8 | MI100 44.0
+  Against h100-jetstream2-20260725 (the matched-code H100 reference) H200 is a
+  consistent 1.06-1.19x across every pipeline — a sane generational step.
+  IMPORTANT: comparing this baseline against h100-jetstream2-20260719 (the PRE-
+  optimization H100) instead makes cuszp2/cuszp3 decompress look like a ~3.3x H200
+  win. That is a code-version artifact, not hardware: the decompress-kernel
+  optimizations landed 2026-07-24..25 roughly doubled cuszp2/cuszp3 decompress on the
+  H100 itself (87 -> 280 GB/s on the same GPU). Always use the 20260725 H100 baseline
+  for hardware comparisons against this one.
+
+known_issues: >
+  1. NOT CELL-COMPARABLE WITH THE 210-CELL BASELINES AS A WHOLE. Ran fzgm_only.yaml,
+     so 102 FZGM cells and no native-reference rows. The 102 FZGM cells line up 1:1
+     with the fzgm rows of the A100/H100 baselines. Natives are simply not built on
+     Delta yet (unlike the MI100 case, where they cannot be built at all).
+  2. provenance.json gpu.persistence / gpu.sm_clock are unreliable in this snapshot —
+     see the source.fidelity note above. Harness bug, since fixed.
+  3. The 2 timing-unreliable cells are both cuszhi_cr on CESM-2D/CLDHGH, driven by
+     COMPRESS variance (compress_cv ~0.20), not thermal — gpu_sampling recorded a
+     steady 1980 MHz with no throttle reasons on both. The MI100 run shows the same
+     pipeline as its unreliable one, so this reads as inherent cuszhi_cr compress
+     variance rather than a platform effect. Prefer *_device_ms_min for those cells.
+  4. cuszhi_cr is anomalously slow on both H100 baselines (12.4 GB/s decompress) —
+     SLOWER than the A100 (18.4) — while this H200 reaches 36.3. That inversion
+     reproduces across both H100 snapshots, so it is not noise, but it is unexplained
+     and predates this work. Worth a look before quoting cuszhi_cr numbers.
+  5. cuszhi_tp / cuszhi_cr have no HACC rows by design — GInterpStage throws on 1-D
+     input (D17). Same exclusion as every other baseline.
+
+related_decisions: [D12, D15, D17, D24, D25]
