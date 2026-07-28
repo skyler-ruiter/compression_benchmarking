@@ -21,9 +21,20 @@
 source "${HOME}/load-env"   # nvhpc 25.7 / CUDA 12.9; driver reports CUDA 13.2 (fine, newer)
 
 # ── data & results paths ─────────────────────────────────────────────────────
-# No scratch filesystem here — everything lives on the local disk under $HOME.
-export BENCHKIT_DATA_ROOT="${HOME}/data"
+# Datasets live on the attached 200 GB volume (/dev/sdb), NOT under $HOME: the root
+# disk is 145 GB and was already 59% full with 38 GB of SDRBench data on it, which
+# left no room for the rest of the corpus. Moved 2026-07-28.
+# Results stay on the root disk — they are small (JSONL + logs) and the work/ dir is
+# cleaned per cell (D11/D25/D26).
+export BENCHKIT_DATA_ROOT="/media/volume/Compression_Data/sdrbench_data"
 export BENCHKIT_RESULTS_ROOT="${HOME}/benchkit-results"
+
+# If the volume is not mounted, fail loudly here rather than 20 minutes into a sweep
+# with a confusing "field not found" from the dataset catalog.
+if [ ! -d "${BENCHKIT_DATA_ROOT}" ]; then
+    echo "env-jetstream2.sh: BENCHKIT_DATA_ROOT=${BENCHKIT_DATA_ROOT} is missing." >&2
+    echo "  Is the volume mounted?  findmnt /media/volume/Compression_Data" >&2
+fi
 
 # ── FZGM ─────────────────────────────────────────────────────────────────────
 # build_benchmarking/ is the Release build used for timing (build/ is Debug, kept

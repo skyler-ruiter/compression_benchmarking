@@ -142,6 +142,19 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             msg = str(e)
             phase = next((p for p in ("compress", "decompress", "benchmark", "prepare")
                           if f"{p} failed" in msg), "unknown")
+            # A failed cell exits above before reaching the retain_* cleanup, so whatever
+            # it managed to write stays on disk forever. That is fine at 4 fields and
+            # ruinous at corpus scale: a compressor that aborts partway through a large
+            # dataset leaks a full-size d.bin per failed cell (CESMATM is 674 MB/field,
+            # and native cuSZ-Hi fails on every one of them). Sweep the cell's binary
+            # artifacts here, keeping everything diagnostic -- logs, the rendered
+            # pipeline.toml and any report JSON are what you actually read afterwards,
+            # and they are KB. Skipped entirely if either retain_* is set, since then
+            # the artifacts were explicitly asked for. See DESIGN.md D26.
+            if not cfg.retain_decompressed and not cfg.retain_compressed:
+                for leftover in wd.iterdir():
+                    if leftover.is_file() and leftover.suffix not in (".log", ".json", ".toml"):
+                        leftover.unlink(missing_ok=True)
             store.append({"run_id": run_id, "session_id": store.session_id,
                           "cell_key": key,
                           "compressor": entry.compressor, "variant": entry.variant,

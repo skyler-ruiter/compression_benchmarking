@@ -100,5 +100,19 @@ Build artifacts land under `bin/<dtype>/<backend>/`.
 - **9 reps fixed:** warmup is implicit in PFPL's loop. The first rep is
   the coldest; setting `warmup_reps: 1` in experiments is recommended.
 - **No repeat-mode flag:** cannot request more or fewer reps from CLI.
-- **f32 only** in current adapter. f64 executables exist; extend
-  `_MODE_MAP` and `_check_exe` if needed.
+- **f32 and f64 both work.** (This note previously read "f32 only … extend
+  `_MODE_MAP` and `_check_exe` if needed" — that was stale. `_exe()` already
+  builds `<bin_dir>/<dtype>/gpu/<dtype>_<mode>_<direction>_cuda` from
+  `spec.field.dtype`, so f64 needs no code change, only the f64 executables
+  present under `bin/f64/gpu/`. Exercised by MIRANDA, the one f64 dataset in
+  `fzgm_vs_native_full.yaml`.) The class docstring's "(f32 only)" was stale for
+  the same reason.
+- **`benchmark()` cleans up its own scratch (D26).** The benchmark phase writes
+  `d_bench.bin`, a full-original-size decompressed file, which is *not* covered
+  by `retain_decompressed` — that setting governs the separate `decompress()`
+  call's output. It is now unlinked in a `finally`. Note the asymmetry: `c.pfpl`
+  is deliberately **not** deleted there, because the runner reads it after
+  `benchmark()` returns and applies `retain_compressed` to it itself; deleting it
+  in the adapter fails the cell with a missing-`c.pfpl` `FileNotFoundError`.
+  Before this fix a 210-cell session left 4.99 GB of `d_bench.bin` behind, and a
+  full-corpus sweep would have left ~110 GB.

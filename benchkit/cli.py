@@ -19,7 +19,7 @@ import json
 import os
 from pathlib import Path
 
-from .analysis import print_aggregate_table, print_table
+from .analysis import _AGG_GROUP_KEYS, print_aggregate_table, print_table
 from .config import DatasetCatalog, ExperimentConfig
 from .runner import run_experiment
 from .site import Site
@@ -82,7 +82,14 @@ def cmd_report(args: argparse.Namespace) -> int:
     else:
         rows = [json.loads(l) for l in target.read_text().splitlines() if l.strip()]
     if args.aggregate:
-        print_aggregate_table(rows)
+        # --by-dataset inserts `dataset` as the leading group key, so each dataset gets
+        # its own aggregate CR per pipeline instead of every dataset being pooled into
+        # one number. Pooling across datasets is almost never what you want in a paper
+        # table: ratio-of-sums is size-weighted, so a 21 GB CESMATM would simply
+        # determine the "overall" figure and the other seven datasets would not show up
+        # in it. Without the flag the original pooled behaviour is unchanged.
+        keys = (("dataset",) + _AGG_GROUP_KEYS) if args.by_dataset else _AGG_GROUP_KEYS
+        print_aggregate_table(rows, keys)
     else:
         print_table(rows)
     return 0
@@ -163,6 +170,11 @@ def main(argv: list[str] | None = None) -> int:
                      help="roll multi-field cells up into one aggregate CR per "
                           "compressor/variant/pipeline/error_bound "
                           "(ratio-of-sums and geometric mean, see docs/DESIGN.md)")
+    rep.add_argument("--by-dataset", action="store_true",
+                     help="with --aggregate, group by dataset as well, so each dataset "
+                          "gets its own CR per pipeline instead of one pooled number "
+                          "(the pooled figure is size-weighted and would be decided by "
+                          "the largest dataset alone)")
     rep.set_defaults(func=cmd_report)
 
     from .download import DATASET_KEYS

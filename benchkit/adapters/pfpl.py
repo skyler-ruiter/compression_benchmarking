@@ -75,7 +75,7 @@ def _parse_timings_s(stdout: str, phase: str) -> list[float]:
 
 
 class PfplAdapter(Adapter):
-    """PFPL LC-framework GPU adapter (f32 only)."""
+    """PFPL LC-framework GPU adapter (f32 and f64; `_exe` selects by field dtype)."""
 
     name = "pfpl"
 
@@ -189,6 +189,24 @@ class PfplAdapter(Adapter):
         decompressed_tmp = workdir / "d_bench.bin"
         log = workdir / "benchmark.log"
 
+        # d_bench.bin is benchmark-phase scratch at full original size, and it is NOT a
+        # path the runner cleans up: retain_decompressed governs the decompress() call's
+        # own output, so nothing else ever deletes this one. PFPL runs on every field at
+        # every eb, so left behind a whole-corpus sweep accumulates ~3x the corpus in
+        # dead files (4.99 GB of the 5.0 GB work/ dir in session 20260725-192940).
+        # Deleted in the `finally` below so the error paths clean up too.
+        #
+        # `compressed` (c.pfpl) is deliberately NOT touched here -- the runner reads it
+        # after benchmark() returns and applies retain_compressed to it itself. Deleting
+        # it here fails the cell with a missing-c.pfpl FileNotFoundError. See DESIGN.md D26.
+        try:
+            return self._benchmark_inner(
+                spec, prep, workdir, c_exe, d_exe, compressed, decompressed_tmp, log)
+        finally:
+            decompressed_tmp.unlink(missing_ok=True)
+
+    def _benchmark_inner(self, spec, prep, workdir, c_exe, d_exe,
+                         compressed, decompressed_tmp, log) -> BenchmarkResult:
         with open(log, "w") as fh:
             # --- compress (produces 9 timing values + writes compressed file) ---
             c_argv = [str(c_exe), str(spec.field.path), str(compressed), *prep.config_args]
@@ -226,10 +244,13 @@ class PfplAdapter(Adapter):
         compress_ms = [s * 1000.0 for s in compress_s]
         decompress_ms = [s * 1000.0 for s in decompress_s]
 
+        # stat() before the caller's `finally` unlinks it.
+        compressed_bytes = compressed.stat().st_size
+
         return BenchmarkResult(
             compress_device_ms_all=compress_ms,
             decompress_device_ms_all=decompress_ms,
-            compressed_bytes=compressed.stat().st_size,
+            compressed_bytes=compressed_bytes,
             stages=[],
             native_quality=None,
             log_path=log,

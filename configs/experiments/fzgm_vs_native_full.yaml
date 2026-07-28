@@ -1,0 +1,160 @@
+# Paper-scale FZGM-vs-native sweep: EVERY field of every usable SDRBench dataset.
+#
+# This is the full-corpus counterpart to fzgm_vs_native.yaml. That config runs one field
+# per shape class (4 fields, 210 cells, ~1 h) and is the right thing for a regression
+# check; this one runs the whole corpus (186 fields, ~9.8k cells, ~27 h on an H100) and is
+# the right thing for a paper table, where "we picked one field per dataset" is a
+# selection-bias question you do not want to have to answer.
+#
+# Same pairings, same error sweep, same methodology as fzgm_vs_native.yaml — the ONLY
+# difference is field coverage plus the four datasets that config never touched
+# (CESMATM-3D, MIRANDA, EXAALT, QMCPACK-3D). Cell-for-cell comparable with it on the
+# 4 fields they share.
+#
+# ---------------------------------------------------------------------------
+# Runtime and disk
+# ---------------------------------------------------------------------------
+# Calibrated from session 20260725-192940 on the JetStream2 H100: wall time per cell runs
+# 4.8 s at 26 MB to 21.8 s at 1.1 GB (strongly sublinear — fixed per-cell overhead
+# dominates small fields), MINUS the quality-metric speedup landed 2026-07-28 (that
+# computation was 4.1 s of a 9.1 s cell and is now ~1.0 s; see benchkit/metrics.py).
+# Estimated ~27 h total (~31 h before that fix), of which CESMATM-3D alone is ~8 h
+# (33 fields x 674 MB) and CESM-2D another ~5.5 h (79 small fields, overhead-dominated).
+#
+# Note the GPU is NOT the bottleneck — it idles near 0% because per-cell kernel time is
+# milliseconds against seconds of host-side work. Do NOT "parallelize" by running several
+# shards concurrently on one GPU: overlapping processes contend during the timed kernels
+# and corrupt the throughput numbers this experiment exists to measure. Shard across
+# separate GPUs/nodes only. Shard it if that is too long for one allocation:
+#
+#   python -m benchkit run configs/experiments/fzgm_vs_native_full.yaml \
+#          --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_ARRAY_TASK_ID/8"
+#
+# Disk: retain_* are both false, so steady-state work/ is logs only (~KB per cell) and
+# peak transient is one compressed + one decompressed artifact, worst case ~2.2 GB on a
+# HACC cell. This sweep is only safe to run at all because of the D26 PFPL fix — before
+# it, the pfpl adapter left a full-size d_bench.bin per cell, which across this corpus
+# would have been ~110 GB of dead files (D25 is the same class of bug).
+#
+# ---------------------------------------------------------------------------
+# Aggregation
+# ---------------------------------------------------------------------------
+# With many fields per dataset, per-cell CR is no longer the headline number. Roll up with:
+#   python -m benchkit report results/<session>/ --aggregate --by-dataset
+# which reports, per dataset x pipeline x eb: ratio-of-sums CR (size-weighted, the
+# "how much did this dataset actually shrink" number), geometric-mean CR (every field
+# equal), and the geometric spread + min/max field so a mean is never quoted bare.
+#
+# ---------------------------------------------------------------------------
+# Structural exclusions (all pre-existing, none introduced here)
+# ---------------------------------------------------------------------------
+#   - fzgm cuszhi_tp / cuszhi_cr skip 1-D (HACC, EXAALT): GInterpStage, the spline
+#     predictor both presets use, throws by design on 1-D input (D17). Native cuszhi
+#     still runs on 1-D as standalone reference data — and is expected to abort on some
+#     HACC error bounds, which is a recorded result, not a harness failure.
+#   - fzgpu skips MIRANDA: FZ-GPU is float32-only (adapters/fzgpu.py raises on f64), so
+#     the native side cannot run and the pairing has no meaning. Dropped on both sides
+#     to keep the pair symmetric rather than emitting an unpairable FZGM row.
+#   - cuszp3 is dimension-matched end to end (D17): the 2-D 8x8 preset for CESM-2D, the
+#     3-D 4x4x4 preset for every 3-D dataset, the 1-D Lorenzo(block=32) preset for
+#     HACC/EXAALT. Mismatching these silently pairs different algorithms.
+#   - QMCPACK (4-D) is excluded; QMCPACK-3D — the same data split along its slowest axis
+#     into independent 3-D orbitals — is used instead. See configs/datasets.yaml and
+#     scripts/extract_qmcpack_orbitals.py for why splitting beats flattening.
+
+name: fzgm_vs_native_full
+description: >
+  Full-corpus FZGM-vs-native validation across cuSZ, cuSZ-Hi (tp/cr),
+  cuSZp2 (plain/outlier), cuSZp3 (plain/outlier), FZ-GPU and PFPL — every field of
+  all 13 usable SDRBench datasets (186 fields), eb in {1e-2, 1e-3, 1e-4}, rel_range.
+
+# Every dataset takes all of its declared fields EXCEPT the one listed below — a
+# dataset absent from this mapping falls back to its full field list (config.py
+# fields_for), so this is a targeted exclusion, not a whitelist.
+fields:
+  # NWCHEM's `acd` (6.4 GB) and `ccd` (5.7 GB) fields are excluded from the
+  # cross-machine sweep. Measured peak device memory for acd on the H100 is
+  # 20.6-35.0 GB depending on pipeline (pfpl is the 35 GB one), which does not fit
+  # the 32 GB MI100 and leaves no headroom on the 40 GB A100. Including them would
+  # produce OOM failures on half the fleet for two fields. Run them separately on
+  # H100/H200 if wanted — see the note in configs/datasets.yaml.
+  NWCHEM: [t631]
+datasets:
+  - CESM-2D       # 79 fields,  2-D, f32,  25.9 MB/field
+  - CESMATM-3D    # 33 fields,  3-D, f32, 673.9 MB/field  <- ~10 h of the total
+  - HURR          # 13 fields,  3-D, f32, 100.0 MB/field
+  - NYX           #  6 fields,  3-D, f32, 536.9 MB/field
+  - MIRANDA       #  7 fields,  3-D, f64, 302.0 MB/field  <- only f64 dataset
+  - HACC          #  6 fields,  1-D, f32, 1123.8 MB/field
+  - EXAALT        #  6 fields,  1-D, f32,  11.5 MB/field  <- only small 1-D data
+  - QMCPACK-3D    #  8 fields,  3-D, f32,   2.2 MB/field  <- split orbitals
+  - SCALE-LETKF   # 12 fields,  3-D, f32, 564.5 MB/field  (12, not the advertised 13)
+  - S3D           # 11 fields,  3-D, f64, 1000.0 MB/field <- split from 11 GB blobs
+  - NWCHEM        #  1 field*,  1-D, f64, 823.6 MB/field  <- *scoped below, see `fields`
+  - BROWN         #  3 fields,  1-D, f64, 268.4 MB/field  <- only synthetic real-valued set
+  - EXAFEL        #  1 field,   3-D, f32, 1194.4 MB/field
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true          # JetStream2 VM is single-tenant; run scripts/lock_clocks.sh first.
+                           # Inert on SLURM sites (BigRed200/Delta) where clock control is
+                           # admin-only — use --exclusive there instead (D15).
+retain_decompressed: false
+retain_compressed: false   # non-negotiable at this scale: see the disk note above and D25
+
+runs:
+  - {compressor: cusz,   variant: cusz,           pipeline: default}
+  - {compressor: fzgm,   variant: cusz,           pipeline: configs/pipelines/cusz.toml}
+
+  - {compressor: cuszhi, variant: cuszhi_tp,      pipeline: tp}
+  - {compressor: fzgm,   variant: cuszhi_tp,      pipeline: configs/pipelines/cusz_hi_tp.toml,
+     skip_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {compressor: cuszhi, variant: cuszhi_cr,      pipeline: cr}
+  - {compressor: fzgm,   variant: cuszhi_cr,      pipeline: configs/pipelines/cusz_hi_cr.toml,
+     skip_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier}
+  - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
+  - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  # cuszp3 — 2-D preset
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3.toml,
+     only_datasets: [CESM-2D]}
+  # cuszp3 — 3-D preset
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:3d",
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  # cuszp3 — 1-D preset
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: plain,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_1d.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:3d",
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: outlier,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_1d_outlier.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: fzgpu,  variant: fzgpu,          pipeline: default,
+     skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
+  - {compressor: fzgm,   variant: fzgpu,          pipeline: configs/pipelines/fzgpu.toml,
+     skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
+
+  - {compressor: pfpl,   variant: pfpl,           pipeline: default}
+  - {compressor: fzgm,   variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}

@@ -104,13 +104,39 @@ def aggregate_cr(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS
         total_orig = sum(fc["original_bytes"] for fc in fcells)
         total_comp = sum(fc["compressed_bytes"] for fc in fcells)
         crs = [fc["cr"] for fc in fcells]
-        geomean = math.exp(sum(math.log(c) for c in crs) / len(crs))
+        logs = [math.log(c) for c in crs]
+        geomean = math.exp(sum(logs) / len(logs))
+
+        # Spread, so a multi-field mean is never quoted bare. CR is a ratio and its
+        # per-field distribution is right-skewed and strictly positive, so an arithmetic
+        # SD would be the wrong shape (it can reach below zero on a wide group and
+        # implies symmetry that is not there). The geometric SD is the multiplicative
+        # analogue: it is a dimensionless FACTOR, and the one-sigma band is
+        # geomean/gsd .. geomean*gsd. gsd = 1.0 means every field compressed identically.
+        # Sample SD (n-1) for n > 1; a single-field group has no spread, reported as None
+        # rather than 0.0 so "one field" is never mistaken for "perfectly consistent".
+        if len(logs) > 1:
+            mean_log = sum(logs) / len(logs)
+            var_log = sum((x - mean_log) ** 2 for x in logs) / (len(logs) - 1)
+            gsd = math.exp(math.sqrt(var_log))
+        else:
+            gsd = None
+        lo = min(fcells, key=lambda fc: fc["cr"])
+        hi = max(fcells, key=lambda fc: fc["cr"])
+
         out.append({
             **dict(zip(group_keys, gkey)),
             "n_fields": len(fcells),
             "fields": sorted(f"{fc['dataset']}/{fc['field']}" for fc in fcells),
             "ratio_of_sums_cr": total_orig / total_comp,
             "geomean_cr": geomean,
+            "gsd_cr": gsd,
+            "min_cr": lo["cr"],
+            "min_cr_field": f"{lo['dataset']}/{lo['field']}",
+            "max_cr": hi["cr"],
+            "max_cr_field": f"{hi['dataset']}/{hi['field']}",
+            "total_original_bytes": total_orig,
+            "total_compressed_bytes": total_comp,
         })
     return out
 
@@ -121,16 +147,28 @@ def print_aggregate_table(rows: list[dict], group_keys: tuple[str, ...] = _AGG_G
         print("(no ok rows to aggregate)")
         return
 
-    header_cols = list(group_keys) + ["n_fields", "ratio_of_sums_cr", "geomean_cr"]
-    widths = {k: max(len(k), 10) for k in header_cols}
+    header_cols = list(group_keys) + ["n_fields", "ratio_of_sums_cr", "geomean_cr", "gsd_cr"]
+
+    def cell(g, k):
+        v = g[k]
+        if v is None:
+            return "-"
+        if isinstance(v, float):
+            return f"{v:.3f}" if k == "error_bound" else f"{v:.2f}"
+        return str(v)
+
+    # Width from the values as well as the header: `pipeline` holds full TOML paths on
+    # fzgm rows, which are far wider than the 10-char header and would otherwise push
+    # every later column out of alignment row by row.
+    widths = {k: max(len(k), 10, *(len(cell(g, k)) for g in groups)) for k in header_cols}
     print("  ".join(f"{k:<{widths[k]}}" for k in header_cols))
     print("-" * (sum(widths.values()) + 2 * (len(header_cols) - 1)))
     for g in groups:
-        vals = []
-        for k in header_cols:
-            v = g[k]
-            if isinstance(v, float):
-                v = f"{v:.3f}" if k == "error_bound" else f"{v:.2f}"
-            vals.append(f"{str(v):<{widths[k]}}")
-        print("  ".join(vals))
-        print(f"    fields: {', '.join(g['fields'])}")
+        print("  ".join(f"{cell(g, k):<{widths[k]}}" for k in header_cols))
+        if g["n_fields"] > 1:
+            # The range matters more than the field list once there are dozens of
+            # fields: it says whether the mean describes the dataset or hides it.
+            print(f"    range: {g['min_cr']:.2f} ({g['min_cr_field']})"
+                  f"  ..  {g['max_cr']:.2f} ({g['max_cr_field']})")
+        if g["n_fields"] <= 8:
+            print(f"    fields: {', '.join(g['fields'])}")

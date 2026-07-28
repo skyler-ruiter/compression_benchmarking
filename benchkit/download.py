@@ -104,6 +104,53 @@ ALL_DATASETS: list[Dataset] = [
         name="QMCPACK", dims="69x69x115x288", dtype="f32", num_fields=288,
         description="Quantum Monte Carlo orbitals, 288 orbitals",
     ),
+    # ── added 2026-07-28 — the rest of SDRBench this harness has a reader for.
+    # Kept in lockstep with the DATASETS/METADATA tables in
+    # scripts/download-sdrbench.sh; the two are separate implementations of the
+    # same list, so a dataset added to one must be added to the other.
+    # Deliberately absent: NSTX_GPI (ADIOS2 .bp container, not raw binary), XGC
+    # (unstructured mesh, layout unconfirmed), the 4-D EXAFEL build and the
+    # oversized MIRANDA 3072^3 / full HACC variants.
+    Dataset(
+        key="SCALE",
+        tarball="SDRBENCH-SCALE-98x1200x1200.tar.gz",
+        url_suffix="SCALE_LETKF/SDRBENCH-SCALE-98x1200x1200.tar.gz",
+        dest_dir="SCALE_98x1200x1200",
+        name="SCALE-LETKF", dims="98x1200x1200", dtype="f32", num_fields=13,
+        description="SCALE-LETKF weather/climate ensemble, 13 3-D fields",
+    ),
+    Dataset(
+        key="NWCHEM",
+        tarball="SDRBENCH-NWChem-dataset.tar.gz",
+        url_suffix="NWChem/SDRBENCH-NWChem-dataset.tar.gz",
+        dest_dir="NWCHEM_102953248",
+        name="NWChem", dims="102953248", dtype="f64", num_fields=3,
+        description="Quantum chemistry (NWChem), 1-D f64 arrays",
+    ),
+    Dataset(
+        key="S3D",
+        tarball="SDRBENCH-S3D.tar.gz",
+        url_suffix="S3D/SDRBENCH-S3D.tar.gz",
+        dest_dir="S3D_500x500x500",
+        name="S3D", dims="500x500x500", dtype="f64", num_fields=11,
+        description="Combustion DNS (S3D), 11 3-D f64 fields",
+    ),
+    Dataset(
+        key="BROWN",
+        tarball="SDRBENCH-BROWN-33554433.tar.gz",
+        url_suffix="brown_synth/SDRBENCH-BROWN-33554433.tar.gz",
+        dest_dir="BROWN_33554433",
+        name="Brown samples", dims="33554433", dtype="f64", num_fields=3,
+        description="Synthetic Brownian-motion 1-D f64 samples",
+    ),
+    Dataset(
+        key="EXAFEL",
+        tarball="SDRBENCH-EXAFEL-130x1480x1552.tar.gz",
+        url_suffix="EXAFEL/SDRBENCH-EXAFEL-130x1480x1552.tar.gz",
+        dest_dir="EXAFEL_130x1480x1552",
+        name="EXAFEL 3-D", dims="130x1480x1552", dtype="f32", num_fields=1,
+        description="LCLS detector images, 3-D variant (the 4-D build is unusable here)",
+    ),
 ]
 
 DATASET_KEYS: list[str] = [d.key for d in ALL_DATASETS]

@@ -7,7 +7,22 @@
 # dims are intentionally omitted: the caller must set them (CLI -l / setDims())
 # for the actual data. A dims entry here would override setDims() at loadConfig
 # time (GInterp is ≥2-D), silently running the pipeline at the wrong shape.
-memory_strategy = "MINIMAL"
+memory_strategy = "PREALLOCATE"
+# PREALLOCATE, not MINIMAL (changed 2026-07-28). Under MINIMAL this pipeline
+# corrupts memory on large 3-D fields: the compressed blob size varies slightly
+# between successive compress() calls on a reused pipeline (23,079,728 then
+# 23,079,732 bytes on CESMATM-3D/CLDICE), so the inverse buffer — sized from the
+# previous run — is undersized on the next decompress, and the resulting illegal
+# memory access surfaces against whichever stage synchronizes first (it was
+# reported at rre_stage.cu:475, which is not where the fault is). This is the
+# failure mode the E19 note in ginterp_stage.cu predicts for reused MINIMAL
+# pipelines. PREALLOCATE sizes buffers to worst case once, so the variation is
+# harmless. Measured on NYX/temperature: byte-identical output (CR 185.10x,
+# PSNR 75.75 dB) and FASTER (compress 81.1 -> 95.5 GB/s, decompress 74.2 -> 80.1),
+# at ~1.6x peak device memory (4.3 -> 7.0 GB on a 643 MB field) — comfortable on
+# every GPU benchmarked here, including the 32 GB MI100.
+# NOTE: cuSZ-Hi throughput from this preset is therefore NOT comparable with
+# baselines captured before this date, which ran MINIMAL. CR and PSNR are.
 
 [[stage]]
 name = "gi"

@@ -45,6 +45,20 @@ echo ""
 # in the environment at call time (e.g. SDRBENCH_DATASETS="CESM NYX" bash ...).
 # Keys must match the first column of the DATASETS table below.
 # ---------------------------------------------------------------------------
+# The default set is every dataset this harness has a working reader for. The
+# 2026-07-28 additions (SCALE, NWCHEM, S3D, BROWN, EXAFEL) roughly double the corpus
+# on disk — S3D alone is a 46 GB tarball — so on a space-constrained machine pass
+# SDRBENCH_DATASETS explicitly instead of taking the default.
+#
+# Deliberately NOT listed (see results/baselines/README.md and docs/adapters/):
+#   NSTX_GPI  — ships as an ADIOS2 .bp container, not a raw binary; needs an ADIOS2
+#               reader before benchkit can load it.
+#   XGC       — unstructured-mesh output; the .zip "binary" variant needs its layout
+#               confirmed before it can be registered as a plain 2-D field.
+#   MIRANDA (3072^3, 106 GB) and HACC (full 19 GB) — larger variants of datasets
+#               already present at a usable size.
+#   EXAFEL 986x32x185x388 — the 4-D build; no adapter here handles 4-D (see the
+#               QMCPACK-3D split in configs/datasets.yaml for the pattern if wanted).
 ENABLED_DATASETS="${SDRBENCH_DATASETS:-
     CESM
     CESMATM
@@ -54,6 +68,11 @@ ENABLED_DATASETS="${SDRBENCH_DATASETS:-
     NYX
     MIRANDA
     QMCPACK
+    SCALE
+    NWCHEM
+    S3D
+    BROWN
+    EXAFEL
 }"
 
 # ---------------------------------------------------------------------------
@@ -71,6 +90,12 @@ DATASETS=(
   "NYX"     "SDRBENCH-EXASKY-NYX-512x512x512.tar.gz"       "EXASKY/NYX/SDRBENCH-EXASKY-NYX-512x512x512.tar.gz"             "NYX_512x512x512"
   "MIRANDA" "SDRBENCH-Miranda-256x384x384.tar.gz"          "Miranda/SDRBENCH-Miranda-256x384x384.tar.gz"                    "MIRANDA_256x384x384"
   "QMCPACK" "SDRBENCH-QMCPack.tar.gz"                      "QMCPack/SDRBENCH-QMCPack.tar.gz"                               "QMCPACK"
+  # ── added 2026-07-28: the rest of SDRBench that this harness can actually read ──
+  "SCALE"   "SDRBENCH-SCALE-98x1200x1200.tar.gz"           "SCALE_LETKF/SDRBENCH-SCALE-98x1200x1200.tar.gz"                "SCALE_98x1200x1200"
+  "NWCHEM"  "SDRBENCH-NWChem-dataset.tar.gz"               "NWChem/SDRBENCH-NWChem-dataset.tar.gz"                          "NWCHEM_102953248"
+  "S3D"     "SDRBENCH-S3D.tar.gz"                          "S3D/SDRBENCH-S3D.tar.gz"                                       "S3D_500x500x500"
+  "BROWN"   "SDRBENCH-BROWN-33554433.tar.gz"               "brown_synth/SDRBENCH-BROWN-33554433.tar.gz"                     "BROWN_33554433"
+  "EXAFEL"  "SDRBENCH-EXAFEL-130x1480x1552.tar.gz"         "EXAFEL/SDRBENCH-EXAFEL-130x1480x1552.tar.gz"                    "EXAFEL_130x1480x1552"
 )
 
 # Metadata written into each dataset directory after extraction.  (stride 6)
@@ -84,6 +109,11 @@ METADATA=(
   "NYX"     "NYX"              "512x512x512"       "f32" "6"   "AMR cosmology simulation (NYX), 6 fields"
   "MIRANDA" "Miranda"          "256x384x384"       "f64" "7"   "Turbulence simulation (Miranda), 7 fields, double precision"
   "QMCPACK" "QMCPACK"          "69x69x115x288"     "f32" "288" "Quantum Monte Carlo orbitals, 288 orbitals"
+  "SCALE"   "SCALE-LETKF"      "98x1200x1200"      "f32" "13"  "SCALE-LETKF weather/climate ensemble, 13 3-D fields"
+  "NWCHEM"  "NWChem"           "102953248"         "f64" "3"   "Quantum chemistry (NWChem), 1-D f64 arrays"
+  "S3D"     "S3D"              "500x500x500"       "f64" "11"  "Combustion DNS (S3D), 11 3-D f64 fields"
+  "BROWN"   "Brown samples"    "33554433"          "f64" "3"   "Synthetic Brownian-motion 1-D f64 samples"
+  "EXAFEL"  "EXAFEL 3-D"       "130x1480x1552"     "f32" "1"   "LCLS detector images, 3-D variant (the 4-D 986x32x185x388 build is NOT used — no 4-D adapter)"
 )
 
 # ---------------------------------------------------------------------------

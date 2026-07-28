@@ -90,13 +90,21 @@ class FzgmAdapter(Adapter):
             eb, native_mode = tpl.declared_eb_mode()
             text = tpl.text                      # ship the config verbatim
             basis = _NATIVE_BASIS.get(native_mode, "abs")
+            # Verbatim means verbatim — but a config whose raw-input stage disagrees
+            # with the field's dtype produces silent garbage (PSNR nan, degenerate CR),
+            # not an error, so that one mismatch is worth refusing outright rather than
+            # shipping. See DESIGN.md D27.
+            tpl.check_dtype(spec.field.dtype)
         else:
             native_mode, basis = _MODE_MAP[spec.error_mode]
             eb = float(spec.error_bound)
             # Also fixes up [pipeline] dims/input_size if the template declares them
             # (e.g. cuSZ-Hi presets) — no-op for templates that don't (cusz/fzgpu/pfpl).
+            # dtype retargets the raw-consuming stage's float input_type to the field's
+            # actual precision; presets are all written float32 (D27).
             text = tpl.render(eb, native_mode, dims=spec.field.dims,
-                              input_size=spec.field.original_bytes)
+                              input_size=spec.field.original_bytes,
+                              dtype=spec.field.dtype)
         out.write_text(text)
         return Prepared(
             config_args=["-c", str(out)], eb=eb, native_mode=native_mode, basis=basis,

@@ -54,15 +54,32 @@ def compute_quality(original_path: str | Path, decompressed_path: str | Path,
     `err_over_bound` exposes the realized overshoot so a near-miss is visible, not hidden
     behind the boolean.
     """
-    orig = _read(original_path, dtype, num_elements).astype(np.float64)
-    dec = _read(decompressed_path, dtype, num_elements).astype(np.float64)
+    # Allocation-lean, but numerically IDENTICAL to the obvious formulation — verified
+    # bit-for-bit (all of vmin/vmax/vmaxabs/mse/max_abs) on NYX/temperature. This runs
+    # on every cell of every sweep and was 4.1 s of a 9.1 s FZGM cell (~45%), i.e. the
+    # single largest cost in a full-corpus run once the GPU work is milliseconds.
+    #
+    # Three changes, none of which alter the result:
+    #   - Do NOT materialize float64 copies of both inputs. `np.subtract(..., dtype=f64)`
+    #     promotes during the subtraction, so an f32 pair costs one f64 temp instead of
+    #     two f64 copies plus the difference.
+    #   - `max|x| == max(|min|, |max|)` and `max|d| == max(-d.min(), d.max())`, so the
+    #     two `np.abs(...)` full-array temporaries are unnecessary.
+    #   - The difference was previously computed TWICE (once for `diff`, once inside the
+    #     `mse` expression). Compute it once and square it in place.
+    # `np.mean` is kept (rather than a BLAS dot product, which is faster still) because
+    # its pairwise summation order is fixed by numpy: baselines are compared across
+    # machines with different BLAS builds, and mse must not depend on that.
+    orig = _read(original_path, dtype, num_elements)
+    dec = _read(decompressed_path, dtype, num_elements)
 
     vmin, vmax = float(orig.min()), float(orig.max())
     vrange = vmax - vmin
-    vmaxabs = float(np.abs(orig).max())
-    diff = np.abs(orig - dec)
-    mse = float(np.mean((orig - dec) ** 2))
-    max_abs = float(diff.max())
+    vmaxabs = max(abs(vmin), abs(vmax))
+    d = np.subtract(orig, dec, dtype=np.float64)
+    max_abs = float(max(-d.min(), d.max()))
+    np.multiply(d, d, out=d)
+    mse = float(np.mean(d))
     max_rel = max_abs / vrange if vrange > 0 else 0.0
 
     if mse == 0.0:
