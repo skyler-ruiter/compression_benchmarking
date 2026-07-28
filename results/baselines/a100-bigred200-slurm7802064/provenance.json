@@ -1,0 +1,137 @@
+{
+  "session_id": "7802064",
+  "timestamp": "2026-07-28T04:32:27.732393+00:00",
+  "shard": null,
+  "gpu": {
+    "available": true,
+    "vendor": "nvidia",
+    "name": "NVIDIA A100-SXM4-40GB",
+    "driver": "595.71.05",
+    "memory_total": "40960 MiB",
+    "sm_clock": "210 MHz",
+    "sm_clock_max": "1410 MHz",
+    "mem_clock": "1215 MHz",
+    "ecc": "Enabled",
+    "persistence": "Enabled"
+  },
+  "host": {
+    "node": "x1000c0s5b0n0",
+    "system": "Linux",
+    "release": "6.4.0-150600.23.115-default",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "scheduler": {
+    "SLURM_JOB_ID": "7802064",
+    "SLURM_NODELIST": "nid0651",
+    "SLURM_JOB_PARTITION": "gpu",
+    "SLURM_GPUS": "1",
+    "SLURM_JOB_GPUS": "0,1,2,3",
+    "CUDA_VISIBLE_DEVICES": "0,1,2,3",
+    "GPU_DEVICE_ORDINAL": "0,1,2,3",
+    "_scheduler": "slurm"
+  },
+  "software": {
+    "modules": "craype-x86-rome:craype-network-ucx:perftools-base/25.03.0:xpmem/0.2.119-1.3_gef379be13330:craype/2.7.34:cray-dsmml/0.3.1:cray-ucx/1.14.0:PrgEnv-gnu/8.6.0:quota/1.9:xalt/3.2.0:python/3.12.11:cudatoolkit/24.11_12.6:gcc-native/12.3:cray-libsci/25.03.0:cray-mpich-ucx/8.1.32",
+    "module_list": "Currently Loaded Modules:\n  1) craype-x86-rome                   9) quota/1.9\n  2) craype-network-ucx               10) xalt/3.2.0\n  3) perftools-base/25.03.0           11) python/3.12.11\n  4) xpmem/0.2.119-1.3_gef379be13330  12) cudatoolkit/24.11_12.6\n  5) craype/2.7.34                    13) gcc-native/12.3\n  6) cray-dsmml/0.3.1                 14) cray-libsci/25.03.0\n  7) cray-ucx/1.14.0                  15) cray-mpich-ucx/8.1.32\n  8) PrgEnv-gnu/8.6.0",
+    "spack_env": null,
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2024 NVIDIA Corporation\nBuilt on Thu_Sep_12_02:18:05_PDT_2024\nCuda compilation tools, release 12.6, V12.6.77\nBuild cuda_12.6.r12.6/compiler.34841621_0"
+  },
+  "harness": {
+    "git_sha": "ae91666",
+    "config_sha256": "54fa05f77fc2a9a8b3adbe410adb9b99a767f7dce28b1f2542c3ed1cf60430d7",
+    "python": "3.12.11"
+  },
+  "compressors": {
+    "cusz:cusz": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/cuSZ/build/cusz",
+      "name": "cusz",
+      "timing_method": "cuda_event_device_only"
+    },
+    "fzgm:cusz": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszhi:cuszhi_tp": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/cuSZ-Hi/build/cuszhi",
+      "name": "cuszhi",
+      "timing_method": "cuda_events_total_ms_from_report_table"
+    },
+    "fzgm:cuszhi_tp": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszhi:cuszhi_cr": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/cuSZ-Hi/build/cuszhi",
+      "name": "cuszhi",
+      "timing_method": "cuda_events_total_ms_from_report_table"
+    },
+    "fzgm:cuszhi_cr": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp2:cuszp2_outlier": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp",
+      "name": "cuszp2",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp2_outlier": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp2:cuszp2_plain": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp",
+      "name": "cuszp2",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp2_plain": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp3:cuszp3_plain": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/cuSZp-V3.0.0/build/examples/bin/cuSZp",
+      "name": "cuszp3",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp3_plain": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "cuszp3:cuszp3_outlier": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/cuSZp-V3.0.0/build/examples/bin/cuSZp",
+      "name": "cuszp3",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "1 timed run after 10 GPU warmup iterations per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
+    },
+    "fzgm:cuszp3_outlier": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgpu:fzgpu": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/FZ-GPU/fz-gpu",
+      "name": "fz-gpu",
+      "timing_method": "wall_clock_chrono_e2e",
+      "timing_note": "std::chrono::system_clock around kernel launches + cudaDeviceSynchronize. More variance than CUDA-event adapters; cv threshold still applies.",
+      "dtype": "f32 only",
+      "error_mode": "rel_range only (NOA: eb \u00d7 range)"
+    },
+    "fzgm:fzgpu": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "pfpl:pfpl": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/compressors/PFPL/bin",
+      "name": "pfpl",
+      "timing_method": "cuda_events_seconds",
+      "timing_reps_per_call": 9
+    },
+    "fzgm:pfpl": {
+      "cli_path": "/N/u/sruiter/BigRed200/research/FZGPUModules/build_bench/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    }
+  },
+  "nvidia_smi": "Tue Jul 28 00:32:29 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 595.71.05              Driver Version: 595.71.05      CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA A100-SXM4-40GB          On  |   00000000:03:00.0 Off |                    0 |\n| N/A   36C    P0             50W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA A100-SXM4-40GB          On  |   00000000:41:00.0 Off |                    0 |\n| N/A   35C    P0             49W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA A100-SXM4-40GB          On  |   00000000:81:00.0 Off |                    0 |\n| N/A   36C    P0             50W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA A100-SXM4-40GB          On  |   00000000:C1:00.0 Off |                    0 |\n| N/A   34C    P0             50W /  400W |       0MiB /  40960MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+"
+}

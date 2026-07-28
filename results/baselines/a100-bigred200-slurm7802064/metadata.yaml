@@ -1,0 +1,103 @@
+# Baseline: A100 / BigRed200 (supersedes a100-bigred200-slurm7562329)
+# See results/baselines/README.md for the schema this file follows.
+
+baseline_id: a100-bigred200-slurm7802064
+gpu: NVIDIA A100-SXM4-40GB
+site: BigRed200 (SLURM HPC cluster, Indiana University)
+driver: "595.71.05"
+cuda_toolkit: "12.6 (module cudatoolkit/24.11_12.6, nvcc V12.6.77)"
+date: "2026-07-28"  # SLURM job 7802064, ran 04:32-05:24 UTC. Quoted: an unquoted YAML
+                    # date becomes a datetime.date and breaks build_comparison_artifact.py's
+                    # json.dumps of the metadata payload.
+experiment_config: configs/experiments/fzgm_vs_native.yaml
+clocks_locked: false  # BigRed200 is a shared cluster; nvidia-smi -lgc is admin-only (see DESIGN.md D15).
+                      # The experiment YAML's `lock_clocks: true` is JetStream2 residue and is inert
+                      # (parsed in config.py, no consumer). Ran with --exclusive instead; node was
+                      # confirmed single-tenant (see raw_slurm_stdout.log "[node-jobs]").
+
+source:
+  kind: benchkit_native_output
+  raw_log: raw_slurm_stdout.log  # kept for convenience; not a reconstruction input
+  fidelity: >
+    Full. Native runs.jsonl and provenance.json copied directly off
+    /N/scratch/sruiter/benchkit-results/7802064/ on the cluster. Per-rep
+    timing arrays, cv/stability detail, stages[], gpu_sampling, checksums
+    and compressed_bytes all present. This is the first A100 baseline
+    captured at full fidelity — the one it supersedes
+    (a100-bigred200-slurm7562329) was reconstructed from stdout.
+
+cells:
+  total: 210
+  ok: 207
+  failed: 3
+  known_failures: >
+    Native cuSZ-Hi on HACC (1-D, 280M elements), SIGABRT (exit -6) at
+    specific error bounds: cuszhi_tp eb=1e-4, cuszhi_cr eb=1e-2 and 1e-4.
+    Expected/structural, same class of 1-D failure documented in
+    docs/adapters/cuszhi.md; the superseded baseline and the H100 baseline
+    fail on this compressor+dataset too. Not platform-specific and not a
+    regression from the 2026-07 compressor rebuild.
+  timing_reliable: 207/207 ok cells (cv <= 0.15). No throttling observed.
+
+supersedes: a100-bigred200-slurm7562329
+
+changes_vs_superseded: >
+  Same experiment config and same machine; the difference is the compressor
+  build. Third-party compressor sources were refreshed from the 2026-07
+  working set (~/research/compressors.zip) and rebuilt for sm_80. Two
+  substantive deltas, both verified against the superseded baseline:
+
+  1. cuSZp2/cuSZp3 got scratch-buffer caching (d_cmpOffset/d_locOffset/
+     d_flag are now allocated once and reused instead of cudaMalloc'd and
+     cudaFree'd on every compress/decompress call), plus a 100x batched
+     timing loop in the example driver. Median native speedup vs the
+     superseded baseline: cuszp2 1.36x compress / 1.96x decompress,
+     cuszp3 1.32x / 2.25x. Gains are size-dependent (CESM-2D 26MB sees
+     1.5-1.9x; HACC, the largest field, only 1.02-1.25x) and larger on
+     decompress — both consistent with a near-fixed per-call overhead
+     being amortized away rather than a kernel becoming faster.
+
+  2. The cuSZp2 `excl_sum` bug (D23) is FIXED here. The two cells it
+     corrupted in the superseded baseline now hit their expected values:
+       - cuszp2 outlier, HURR, eb=1e-2: 35.58 dB -> 44.80 dB
+       - cuszp2 outlier, HURR, eb=1e-3: 50.58 dB -> 64.79 dB
+     CR is byte-identical across both (16.56 / 10.88), confirming the bug
+     corrupted decompressed values without affecting compressed size.
+
+  Controls: cusz, cuszhi, fzgpu and pfpl were not functionally changed and
+  come back at median 1.00x compress and 1.00x decompress against the
+  superseded baseline. Across all 207 shared ok cells, 0 changed CR by
+  >1% and exactly 2 changed PSNR by >0.05 dB (the two D23 cells above).
+  That combination rules out machine drift, driver change, or exclusive
+  scheduling as an explanation for the cuSZp gains.
+
+known_issues:
+  - >
+    provenance.json's timing_note for cuszp2/cuszp3 is STALE. It reads
+    "1 timed run after 10 GPU warmup iterations per subprocess call",
+    which described the pre-rebuild driver. The rebuilt cuSZp example
+    driver averages over 100 back-to-back launches inside one CUDA event
+    pair (TIMING_REPEATS in examples/cuSZp.cpp). The recorded throughput
+    numbers are correct; only the adapter's description of how they were
+    obtained is out of date. benchkit/adapters/cuszp.py has since been
+    corrected (module docstring, provenance timing_note, and benchmark()
+    docstring), so baselines captured after 2026-07-28 record this
+    accurately. The stale string is left intact in THIS baseline's
+    provenance.json on purpose — it is the historical record of what the
+    adapter reported at run time, not a field to retroactively edit.
+  - >
+    Native fzgpu is still wall-clock timed (chrono + cudaDeviceSynchronize),
+    not CUDA-event isolated. This run was --exclusive specifically to remove
+    contention as a confound. Worth recording that it came back at 1.00x
+    vs the superseded baseline, which suggests that baseline's fzgpu timing
+    was not in fact contaminated by node sharing — the exclusivity caveat in
+    scripts/submit_fzgm_vs_native.slurm is now evidence-backed rather than
+    precautionary.
+  - >
+    Native cuszp3_outlier (CESM-2D, eb=1e-3) and native fzgpu report
+    eb_satisfied=false. Both reproduce identically in the superseded
+    baseline, so they predate this rebuild. fzgpu's is rounding-level
+    (max_abs_err 8.956e-4 vs bound 8.940e-4); cuszp3_outlier's is a real
+    ~8x overshoot (7.20e-3 vs 8.94e-4) and has not been investigated.
+
+related_decisions: [D15, D23, D24, D25]

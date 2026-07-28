@@ -3,8 +3,19 @@
 cuSZp differences from cuSZ that shape this adapter:
 
   - Single-run compress+decompress: one invocation does both phases, with
-    10 GPU warmup iterations and 1 timed iteration each. benchmark() runs
-    N subprocesses to collect N timing values per phase.
+    10 GPU warmup iterations, then 100 back-to-back timed launches wrapped
+    in a single CUDA event pair and divided by 100 (TIMING_REPEATS in the
+    vendored examples/cuSZp.cpp). So each subprocess yields one *mean*
+    device time per phase, not a single-shot measurement. benchmark() runs
+    N subprocesses to collect N such values per phase.
+
+    Batching is deliberate: a single short kernel timed via
+    cudaEventElapsedTime carries a large fixed per-launch dispatch tax on
+    some platforms, which dominates the number for small fields. Averaging
+    over many launches reports sustained throughput instead of dispatch
+    overhead. Note this means the per-call values already have some
+    within-call averaging baked in, so the cv computed across the N
+    subprocess values understates true single-launch variance.
 
   - Timing via CUDA events (TimingGPU / cudaEventElapsedTime → ms):
     Printed as "cuSZp compression   end-to-end speed: X GB/s" where X is
@@ -115,7 +126,8 @@ class CuszpAdapter(Adapter):
             "name": f"cuszp{self.version}",
             "timing_method": "cuda_events_device_only",
             "timing_note": (
-                "1 timed run after 10 GPU warmup iterations per subprocess call. "
+                "Mean of 100 back-to-back timed launches (single CUDA event pair) "
+                "after 10 GPU warmup iterations, per subprocess call. "
                 "Printed as 'GB/s' but actually MiB/ms; adapter recovers ms."
             ),
         }
@@ -224,7 +236,8 @@ class CuszpAdapter(Adapter):
         return DecompressResult(decompressed_path=decompressed, raw_json={}, log_path=workdir / "compress.log")
 
     def benchmark(self, spec: RunSpec, prep: Prepared, n_runs: int, workdir: Path) -> BenchmarkResult:
-        """N subprocess calls, each: 10 GPU warmup + 1 timed compress + 1 timed decompress.
+        """N subprocess calls, each: 10 GPU warmup, then a 100-launch timed mean
+        for compress and again for decompress (see module docstring).
 
         No -x/-o: cuSZp skips file writes when paths are omitted, so there
         is no file I/O overhead during timing. The compressed file from

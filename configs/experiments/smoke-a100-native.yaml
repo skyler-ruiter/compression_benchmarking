@@ -1,0 +1,60 @@
+# A100 pre-flight smoke for fzgm_vs_native — run on a gpu-debug node before
+# submitting the full matrix.
+#
+#   source scripts/env-bigred200.sh
+#   python -m benchkit run configs/experiments/smoke-a100-native.yaml
+#
+# Mirrors fzgm_vs_native's run list but restricted to CESM-2D at a single bound
+# with 2 reps: that one dataset touches every rebuilt native binary exactly once
+# (cusz, cuszhi tp/cr, cuszp2 plain/outlier, cuszp3 plain/outlier 2-D, fzgpu,
+# pfpl) plus its paired FZGM pipeline. The cuszp3 3-D/1-D presets and the HACC
+# skips are dimension-specific and only exercised by the full matrix.
+#
+# Purpose is wiring, not numbers: confirm every CLI resolves and every pair
+# produces a row. Timing here is untrustworthy (shared debug node).
+
+name: smoke-a100-native
+description: >
+  Pre-flight check that all rebuilt native compressors + their FZGM pairs run
+  end to end on the A100. CESM-2D only, eb=1e-3, 2 reps.
+
+datasets:
+  - CESM-2D
+
+fields:
+  CESM-2D: [CLDHGH]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 2
+warmup_reps: 1
+lock_clocks: false        # shared debug node; not exclusive
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: cusz,   variant: cusz,           pipeline: default}
+  - {compressor: fzgm,   variant: cusz,           pipeline: configs/pipelines/cusz.toml}
+
+  - {compressor: cuszhi, variant: cuszhi_tp,      pipeline: tp}
+  - {compressor: fzgm,   variant: cuszhi_tp,      pipeline: configs/pipelines/cusz_hi_tp.toml}
+  - {compressor: cuszhi, variant: cuszhi_cr,      pipeline: cr}
+  - {compressor: fzgm,   variant: cuszhi_cr,      pipeline: configs/pipelines/cusz_hi_cr.toml}
+
+  - {compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier}
+  - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
+  - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d"}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3.toml}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:2d"}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml}
+
+  - {compressor: fzgpu,  variant: fzgpu,          pipeline: default}
+  - {compressor: fzgm,   variant: fzgpu,          pipeline: configs/pipelines/fzgpu.toml}
+
+  - {compressor: pfpl,   variant: pfpl,           pipeline: default}
+  - {compressor: fzgm,   variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}
