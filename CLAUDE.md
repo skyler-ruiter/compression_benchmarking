@@ -63,6 +63,15 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
   session left `retain_compressed` unset (i.e. always-kept) and ate 16GB of disk in
   compressed artifacts nobody read again — see D25.
 
+## Full-corpus sweep
+
+The paper-scale experiment is `configs/experiments/fzgm_vs_native_full.yaml` (~9.8k
+cells, 186 fields, ~27 h on an H100) with an FZGM-only counterpart
+`fzgm_only_full.yaml` for machines without native builds. **Read
+`docs/running-the-full-corpus.md` before running it on any machine** — it covers the
+data prerequisites (two datasets need splitting before they are usable), the per-site
+commands, the sharding/resume workflow, and the memory ceilings.
+
 ## Status
 
 M1 (core loop) + M2 (HPC execution + timing reliability) complete. M3 (reference
