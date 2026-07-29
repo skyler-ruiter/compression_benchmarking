@@ -1,0 +1,68 @@
+baseline_id: h200-delta-fullcorpus-20559887
+
+gpu: NVIDIA H200 (sm_90, 143771 MiB)
+site: NCSA Delta, partition gpuH200x8, node gpue05
+driver: "570.148.08"
+cuda_toolkit: cudatoolkit/25.3_12.8 (nvcc 12.8)
+date: "2026-07-29"   # quoted: unquoted YAML parses as a date object, which build_comparison_artifact.py cannot JSON-serialise
+
+experiment_config: configs/experiments/fzgm_only_full.yaml
+# First full-corpus (186-field) run on this machine. Supersedes the 102-cell
+# h200-delta-20486572 baseline, which used the old fzgm_only.yaml.
+
+clocks_locked: false
+# Clock control is admin-only on Delta (D15). Mitigated with --exclusive: the job
+# held the whole node single-tenant. Trust the per-row `timing_reliable` flag
+# (4664/4860 true) and prefer *_device_ms_min where it is false.
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full fidelity. Merged from 8 shard files written by one job (SLURM 20559887),
+    one shard per GPU on a single exclusive node. provenance.json is shard 0's;
+    all 8 shards ran on the same node and the same 8 H200s.
+
+harness:
+  git_sha: 0a5681b
+  fzgpumodules_git_sha: 487ee52          # rebuilt for this run; ctest 46/46 on-hardware
+  build_preset: cuda-h200
+  python: 3.13.5
+
+cells:
+  total: 4860
+  ok: 4860
+  failed: 0
+  note: >
+    Clean sweep, no failures. 4860 = the full FZGM half of fzgm_vs_native_full.yaml,
+    so rows line up 1:1 with the MI100 baseline
+    (mi100-delta-fullcorpus-20568712) and with the fzgm side of any
+    vs-native full-corpus run.
+
+known_issues:
+  - >
+    THROUGHPUT IS NOT COMPARABLE WITH BASELINES CAPTURED BEFORE 2026-07-28.
+    The cuSZ-Hi presets moved from MemoryStrategy::MINIMAL to PREALLOCATE (D27),
+    which makes cuSZ-Hi faster. CR and PSNR are unaffected (PREALLOCATE is
+    byte-identical). Every other pipeline was already PREALLOCATE. Do not compare
+    cuSZ-Hi throughput in this baseline against h200-delta-20486572 or any other
+    pre-2026-07-28 snapshot.
+  - >
+    276 of 4860 ok cells (5.7%) report eb_satisfied=false, concentrated at
+    eb=1e-4 (249 of them) and spread evenly across all pipelines, over 56 distinct
+    fields. This is PRE-EXISTING, not introduced here: the tracked A100/H100
+    baselines show 4.3-6.8% on the same check. It is uniform across pipelines and
+    reproduces on the MI100, so it is data-dependent rather than a pipeline or
+    hardware fault. Not diagnosed; flagged so nobody reads it as new.
+  - >
+    provenance.json's `gpu` block is captured via raw enumeration that ignores
+    CUDA_VISIBLE_DEVICES/ROCR_VISIBLE_DEVICES masking (benchkit/gpu.py), so it
+    identifies the node's first GPU, not necessarily the one a given shard used.
+    Harmless here (8 identical H200s) but do not rely on it to attribute a shard
+    to a device. See the MI100 baseline, where this masked a real fault.
+
+related_decisions:
+  - D15   # clock control admin-only on HPC; --exclusive as the mitigation
+  - D24   # baselines directory
+  - D25   # retain_compressed=false at corpus scale
+  - D26   # f64 fields fed to f32 stages
+  - D27   # MINIMAL -> PREALLOCATE; f64 input_type rendering

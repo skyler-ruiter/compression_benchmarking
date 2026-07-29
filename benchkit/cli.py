@@ -94,44 +94,68 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_merge(args: argparse.Namespace) -> int:
     """Combine shard files into runs.jsonl, one row per cell_key.
 
-    Two different precedence rules apply, and conflating them breaks something:
+    Three precedence rules, in order. They were arrived at by two different
+    investigations and all three are load-bearing:
 
-    - WITHIN one file, the LAST row for a cell_key wins. `run --only-stale` appends
-      a fresh measurement rather than editing the old one in place, so the newest
-      row is the one to keep — and the superseded row stays in the raw file, which
-      is what makes "this stage got 1.8x faster" answerable after the fact.
-      Ordering is positional because rows carry no timestamp.
-    - ACROSS files, shard files beat runs.jsonl. runs.jsonl is the *output* of a
-      previous merge, so on a re-merge it holds older data than the shards; letting
-      it win would resurrect stale rows. (This was the pre-existing behaviour and is
-      deliberately preserved.)
+    1. **An `ok` row always beats a non-ok row** (D29), whatever their positions.
+       Resume *appends*, so a cell that failed and was later retried has its stale
+       `fail` row ahead of the good retry in the same shard file. First-wins
+       resurrected the failure and discarded the recovered cell — on
+       fullcorpus-delta-mi100 that would have reported 701 failures instead of 108,
+       throwing away 593 recovered cells at a correct-looking row count and exit 0.
+    2. **Among rows of equal standing, later in the SAME file wins** (D30).
+       `run --only-stale` appends a fresh measurement rather than editing in place,
+       so the newest row is the one to keep, and the superseded row stays in the raw
+       file — which is what keeps "this stage got 1.8x faster" answerable afterwards.
+       Ordering is positional because rows carry no timestamp.
+    3. **Across files, shard files beat runs.jsonl.** runs.jsonl is the *output* of a
+       previous merge, so on a re-merge it holds older data than the shards; letting a
+       later file win would resurrect exactly what rule 2 just superseded.
+
+    Rule 1 deliberately outranks rules 2 and 3: recovering a cell matters more than
+    positional recency, and a failure is never evidence that an earlier success was
+    wrong.
     """
     session = Path(args.session_dir)
-    merged: dict[str, dict] = {}
+    files = sorted(session.glob("runs.shard-*.jsonl")) + sorted(session.glob("runs.jsonl"))
+    best: dict[str, tuple[int, dict]] = {}      # cell_key -> (file rank, row)
     order: list[str] = []
-    superseded = 0
-    for f in sorted(session.glob("runs.shard-*.jsonl")) + sorted(session.glob("runs.jsonl")):
-        per_file: dict[str, dict] = {}
+    superseded = recovered = 0
+    for rank, f in enumerate(files):
         for line in f.read_text().splitlines():
             if not line.strip():
                 continue
             row = json.loads(line)
             k = row.get("cell_key") or row.get("run_id")
-            if k in per_file:
-                superseded += 1
-            per_file[k] = row                  # last-in-file wins
-        for k, row in per_file.items():
-            if k in merged:                    # earlier file (a shard) already won
+            cur = best.get(k)
+            if cur is None:
+                best[k] = (rank, row)
+                order.append(k)
                 continue
-            merged[k] = row
-            order.append(k)
+            cur_rank, cur_row = cur
+            cur_ok = cur_row.get("status") == "ok"
+            new_ok = row.get("status") == "ok"
+            if cur_ok != new_ok:                # rule 1
+                if new_ok:
+                    best[k] = (rank, row)
+                    recovered += 1
+                continue
+            if rank == cur_rank:                # rule 2
+                best[k] = (rank, row)
+                superseded += 1
+            # else: rule 3 — keep the earlier file's row
 
-    rows = [merged[k] for k in order]
+    rows = [best[k][1] for k in order]
     out = session / "runs.jsonl"
     with open(out, "w") as fh:
         for row in rows:
             fh.write(json.dumps(row, default=str) + "\n")
-    note = f" ({superseded} superseded by a newer re-run)" if superseded else ""
+    notes = []
+    if recovered:
+        notes.append(f"{recovered} failed row(s) replaced by a successful retry")
+    if superseded:
+        notes.append(f"{superseded} superseded by a newer re-run")
+    note = f" ({'; '.join(notes)})" if notes else ""
     print(f"[merge] {len(rows)} unique rows -> {out}{note}")
     print_table(rows)
     return 0

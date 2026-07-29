@@ -61,6 +61,19 @@ python scripts/extract_qmcpack_orbitals.py --n 8     # 4-D blob -> 8 3-D orbital
 python scripts/extract_s3d_variables.py              # 11 GB blob -> 11 3-D variables
 ```
 
+**Run one invocation per dataset, in parallel.** The Globus mirror throttles *per
+connection*, not per client: a single sequential `SDRBENCH_DATASETS="SCALE NWCHEM S3D
+BROWN EXAFEL"` run sits at 1–2 MB/s, which is ~10 h for these five (S3D alone is a 46 GB
+tarball). Five concurrent one-dataset invocations pull ~100 MB/s aggregate and finish in
+minutes. They touch disjoint tarballs and destination directories, so this is safe:
+
+```bash
+for ds in SCALE NWCHEM S3D BROWN EXAFEL; do
+    SDRBENCH_DATASETS="$ds" nohup bash scripts/download-sdrbench.sh \
+        "$BENCHKIT_DATA_ROOT" > ~/download-$ds.log 2>&1 &
+done; wait
+```
+
 Budget roughly **120 GB** for the full corpus, plus transient space for tarballs
 (delete them after extraction). Verify before you queue an 8-hour job:
 
@@ -131,8 +144,27 @@ matrix there is structurally impossible, not merely absent. Both Delta GPUs ther
 `configs/experiments/fzgm_only_full.yaml`, which is the `fzgm` half of the vs-native
 config, verified 1:1 (4,860 cells).
 
-Uncomment the matching site block in `scripts/submit_full_corpus.slurm`, then submit as
-above with `--partition=gpuH200x8` / `gpuMI100x8`.
+**Do not use `scripts/submit_full_corpus.slurm` here** — its `--array=0-7 --exclusive`
+geometry is wrong for Delta, because both of that script's premises fail:
+
+- `MaxTime` on `gpuH200x8` and `gpuMI100x8` is **2-00:00:00**, not 8 h. Sharding is not
+  forced by the wall clock, so the requeue-until-done loop is unnecessary.
+- `gpuMI100x8` is a **single node** (8 MI100s) and `gpuH200x8` is only **8 nodes**. An
+  8-way exclusive array therefore *serialises* on the MI100 — each task wants the whole
+  node — and claims the entire partition on the H200.
+
+Use `scripts/submit_delta_multigpu.slurm` instead: one job, one `--exclusive` node, and
+8 concurrent shards each pinned to its own GPU on that node. That still honours the
+"shard across separate GPUs, never several processes onto one GPU" rule from §2, while
+holding one node instead of eight.
+
+```bash
+sbatch --export=ALL,SITE=h200  scripts/submit_delta_multigpu.slurm
+sbatch --export=ALL,SITE=mi100 scripts/submit_delta_multigpu.slurm
+```
+
+`SESSION_ID` defaults to `fullcorpus-delta-<site>` and is stable across resubmissions by
+construction, so resume works if a job does hit the wall limit.
 
 **MI100 caveat — expect cuSZ-Hi failures on MIRANDA and S3D.** GInterp's
 double-precision 3-D path exceeds MI100's fixed 64 KB LDS ceiling (the f32 path is well

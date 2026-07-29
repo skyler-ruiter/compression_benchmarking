@@ -26,3 +26,7 @@ venv/
 # Editor / OS
 .vscode/
 .DS_Store
+
+# SLURM job output landing in the repo root (submit scripts run from $SLURM_SUBMIT_DIR)
+slurm-*.out
+shard-*.log

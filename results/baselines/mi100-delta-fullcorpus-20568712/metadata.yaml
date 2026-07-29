@@ -1,0 +1,93 @@
+baseline_id: mi100-delta-fullcorpus-20568712
+
+gpu: AMD Instinct MI100 (gfx908, 32752 MiB)
+site: NCSA Delta, partition gpuMI100x8, node gpud01
+driver: ROCm 6.14.14
+cuda_toolkit: n/a (HIP build)
+date: "2026-07-29"   # quoted: unquoted YAML parses as a date object, which build_comparison_artifact.py cannot JSON-serialise
+
+experiment_config: configs/experiments/fzgm_only_full.yaml
+# Unmodified and shared with the H200 run, deliberately: adding an MI100-local
+# skip_datasets would desynchronise the two and break 1:1 row correspondence.
+# Supersedes the 102-cell mi100-delta-20486571 baseline.
+
+clocks_locked: false
+# Admin-only on Delta (D15); --exclusive held the node single-tenant instead.
+# timing_reliable is true on 4580 of 4752 ok cells.
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full fidelity, but assembled from TWO jobs. Job 20559888 ran the sweep and job
+    20568712 re-ran 701 failed cells after a device-mapping fix (see known_issues).
+    Resume is content-keyed on cell_key and only retries non-ok cells, so the 4159
+    cells that succeeded in the first job were not recomputed. runs.jsonl is the
+    deduplicated merge, preferring the successful attempt.
+
+harness:
+  git_sha: 0a5681b                        # plus the merge-dedupe fix described below
+  fzgpumodules_git_sha: 487ee52           # rebuilt for this run; ctest 46/46 on-hardware
+  build_preset: hip                       # CMAKE_HIP_ARCHITECTURES=gfx908
+  python: 3.13.5
+
+cells:
+  total: 4860
+  ok: 4752
+  failed: 108
+  note: >
+    All 108 failures are the documented GInterp shared-memory limit, and only that:
+    MIRANDA (7 fields x 3 eb = 21) and S3D (11 x 3 = 33) against each of
+    cuszhi_tp and cuszhi_cr. GInterp's double-precision 3-D path needs 78608 bytes
+    of dynamic shared memory per block against MI100's fixed 65536-byte LDS ceiling
+    — a hardware limit, not a raisable software cap. Accepted as legitimate
+    `status: fail` rows rather than skipped, to preserve 1:1 correspondence with
+    h200-delta-fullcorpus-20559887. No other pipeline or dataset fails.
+
+known_issues:
+  - >
+    THROUGHPUT IS NOT COMPARABLE WITH BASELINES CAPTURED BEFORE 2026-07-28 —
+    cuSZ-Hi moved from MemoryStrategy::MINIMAL to PREALLOCATE (D27). CR and PSNR
+    unaffected. Same caveat as the H200 baseline.
+  - >
+    FIRST ATTEMPT (job 20559888) WAS INVALID AND IS NOT WHAT THIS BASELINE HOLDS.
+    Node gpud01 carries 8 MI100s (gfx908) AND one MI210 (gfx90a), with the MI210 at
+    device ordinal 6. The submit script mapped shard k -> ordinal k, so shard 6 ran
+    on the MI210, which the gfx908-only build has no code objects for: all 607 of
+    its cells died with `invalid device function`. The job still exited 0 with a
+    full 4860-row count, so neither exit status nor row count revealed it.
+    scripts/submit_delta_multigpu.slurm now probes each ordinal's gfx arch at
+    runtime and pins shards only to matching devices. Anyone running an 8-GPU job
+    on gpud01 must do the same; --gres=gpu:mi100:8 does NOT prevent it, because
+    --exclusive exposes the whole node.
+  - >
+    `benchkit merge` previously deduplicated by cell_key keeping the FIRST
+    occurrence. Because resume appends, a retried cell has its stale `fail` row
+    ahead of the successful retry, so merging this session would have emitted 701
+    failures and silently discarded 593 recovered cells — at a plausible row count
+    and exit 0. Fixed in benchkit/cli.py: an `ok` row now always wins. ANY BASELINE
+    PRODUCED BY MERGING A RESUMED SESSION BEFORE THIS FIX SHOULD BE RE-MERGED,
+    including anything from the requeue-until-done workflow the full-corpus runbook
+    prescribes for BigRed200.
+  - >
+    provenance.json reports gfx908 for every shard, including the one that ran on
+    the MI210, because benchkit/gpu.py enumerates via raw sysfs and ignores
+    ROCR_VISIBLE_DEVICES masking. Provenance cannot currently attribute a shard to
+    a device; that is why the bad shard was invisible in metadata and had to be
+    found from the per-cell failure distribution.
+  - >
+    219 of 4752 ok cells (4.6%) report eb_satisfied=false, concentrated at eb=1e-4.
+    Pre-existing and in family with the tracked A100/H100 baselines (4.3-6.8%), and
+    it mirrors the H200 run, so it is data-dependent rather than HIP-specific.
+  - >
+    CR agrees with the H200 baseline to within 2.9e-5 relative at p99 across all
+    4752 comparable cells, with a max of 1.5e-2. All disagreement is confined to
+    cuszhi_cr (135 cells) and cuszhi_tp (13) — GInterp floating-point
+    non-associativity across architectures. Every other pipeline is bit-identical
+    between the two GPUs, which is the intended cross-check.
+
+related_decisions:
+  - D15   # clock control admin-only on HPC
+  - D23   # baselines disagreeing on deterministic cells as a bug signal
+  - D24   # baselines directory
+  - D26   # f64 fields fed to f32 stages
+  - D27   # MINIMAL -> PREALLOCATE
