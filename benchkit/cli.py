@@ -55,17 +55,31 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def cmd_merge(args: argparse.Namespace) -> int:
     session = Path(args.session_dir)
-    rows, seen = [], set()
+    # Dedupe by cell_key, preferring the SUCCESSFUL attempt.
+    #
+    # Resume appends: a cell that failed and was later retried has both rows in the
+    # same shard file, the `fail` first. First-occurrence-wins therefore kept the stale
+    # failure and silently discarded the good retry — a resumed session merged to a
+    # plausible row count with wrong data and exit 0. (Observed on
+    # fullcorpus-delta-mi100: 593 recovered cells would have merged as `fail`.)
+    #
+    # Rule: an `ok` row always beats a non-ok row; among rows of equal standing the
+    # later one wins, so the most recent attempt is what survives.
+    by_key: dict[str, dict] = {}
+    order: list[str] = []
     for f in sorted(session.glob("runs.shard-*.jsonl")) + sorted(session.glob("runs.jsonl")):
         for line in f.read_text().splitlines():
             if not line.strip():
                 continue
             row = json.loads(line)
             k = row.get("cell_key") or row.get("run_id")
-            if k in seen:                      # dedupe (e.g. a retried cell)
-                continue
-            seen.add(k)
-            rows.append(row)
+            prev = by_key.get(k)
+            if prev is None:
+                order.append(k)
+            elif prev.get("status") == "ok" and row.get("status") != "ok":
+                continue                       # never let a later failure clobber an ok
+            by_key[k] = row
+    rows = [by_key[k] for k in order]
     out = session / "runs.jsonl"
     with open(out, "w") as fh:
         for row in rows:
