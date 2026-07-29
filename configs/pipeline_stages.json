@@ -1,0 +1,372 @@
+{
+  "_comment": "Which stages each pipeline preset runs, probed from the real binary (scripts/probe_pipeline_stages.py). Used by `benchkit stale --stage` to find cells affected by a stage change without re-running them. Regenerate whenever a preset changes.",
+  "pipelines": {
+    "cusz.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_f64.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_hi_cr.toml": {
+      "compress": [
+        "GInterp",
+        "Huffman",
+        "Merge",
+        "RRE",
+        "Zigzag",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Zigzag",
+        "RRE",
+        "Merge",
+        "Huffman",
+        "GInterp"
+      ],
+      "stages": [
+        "GInterp",
+        "Huffman",
+        "Merge",
+        "RRE",
+        "RZE",
+        "Zigzag"
+      ]
+    },
+    "cusz_hi_tp.toml": {
+      "compress": [
+        "GInterp",
+        "Zigzag",
+        "Bitshuffle",
+        "RRE",
+        "Merge",
+        "Bitshuffle",
+        "RRE",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "RRE",
+        "RRE",
+        "Bitshuffle",
+        "Bitshuffle",
+        "Merge",
+        "Zigzag",
+        "GInterp"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "GInterp",
+        "Merge",
+        "RRE",
+        "RZE",
+        "Zigzag"
+      ]
+    },
+    "cusz_minimal.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_minimal_lowoutlier.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cuszp2.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp2_minimal.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp2_plain.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp3.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_1d.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp3_1d_outlier.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp3_3d.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_3d_outlier.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_outlier.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "fzgpu.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "BitplaneRZE"
+      ],
+      "decompress": [
+        "BitplaneRZE",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "BitplaneRZE",
+        "LorenzoQuant"
+      ]
+    },
+    "fzgpu_f64.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "BitplaneRZE"
+      ],
+      "decompress": [
+        "BitplaneRZE",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "BitplaneRZE",
+        "LorenzoQuant"
+      ]
+    },
+    "fzgpu_minimal.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "BitplaneRZE"
+      ],
+      "decompress": [
+        "BitplaneRZE",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "BitplaneRZE",
+        "LorenzoQuant"
+      ]
+    },
+    "pfpl.toml": {
+      "compress": [
+        "Quantizer",
+        "Difference",
+        "Bitshuffle",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Bitshuffle",
+        "Difference",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "Difference",
+        "Quantizer",
+        "RZE"
+      ]
+    },
+    "pfpl_minimal.toml": {
+      "compress": [
+        "Quantizer",
+        "Difference",
+        "Bitshuffle",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Bitshuffle",
+        "Difference",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "Difference",
+        "Quantizer",
+        "RZE"
+      ]
+    },
+    "quantizer_lorenzo_bitpack.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "Zigzag",
+        "Bitpack"
+      ],
+      "decompress": [
+        "Bitpack",
+        "Zigzag",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitpack",
+        "Lorenzo",
+        "Quantizer",
+        "Zigzag"
+      ]
+    }
+  }
+}

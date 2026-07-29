@@ -71,6 +71,11 @@ class BenchmarkResult:
     decompress_device_ms_all: list[float]
     compressed_bytes: int
     stages: list[dict] = field(default_factory=list)
+    # fzgm only: {stage_name: source_fingerprint} for the stages this run executed.
+    # Lets `benchkit stale --against-build` detect that a stage's code changed since
+    # the row was written, which pipeline_sha256 cannot — editing a .cu file changes
+    # no config. Empty for native tools and for FZGM builds predating the feature.
+    stage_versions: dict[str, str] = field(default_factory=dict)
     native_quality: dict | None = None     # tool's self-reported quality, for cross-check
     raw_json: dict | None = None
     log_path: Path | None = None

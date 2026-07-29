@@ -1,0 +1,118 @@
+# Baseline: H100 / JetStream2 — FULL-CORPUS (paper-scale) sweep
+# See results/baselines/README.md for the schema this file follows.
+#
+# This is the first baseline from the full-corpus experiment: 13 dataset families,
+# 186 fields, 9,816 cells — versus 4 fields / 210 cells in every prior baseline.
+# It does NOT supersede h100-jetstream2-20260725 as a like-for-like comparison
+# point, because it is a different experiment_config AND cuSZ-Hi's memory strategy
+# changed underneath it (see known_issues). Treat this as the start of a new
+# baseline generation, not the next entry in the old series.
+
+baseline_id: h100-jetstream2-20260729-fullcorpus
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (GPU-passthrough cloud VM, single-tenant/exclusive, host skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9 (nvhpc/25.7)"
+date: "2026-07-29"
+experiment_config: configs/experiments/fzgm_vs_native_full.yaml
+clocks_locked: true  # scripts/lock_clocks.sh, max boost 1980 MHz; unlocked after the run
+
+source:
+  kind: benchkit_native_output
+  original_session_id: 20260728-fullcorpus-skyler-h100
+  fidelity: full  # runs.jsonl + provenance.json copied verbatim, no reconstruction
+  # Single process, no sharding (one GPU) — `merge` was a no-op validation pass.
+  # Wall time ~20 h for 9,816 cells.
+
+scope:
+  datasets: 13
+  fields: 186
+  cells: 9816
+  # Corpus grew from 8 dataset families to 13. QMCPACK (4-D blob) and S3D (11 GB
+  # multi-variable blob) required scripts/extract_*.py to become usable at all.
+  # NWCHEM is scoped to its one normal-sized field (t631); acd/ccd are 6.4/5.7 GB
+  # and peak at 35 GB device memory under pfpl, which does not fit the fleet.
+
+cells:
+  total: 9816
+  ok: 9416
+  failed: 400
+  known_failures: >
+    ALL 400 failures are native-side; FZGM had ZERO failures across 4,860 cells.
+    Native cuSZ-Hi accounts for 396 (SIGABRT / exit 255 / a few SIGSEGV) spread
+    across 10 of 13 datasets: CESMATM-3D 92, S3D 66, CESM-2D 54, HURR 48,
+    MIRANDA 42, SCALE-LETKF 36, EXAALT 24, BROWN 18, HACC 10, NWCHEM 6. Native
+    cuSZ accounts for the other 4 (EXAALT). The failures are field-specific, not
+    dataset-wide — e.g. only 9 of 79 CESM-2D fields fail, and they are dominated by
+    precipitation/moisture variables (PRECC, PRECL, PRECT, QFLX, QREFHT, ...).
+    Root cause NOT established: the failing set does not correlate cleanly with
+    dynamic range (PRECC spans 26 orders of magnitude, but QREFHT fails at 2.3e2
+    while CLDHGH passes at 5.5e2). Prior 4-field baselines could not see any of
+    this — they sampled CLDHGH, one of the 70 CESM-2D fields that works.
+
+headline_results: >
+  FZGM robustness: of the 400 native failures, 342 have a directly comparable FZGM
+  cell, and FZGM succeeds on 342/342 (340 also eb-satisfied with finite PSNR; CR
+  median 103.3, range 3.85-1912.5). The modular port is strictly more robust than
+  the reference implementations it reimplements.
+
+  FZGM vs native, geometric mean of per-cell ratios over 3,920 cells where BOTH
+  sides are valid (see validity_gate) — CR / compress-throughput / decompress-throughput:
+    cusz            n=512  CR 1.066  cT 0.779  dT 1.029
+    cuszhi_cr       n=286  CR 0.888  cT 0.497  dT 0.185
+    cuszhi_tp       n=288  CR 0.779  cT 0.475  dT 0.391
+    cuszp2_outlier  n=518  CR 0.847  cT 0.486  dT 0.815
+    cuszp2_plain    n=518  CR 1.000  cT 0.408  dT 0.698
+    cuszp3_outlier  n=413  CR 0.898  cT 0.670  dT 0.661
+    cuszp3_plain    n=488  CR 1.002  cT 0.625  dT 0.503
+    fzgpu           n=379  CR 1.055  cT 0.765  dT 0.758
+    pfpl            n=518  CR 0.998  cT 0.523  dT 0.527
+  NOTE the cuSZ-Hi throughput columns are NOT comparable with pre-2026-07-28
+  baselines: the native side got faster when its presets moved to PREALLOCATE.
+
+validity_gate: >
+  `status: ok` is NOT sufficient for this corpus — it admits ~786 cells that are
+  numerically unusable. Use `eb_satisfied AND cr > 1 AND isfinite(psnr)`, which
+  keeps 8,630 of 9,416 ok cells. Breakdown of what it drops:
+    - 678 cells exceed their error bound. ALL are rel_range mode, zero in abs, and
+      every compressor is affected (fzgm 261, cuszp3 171, fzgpu 102, cuszhi 76,
+      cusz 27, cuszp2 26). 379 are marginal (ratio 1.001-1.01, consistent with
+      rounding at the boundary); 93 exceed by >10x and are real breakdowns.
+    - 12 cells have cr <= 1 (data EXPANDED).
+    - 108 cells have non-finite PSNR.
+  Worst offenders are native cuSZ at eb=1e-4 on EXAALT/HACC: PSNR ~= -23.6 dB with
+  CR ~= 0.5 — it doubled the data size while destroying it, and still exited 0.
+  Those rows are more dangerous than the 400 hard failures precisely because they
+  pass an unattended `status == ok` filter.
+
+known_issues: >
+  1. CESM-2D SFCLDICE and SFCLDLIQ are ENTIRELY ZERO (verified: unique() == 1 over
+     the full file). Every compressor reconstructs them exactly, so PSNR is
+     legitimately +inf and CR is the codec's constant-data ratio (exactly 64.0 for
+     cuszp2/3_outlier, 488x for fzgm cusz). These are not bugs, but they will poison
+     any PSNR mean and inflate CR aggregates — exclude them from paper tables or
+     report them separately as a degenerate case. They are the source of most of the
+     108 non-finite-PSNR cells.
+  2. The rel_range error-bound violations above are NOT root-caused. Two plausible
+     explanations with different fixes: a genuine codec property, or an off-by-epsilon
+     in how the harness derives eb_abs_effective from the field range. The marginal
+     (1.001-1.01) cluster is suspicious of the latter; the >10x tail is clearly the
+     former. Resolve before publishing eb-satisfaction claims.
+  3. cuSZ-Hi throughput discontinuity vs all pre-2026-07-28 baselines (MINIMAL ->
+     PREALLOCATE, D27). CR and PSNR are unaffected — PREALLOCATE is byte-identical.
+  4. Native cuSZ-Hi's coverage gaps mean many (field x pipeline) pairs have no native
+     counterpart at all. Comparison artifacts must render these as "native crashed"
+     rather than silently dropping the cell, or FZGM's robustness advantage disappears
+     from the very tables that should show it.
+
+fixes_included: >
+  Two result-corrupting bugs were fixed immediately before this run and are the
+  reason it is trustworthy where earlier attempts were not (D26/D27):
+    - f64 fields were being rendered into float32 pipeline stages, giving nan PSNR
+      and degenerate CR (exactly 64.00/128.00). Affects MIRANDA/S3D/NWCHEM/BROWN,
+      i.e. everything f64 that this corpus newly added.
+    - cuSZ-Hi corrupted memory on large 3-D fields under MemoryStrategy::MINIMAL.
+  Also: a GInterp outlier-compaction bounds check (latent, ctest 46/46), and two
+  disk leaks (~110 GB/sweep) in the PFPL adapter and the runner's failure path.
+
+related_decisions: [D15, D20, D21, D22, D23, D24, D25, D26, D27]

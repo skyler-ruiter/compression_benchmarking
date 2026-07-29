@@ -57,6 +57,12 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
 - **HPC timing:** clocks usually can't be locked, so trust the variance flag
   (`timing_reliable`, cv ≤ 0.15) and prefer `*_device_ms_min`; a throttle sampler records
   why. Results from different GPUs are partitioned by provenance, never pooled.
+- **`status: ok` is not "usable".** Reported means go through the validity gate in
+  `benchkit/validity.py` (D30): constant/degenerate fields, `cr <= 1` expansions, and
+  severe error-bound misses are excluded; marginal (≤1.01x) misses are retained and
+  counted. `report --aggregate` gates by default and prints the audit; `--exclusions`
+  prints the audit alone. Never quote an aggregate without it — on the full corpus the
+  gate drops 798 of 9,416 `ok` rows.
 - **Disk:** both `retain_decompressed` and `retain_compressed` default to `false` —
   `d.bin` and `c.fzm`/`c.cuszp`/etc. are deleted after each cell's row is written;
   sizes and checksums are recorded regardless. A single full `fzgm_vs_native.yaml`
@@ -71,6 +77,33 @@ cells, 186 fields, ~27 h on an H100) with an FZGM-only counterpart
 `docs/running-the-full-corpus.md` before running it on any machine** — it covers the
 data prerequisites (two datasets need splitting before they are usable), the per-site
 commands, the sharding/resume workflow, and the memory ceilings.
+
+Don't re-run all ~9.8k cells for a one-stage FZGM change — ask which cells it affects:
+
+```bash
+python -m benchkit stale <session>/                          # stage -> cells using it
+python -m benchkit stale <session>/ --stage AdaptiveBitpack  # what a change invalidates
+python -m benchkit stale <session>/ --against-build $FZGMOD_CLI   # detect drift automatically
+```
+
+`--against-build` compares each row's recorded stage fingerprints (`stage_versions`,
+emitted by FZGM's `--report-json`) against a build, so you needn't know what you
+edited. Rows from before 2026-07-29 carry none and are excluded, not assumed clean.
+
+Then re-measure just those cells and collapse to one row each:
+
+```bash
+python -m benchkit run <exp> --session-id <S> --only-stale --against-build $FZGMOD_CLI
+python -m benchkit merge $BENCHKIT_RESULTS_ROOT/<S>/     # newest row per cell wins
+```
+
+Re-runs **append**; the superseded row stays in the raw file so throughput changes
+stay traceable. `merge` keeps the last row per `cell_key` within a file, and shard
+files still beat `runs.jsonl`.
+
+Backed by `configs/pipeline_stages.json` (regenerate with
+`scripts/probe_pipeline_stages.py` whenever a preset changes; `--check` fails on
+drift). Design + limits: `docs/stage-level-invalidation.md`.
 
 ## Status
 

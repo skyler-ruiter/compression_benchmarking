@@ -1,5 +1,5 @@
 [pipeline]
-# Lorenzo-Quant → BitplaneRLE for double-precision (float64) input.
+# Lorenzo-Quant → BitplaneRZE for double-precision (float64) input.
 # Identical structure to fzgpu.toml; only input_type changes.
 # Use with MIRANDA and any other f64 datasets.
 memory_strategy = "PREALLOCATE"
@@ -16,6 +16,11 @@ outlier_capacity = 0.2
 zigzag_codes = true
 
 [[stage]]
-name = "bprle"
-type = "BitplaneRLE"
+name = "bprze"
+# Was "BitplaneRLE" — not a registered stage type, so this preset raised
+# `loadConfig: unknown stage type` on every use and configs/experiments/
+# sdrbench-miranda.yaml could never have run. The stage is BitplaneRZE (see
+# fzgpu.toml, which this file's own header calls its structural twin); the
+# rename evidently missed this copy. Found by scripts/probe_pipeline_stages.py.
+type = "BitplaneRZE"
 inputs = [{from = "lrz", port = "codes"}]

@@ -19,6 +19,7 @@ import json
 import os
 from pathlib import Path
 
+from . import invalidate, validity
 from .analysis import _AGG_GROUP_KEYS, print_aggregate_table, print_table
 from .config import DatasetCatalog, ExperimentConfig
 from .runner import run_experiment
@@ -40,13 +41,50 @@ def _parse_shard(s: str | None) -> tuple[int, int] | None:
     return k, n
 
 
+def _stale_keys(args: argparse.Namespace, site: Site) -> set[str]:
+    """cell_keys to re-measure, from an existing session's rows."""
+    if not args.session_id:
+        raise SystemExit("--only-stale needs --session-id: it re-measures cells in an "
+                         "existing session, so there must be one to read rows from.")
+    if not (args.stage or args.against_build):
+        raise SystemExit("--only-stale needs --stage NAME or --against-build FZGMOD_CLI "
+                         "to say WHICH cells are stale.")
+    session = Path(site.results_root) / args.session_id
+    if not session.is_dir():
+        raise SystemExit(f"--only-stale: no such session {session}")
+    rows = ResultStore(session.parent, session.name).load_rows()
+    index = invalidate.load_index(None)
+
+    stages = list(args.stage or [])
+    if args.against_build:
+        current = invalidate.build_fingerprints(args.against_build)
+        drift = invalidate.drifted_stages(rows, current)
+        if not drift:
+            print("[stale] no stage fingerprints differ from that build — nothing to "
+                  "re-measure.")
+        stages += sorted(drift)
+    if not stages:
+        return set()
+
+    hits = invalidate.stale_cells(rows, stages, index)
+    keys = {r["cell_key"] for r in hits if r.get("cell_key")}
+    print(f"[stale] stage(s) {', '.join(sorted(set(stages)))} -> {len(keys)} cells "
+          f"to re-measure")
+    return keys
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     site = Site.load(args.results_root)
     site.export_env()                          # publish FZGMOD_CLI for the adapter
     cfg = ExperimentConfig.load(args.experiment)
     catalog = DatasetCatalog.load(args.datasets)
+    only_stale = _stale_keys(args, site) if args.only_stale else None
+    if only_stale is not None and not only_stale:
+        print("[stale] nothing to re-measure; exiting without touching the session.")
+        return 0
     store = run_experiment(cfg, catalog, site.results_root, REPO_ROOT,
-                           session_id=args.session_id, shard=_parse_shard(args.shard))
+                           session_id=args.session_id, shard=_parse_shard(args.shard),
+                           only_stale=only_stale)
     print()
     print_table(store.load_rows())
     print(f"\n[done] rows -> {store.runs_path}")
@@ -54,33 +92,72 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_merge(args: argparse.Namespace) -> int:
+    """Combine shard files into runs.jsonl, one row per cell_key.
+
+    Two different precedence rules apply, and conflating them breaks something:
+
+    - WITHIN one file, the LAST row for a cell_key wins. `run --only-stale` appends
+      a fresh measurement rather than editing the old one in place, so the newest
+      row is the one to keep — and the superseded row stays in the raw file, which
+      is what makes "this stage got 1.8x faster" answerable after the fact.
+      Ordering is positional because rows carry no timestamp.
+    - ACROSS files, shard files beat runs.jsonl. runs.jsonl is the *output* of a
+      previous merge, so on a re-merge it holds older data than the shards; letting
+      it win would resurrect stale rows. (This was the pre-existing behaviour and is
+      deliberately preserved.)
+    """
     session = Path(args.session_dir)
-    rows, seen = [], set()
+    merged: dict[str, dict] = {}
+    order: list[str] = []
+    superseded = 0
     for f in sorted(session.glob("runs.shard-*.jsonl")) + sorted(session.glob("runs.jsonl")):
+        per_file: dict[str, dict] = {}
         for line in f.read_text().splitlines():
             if not line.strip():
                 continue
             row = json.loads(line)
             k = row.get("cell_key") or row.get("run_id")
-            if k in seen:                      # dedupe (e.g. a retried cell)
+            if k in per_file:
+                superseded += 1
+            per_file[k] = row                  # last-in-file wins
+        for k, row in per_file.items():
+            if k in merged:                    # earlier file (a shard) already won
                 continue
-            seen.add(k)
-            rows.append(row)
+            merged[k] = row
+            order.append(k)
+
+    rows = [merged[k] for k in order]
     out = session / "runs.jsonl"
     with open(out, "w") as fh:
         for row in rows:
             fh.write(json.dumps(row, default=str) + "\n")
-    print(f"[merge] {len(rows)} unique rows -> {out}")
+    note = f" ({superseded} superseded by a newer re-run)" if superseded else ""
+    print(f"[merge] {len(rows)} unique rows -> {out}{note}")
     print_table(rows)
     return 0
 
 
-def cmd_report(args: argparse.Namespace) -> int:
-    target = Path(args.target)
+def _load_rows(target_str: str) -> list[dict]:
+    target = Path(target_str)
     if target.is_dir():
-        rows = ResultStore(target.parent, target.name).load_rows()
+        return ResultStore(target.parent, target.name).load_rows()
+    return [json.loads(l) for l in target.read_text().splitlines() if l.strip()]
+
+
+def cmd_stale(args: argparse.Namespace) -> int:
+    rows = _load_rows(args.target)
+    index = invalidate.load_index(args.index)
+    if args.against_build:
+        invalidate.print_against_build(rows, args.against_build, index, show=args.show)
+    elif args.stage:
+        invalidate.print_stale(rows, args.stage, index, show=args.show)
     else:
-        rows = [json.loads(l) for l in target.read_text().splitlines() if l.strip()]
+        invalidate.print_stage_usage(rows, index)
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    rows = _load_rows(args.target)
     if args.aggregate:
         # --by-dataset inserts `dataset` as the leading group key, so each dataset gets
         # its own aggregate CR per pipeline instead of every dataset being pooled into
@@ -89,7 +166,9 @@ def cmd_report(args: argparse.Namespace) -> int:
         # determine the "overall" figure and the other seven datasets would not show up
         # in it. Without the flag the original pooled behaviour is unchanged.
         keys = (("dataset",) + _AGG_GROUP_KEYS) if args.by_dataset else _AGG_GROUP_KEYS
-        print_aggregate_table(rows, keys)
+        print_aggregate_table(rows, keys, gate=not args.no_gate)
+    elif args.exclusions:
+        print(validity.exclusion_report(rows))
     else:
         print_table(rows)
     return 0
@@ -158,6 +237,16 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--session-id", default=None,
                    help="reuse/resume a session (e.g. $SLURM_JOB_ID for array jobs)")
     r.add_argument("--shard", default=None, help="k/N — run only cells where index %% N == k")
+    r.add_argument("--only-stale", action="store_true",
+                   help="re-measure ONLY the cells invalidated by a changed FZGM stage, "
+                        "instead of the whole matrix. Requires --session-id and either "
+                        "--stage or --against-build. New rows are appended; `merge` "
+                        "then keeps the newest per cell")
+    r.add_argument("--stage", action="append", metavar="NAME",
+                   help="with --only-stale: the stage that changed (repeatable)")
+    r.add_argument("--against-build", metavar="FZGMOD_CLI",
+                   help="with --only-stale: detect changed stages by comparing recorded "
+                        "fingerprints against this build, instead of naming them")
     r.set_defaults(func=cmd_run)
 
     m = sub.add_parser("merge", help="combine shard files into runs.jsonl")
@@ -175,7 +264,33 @@ def main(argv: list[str] | None = None) -> int:
                           "gets its own CR per pipeline instead of one pooled number "
                           "(the pooled figure is size-weighted and would be decided by "
                           "the largest dataset alone)")
+    rep.add_argument("--exclusions", action="store_true",
+                     help="print only the validity-gate audit: how many rows are "
+                          "excluded from reported means, under which reason code, and "
+                          "why (see benchkit/validity.py)")
+    rep.add_argument("--no-gate", action="store_true",
+                     help="with --aggregate, DISABLE the validity gate and average every "
+                          "ok row, including constant fields, expansions and severe "
+                          "error-bound misses. For reproducing pre-gate numbers only — "
+                          "the resulting means are not defensible")
     rep.set_defaults(func=cmd_report)
+
+    st = sub.add_parser("stale",
+                        help="which cells does a changed FZGM stage invalidate?")
+    st.add_argument("target", help="session dir or runs.jsonl")
+    st.add_argument("--stage", action="append", metavar="NAME",
+                    help="stage that changed, e.g. AdaptiveBitpack (repeatable). "
+                         "Omit to list every stage and how many cells use it")
+    st.add_argument("--against-build", metavar="FZGMOD_CLI",
+                    help="compare each row's recorded stage fingerprints against this "
+                         "build and report which stages changed (needs an FZGM build "
+                         "with --list-stages=json)")
+    st.add_argument("--show", type=int, default=20,
+                    help="how many stale cell keys to print (default 20)")
+    st.add_argument("--index", default=None,
+                    help="pipeline->stages index (default configs/pipeline_stages.json; "
+                         "regenerate with scripts/probe_pipeline_stages.py)")
+    st.set_defaults(func=cmd_stale)
 
     from .download import DATASET_KEYS
     _default_data_dir = os.environ.get("BENCHKIT_DATA_ROOT", str(Path.cwd() / "sdrbench_data"))

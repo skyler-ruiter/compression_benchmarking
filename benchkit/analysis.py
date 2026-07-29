@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import math
 
+from . import validity
+
 
 _COLS = [
     ("compressor", "comp", 6),
@@ -61,7 +63,8 @@ def print_table(rows: list[dict]) -> None:
 _AGG_GROUP_KEYS = ("compressor", "variant", "pipeline", "error_bound")
 
 
-def aggregate_cr(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS) -> list[dict]:
+def aggregate_cr(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS,
+                 gate: bool = True) -> list[dict]:
     """Roll a multi-field run matrix up into one aggregate CR per group (typically
     compressor/variant/pipeline/error_bound, i.e. one number per pipeline-under-test).
 
@@ -78,7 +81,15 @@ def aggregate_cr(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS
     compressed_bytes before aggregating — a defensive statistic, not an assumption that
     reps disagree. Recomputes CR from raw original/compressed bytes per D4 (harness owns
     size metrics), never averages the per-row `cr` field directly for ratio_of_sums.
+
+    `gate=True` (the default) applies benchkit.validity: constant/degenerate fields,
+    expansions, and severe error-bound misses are kept out of the mean. `status == ok`
+    alone admits cells that are numerically unusable — see benchkit/validity.py for the
+    full rationale and `exclusion_report()` for an audit of what was dropped. Pass
+    gate=False only to reproduce an ungated legacy number.
     """
+    if gate:
+        rows = [r for r in validity.annotate(rows) if validity.is_valid(r)]
     ok = [r for r in rows if r.get("status") == "ok" and r.get("compressed_bytes") and r.get("original_bytes")]
 
     cells: dict[tuple, list[dict]] = {}
@@ -141,8 +152,14 @@ def aggregate_cr(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS
     return out
 
 
-def print_aggregate_table(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS) -> None:
-    groups = aggregate_cr(rows, group_keys)
+def print_aggregate_table(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS,
+                          gate: bool = True) -> None:
+    # The audit prints first, so a number is never read without the population it
+    # was computed over being visible directly above it.
+    if gate:
+        print(validity.exclusion_report(rows))
+        print()
+    groups = aggregate_cr(rows, group_keys, gate=gate)
     if not groups:
         print("(no ok rows to aggregate)")
         return

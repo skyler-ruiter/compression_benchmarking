@@ -1,9 +1,17 @@
 [pipeline]
-# Quantizer → Lorenzo → Bitpack  (cuSZp-style)
+# Quantizer → Lorenzo → Zigzag → Bitpack  (cuSZp-style)
 #
 # Separates quantization from prediction: the Quantizer maps floats to signed
 # integer codes, Lorenzo then delta-codes the integers (prediction residuals
-# cluster near zero), and Bitpack packs the small deltas to nbits per element.
+# cluster near zero), Zigzag folds those signed residuals onto small unsigned
+# ones, and Bitpack packs them to nbits per element.
+#
+# The Zigzag stage is load-bearing, not decorative. Lorenzo emits SIGNED deltas
+# and Bitpack consumes uint32, so without it every negative delta reinterprets as
+# a value near 2^32 and needs the full 32 bits — measured: nbits=16 reconstructed
+# at PSNR -127 dB (bound violated by 4e9x), and the only correct setting was
+# nbits=32, i.e. CR exactly 1.000, a pipeline that compresses nothing. With Zigzag
+# the same data gives CR 2.000 at PSNR 64.77 dB with the error bound satisfied.
 #
 # This differs from the fused LorenzoQuant path: quantization and prediction
 # are independent stages and can be tuned separately.
@@ -31,8 +39,20 @@ data_type = "int32"
 inputs = [{from = "quant", port = "codes"}]
 
 [[stage]]
+name = "zz"
+type = "Zigzag"
+data_type = "int32"
+inputs = [{from = "lrz", port = "output"}]
+
+[[stage]]
 name = "pack"
 type = "Bitpack"
 input_type = "uint32"
-nbits = 12
-inputs = [{from = "lrz", port = "output"}]
+# Was 12, which BitpackStage::setNBits rejects: nbits must be a POWER OF TWO in
+# [1, 8*sizeof(T)] — 1/2/4/8/16/32 for uint32 — so the preset threw on every use
+# and had clearly never been run. 16 is the smallest allowed width that holds the
+# zigzagged deltas here (quant_radius = 512 gives codes in ~[0, 1024], so deltas
+# reach ~±1024 and zigzag to ~2048, needing 11 bits). 8 is not enough: measured
+# PSNR -12.9 dB with the bound violated.
+nbits = 16
+inputs = [{from = "zz", port = "output"}]

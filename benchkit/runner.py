@@ -42,7 +42,8 @@ def _iter_cells(cfg: ExperimentConfig, catalog: DatasetCatalog):
 def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                    results_root: Path, repo_root: Path,
                    session_id: str | None = None,
-                   shard: tuple[int, int] | None = None) -> ResultStore:
+                   shard: tuple[int, int] | None = None,
+                   only_stale: set[str] | None = None) -> ResultStore:
     # Build adapters once; collect their provenance for the session manifest.
     adapters = {}
     adapter_prov = {}
@@ -66,6 +67,25 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
     if shard is not None:
         k, n = shard
         cells = [(i, c) for (i, c) in cells if i % n == k]
+
+    if only_stale is not None:
+        # Re-measure a named subset. Two things have to happen together: keep only the
+        # stale cells, AND drop them from `done` so resume does not immediately skip
+        # the very rows we are here to replace. The new rows are APPENDED — nothing is
+        # edited in place — so the old measurement survives in runs.jsonl and `merge`
+        # is what picks the newer one (see cmd_merge). That keeps "this stage got 1.8x
+        # faster" answerable from the file instead of destroying the evidence.
+        before = len(cells)
+        cells = [(i, c) for (i, c) in cells
+                 if cell_key(c[0], c[1].dataset, c[1].field, cfg.error_mode, c[2])
+                 in only_stale]
+        done = done - only_stale
+        print(f"[stale] {len(cells)} of {before} cells selected for re-measurement",
+              flush=True)
+        if not cells:
+            print("[stale] nothing to do — the stale set does not intersect this "
+                  "experiment (wrong experiment file, or wrong shard?)", flush=True)
+
     shard_txt = "" if shard is None else f" shard {shard[0]}/{shard[1]}"
     n_skip = sum(1 for _, (e, f, eb) in cells
                  if cell_key(e, f.dataset, f.field, cfg.error_mode, eb) in done)
@@ -225,6 +245,7 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench) -> 
         # cross-check: tool's own PSNR vs harness-computed (should agree closely)
         "native_psnr": (bench.native_quality or {}).get("psnr_db"),
         "stages": bench.stages,
+        "stage_versions": bench.stage_versions,
         "graph_requested": bench.graph_requested,
         "graph_active": bench.graph_active,
         "graph_reason": bench.graph_reason,

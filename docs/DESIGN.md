@@ -524,6 +524,8 @@ Each milestone is independently useful and leaves a working artifact.
 | D25 | **`retain_compressed: false` added as a new config option, defaulting off** (mirrors the existing `retain_decompressed`, D11). The compressed artifact (`c.fzm`/`c.cuszp`/`c.cusza`/etc.) is checksummed (`compressed_sha256`, new row field) then deleted after `benchmark()` completes for that cell, unless the experiment config sets `retain_compressed: true`. `compressed_bytes` (the size) was already captured independent of the file persisting, so this loses nothing CR/throughput analysis needs. All checked-in experiment configs now set it explicitly (`false`, next to `retain_decompressed`) for the same clarity-over-implicit-default reason D11 set that pattern. | The root disk filled to 98% (4.2GB free) during this session's repeated full `fzgm_vs_native.yaml` reruns — `retain_decompressed: false` was already doing its job (no `d.bin` files survived), but nothing was cleaning up the *compressed* file, and at up to 1.3GB/cell for HACC that's ~16GB per full 210-cell session with no corresponding benefit once the row's CR/PSNR/throughput/checksum are safely in `runs.jsonl` (and, for cross-machine-worthy runs, in `results/baselines/` per D24). Same reasoning as D11, just the other file. |
 | D26 | **PFPL's benchmark-phase scratch file (`d_bench.bin`) is now deleted in a `finally`, and aggregate CR gained a per-dataset grouping (`report --aggregate --by-dataset`) plus a spread statistic.** The pfpl adapter's `benchmark()` writes a full-original-size decompressed file that is *not* either of the paths D11/D25 clean up — `retain_decompressed` governs the separate `decompress()` call's output, so nothing ever removed this one. It now unlinks in a `finally` so the error paths clean up too; `compressed_bytes` is `stat()`ed before the unlink, and `c.pfpl` is deliberately left alone because the runner reads it after `benchmark()` returns (deleting it there fails the cell with a missing-`c.pfpl` `FileNotFoundError` — found by doing exactly that). Separately, `aggregate_cr()` now also reports `gsd_cr` (geometric standard deviation), `min_cr`/`max_cr` and their field names, and `--by-dataset` prepends `dataset` to the group keys. | Sizing a full-corpus sweep surfaced the leak: in session `20260725-192940` the `work/` dir was 5.0 GB, of which **4.99 GB was 12 `d_bench.bin` files** and 0.71 MB was logs. Native PFPL runs on every field at every error bound, so across the 158-field corpus that is ~3x the corpus (~110 GB) in dead files — which would have made a volume mount look necessary when the actual fix is one `unlink`. Same class as D11/D25, third instance: **any adapter that writes a full-size temp inside `benchmark()` owns deleting it**, because the runner only knows about the `compress()`/`decompress()` artifacts. The aggregation work is D18 finished for multi-field reality: with 79 CESM fields in one group a bare mean hides the dataset (CESM-2D geomean CR 3.88 spans 2.61 on TREFHT to 7.59 on LANDFRAC), and pooling datasets is actively misleading because ratio-of-sums is size-weighted — a 21 GB CESMATM would simply *be* the "overall" number. Geometric (not arithmetic) SD because CR is a strictly-positive right-skewed ratio: it reports as a dimensionless factor with the one-sigma band `geomean/gsd .. geomean*gsd`, and a single-field group reports `-` rather than `0.0` so "one field" is never misread as "perfectly consistent". |
 | D27 | **FZGM pipeline presets now render their float `input_type` from the field dtype** (`PipelineToml.render(..., dtype=)`, plus `check_dtype()` for the verbatim `from_toml` path), and **the cuSZ-Hi presets switched from `MINIMAL` to `PREALLOCATE`**. | Two bugs surfaced by adding MIRANDA (f64) and CESMATM-3D (large 3-D) to the corpus; both looked like FZGM library bugs and only one was. (a) Every preset hardcodes `input_type = "float32"` on its raw-consuming first stage, and the renderer substituted error bound/dims/input_size but never dtype. FZGM has always supported f64 (`QuantizerStage<double,uint32_t>` is instantiated in `src/pipeline/config.cpp`), so this was purely benchkit-side. The dangerous half is that it did not fail cleanly: TiledLorenzo/GInterp aborted with "Benchmark size mismatch", but the plain-Lorenzo pipelines *silently returned garbage* — PSNR `nan`, `eb_satisfied` false, CR exactly 64.00/128.00 from degenerate all-zero codes. 4 of 8 f64 cells were the silent kind. After the fix all 8 pass at PSNR 71.39 dB matching native exactly, and fzgm cuszp3_plain reports CR 6.32 vs native 6.32. Only *float* input_type lines are rewritten (audited: all 21 float-typed keys across `configs/pipelines/*.toml` belong to the first stage); a preset with no float input_type now raises rather than silently no-op-ing. (b) Under `MINIMAL`, cuSZ-Hi corrupts memory on large 3-D fields — the compressed size varies slightly between successive `compress()` calls on a reused pipeline (23,079,728 then 23,079,732 bytes on CESMATM-3D/CLDICE), so the inverse buffer sized from the previous run is undersized, and the illegal access surfaces against whichever stage syncs first (reported at `rre_stage.cu:475`, which is NOT the culprit — a reminder that a CUDA IMA names the next synchronization point, not the faulting kernel). This is exactly the failure the E19 note in `ginterp_stage.cu` predicts for reused MINIMAL pipelines. PREALLOCATE fixes it, is byte-identical (CR 185.10x / PSNR 75.75 dB on NYX), and is *faster* (compress 81.1 -> 95.5 GB/s, decompress 74.2 -> 80.1) at ~1.6x peak memory. **Caveat: cuSZ-Hi throughput is therefore not comparable with pre-2026-07-28 baselines**, which ran MINIMAL; CR and PSNR are. Worth testing whether this also explains the unexplained cuSZ-Hi (cr) H100 slowness recorded in the H200 baseline metadata — MINIMAL allocates per call, and D20 established that this GPU-passthrough VM has pathological `cudaMalloc` latency. |
+| D30 | **Reported means are computed over a validity-gated population, not over every `ok` row** (`benchkit/validity.py`; `report --aggregate` gates by default and prints the audit above the table; `--exclusions` prints the audit alone; `--no-gate` reproduces ungated numbers). | `status == "ok"` means "both tools exited 0 and metrics were computed" — not "the numbers are usable". The 9,816-cell full-corpus sweep returned 9,416 `ok` rows of which 798 were not: 290 missed their error bound by >1.01x, 108 had infinite PSNR, and 12 had `cr <= 1` (native cuSZ at eb=1e-4 on EXAALT/HACC *doubled* the data size at PSNR -23.6 dB and still exited 0 — more dangerous than the 400 hard failures precisely because it survives an unattended `status == ok` filter). Measured effect on one cell of the paper table (CESM-2D / cuszp2_outlier / eb=1e-4): geomean CR 10.44 -> 9.96 and the reported best field stops being an artifact. Three design choices worth keeping: (a) **degenerate fields are detected from the data, not a name list** — the rule is "every compressor reconstructed this field with exactly zero error", which found CESM-2D/SFCLDICE and SFCLDLIQ (both entirely zero, verified `unique() == 1` over the full file) without hardcoding them; the corpus went from 8 to 13 dataset families in a week and a name list would rot. It also self-validates: all 108 non-finite-PSNR rows are explained by those two fields, leaving `psnr_nonfinite` at 0. (b) **Marginal bound misses (<=1.01x) are retained, not dropped** — 374 of 388 sit at eb=1e-4 and hit every compressor including native cuSZ, so they are f32 round-off near f32 resolution, and gating them away would hide a real uniform property; they are counted and printed instead. (c) **Nothing is deleted or rewritten** — `runs.jsonl` stays the raw record and the gate is applied at read time, so every excluded row can be recovered and every reason code carries a written rationale that a paper can cite. See open question 7 for the unresolved half. |
+
 ---
 
 ## 11. Open questions (to resolve before/within M1)
@@ -537,6 +539,18 @@ Each milestone is independently useful and leaves a working artifact.
    [`docs/adapters/fzgm.md`](adapters/fzgm.md); full schema lives in the FZGM repo at
    `memory/report_json_spec.md`. Other adapters still need stdout scraping; FZGM is the
    one we control and it is now clean.
+   **Correction (2026-07-29), since FIXED upstream: "stages are always populated" was
+   false for the compress phase.** `stages[]` carried decompress entries only — the
+   9,816-cell full-corpus sweep produced 4,860 FZGM rows, every one decompress-only.
+   Root cause was in FZGM, not benchkit: `Pipeline::setMemoryStrategy()` replaces
+   `dag_` with a fresh `CompressionDAG` and dropped the flag `enableProfiling()` had
+   set on the old one, so `collectTimings()` returned `{}`. Since the CLI enables
+   profiling *before* `loadConfig()` and every preset carries a `memory_strategy` key,
+   this fired on every config-driven run; decompress escaped only because its inverse
+   DAG is built later. Fixed in `src/pipeline/compressor.cpp` with regression test
+   `Profiling.SurvivesMemoryStrategyChange`. **Baselines captured before 2026-07-29
+   still have decompress-only `stages[]`** — fine for decompress-side invalidation,
+   but compress-side attribution needs a re-run.
 2. **Decompressed-output retention.** Harness-owned quality metrics require each tool to
    write the decompressed array to disk. Confirm every reference tool can emit raw
    decompressed output (most can); note any that only self-report PSNR.
@@ -548,6 +562,36 @@ Each milestone is independently useful and leaves a working artifact.
 5. **Dim-order convention.** Lock fast-to-slow vs slow-to-fast across the manifest and
    all adapters (FZGM uses `-l fast x mid x slow`); mismatches silently wreck quality
    metrics, so this must be asserted, not assumed.
+6. **Stage-level result invalidation ("results as a database").** When one FZGM stage
+   changes, only the cells whose pipeline contains that stage are invalid — re-running
+   all 9,816 is wasteful. Scoped in
+   [`docs/stage-level-invalidation.md`](stage-level-invalidation.md). Two prerequisites
+   are missing, both in FZGM: compress-phase `stages[]` (see open question 1) and a
+   per-stage version fingerprint, since `pipeline_sha256` covers config changes but not
+   a kernel edit. FZGM already has the master list to expose — `kStageRegistry` in
+   `src/pipeline/config.cpp`, 25 entries, with an "add a stage" procedure documented
+   above it.
+7. **Error-bound violations under NOA / `rel_range` (deferred 2026-07-29, not a blocker).**
+   The full-corpus sweep found 678 of 9,416 ok cells missing their bound, *all* in
+   `rel_range` (FZGM `NOA`), none in `abs`. Two distinct populations, both understood
+   well enough to defer but not to dismiss:
+   - **Marginal (388 cells, ≤1.0093x).** 374 sit at the tightest bound (eb=1e-4) and it
+     hits every compressor including native cuSZ, so it reads as f32 round-off in the
+     prediction/reconstruction chain near f32 resolution. Retained by the validity gate
+     (D30) and reported as a caveat.
+   - **Severe (99 cells, >10x).** PSNR stays nominal and tracks eb at 20 dB/decade while
+     max error blows up 16-1025x — the bound holds in RMS and fails at isolated points,
+     i.e. missed outlier capture. `cuszp3_outlier` alone is 52 of 99. A separate,
+     legitimate sub-case is S3D: `N2` spans 0.736889-0.7369, a relative dynamic range of
+     1.5e-5, so NOA yields an absolute bound of 1.1e-9 that no f64 codec can hold — there
+     the error *mode* is wrong for the field, not the codec.
+   Not purely a native defect: on the 4,518 paired cells native violates alone 270x and
+   **FZGM violates alone 146x**. The FZGM-only violations concentrate in `pfpl` (34) and
+   `cuszp2` (21 plain + 21 outlier). **Leading hypothesis for the PFPL half: native PFPL
+   implements an error-correction/residual pass that the FZGM port does not** — native
+   `pfpl` violates the bound in 0 of 558 cells while `fzgm:pfpl` violates in 34, which is
+   exactly the asymmetry that hypothesis predicts. Confirming it and porting the pass is
+   future work.
 ```
 
 ---
