@@ -1,0 +1,95 @@
+# Stage-attribution probe: per-stage COMPRESS and DECOMPRESS device timings for every
+# FZGM pipeline, across every dataset family.
+#
+# Why this exists as a separate, small experiment rather than a re-run of
+# fzgm_only_full.yaml: the question is "where does the time go inside a pipeline, and is
+# the answer consistent across datasets", which needs only a couple of fields per dataset
+# and a single error bound -- the stage split is a property of the pipeline and the field
+# geometry, not of the bound. Two fields per dataset keeps within-dataset variation
+# visible while holding the run to ~30 min.
+#
+# REQUIRES an FZGPUModules build from 2026-07-29 or later. Before that,
+# Pipeline::setMemoryStrategy() silently disabled profiling on the compress DAG, so
+# `stages[]` carried decompress entries ONLY and the compress half of this experiment
+# would come back empty. See FZGPUModules CHANGELOG and DESIGN.md open question 1.
+#
+#   python -m benchkit run configs/experiments/fzgm_stage_attribution.yaml \
+#          --session-id 20260730-stageattr-h100
+name: fzgm_stage_attribution
+
+fields:
+  NWCHEM: [t631]
+  # Two fields per dataset: enough to see whether the split is stable within a dataset,
+  # cheap enough to run in one sitting. Chosen as the first two registered fields rather
+  # than hand-picked, so the selection carries no opinion about which stages dominate.
+  CESM-2D: [AEROD_v, CLDHGH]
+  CESMATM-3D: [CLDICE, CLDLIQ]
+  HURR: [CLOUD, P]
+  NYX: [baryon_density, dark_matter_density]
+  MIRANDA: [density, diffusivity]
+  HACC: [vx, vy]
+  EXAALT: [vx, vy]
+  QMCPACK-3D: [orbital_000, orbital_041]
+  SCALE-LETKF: [PRES, QC]
+  S3D: [CH4, O2]
+  BROWN: [sample_B_0p5, sample_B_1p0]
+  EXAFEL: [data]
+
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - MIRANDA
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - S3D
+  - NWCHEM
+  - BROWN
+  - EXAFEL
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm,   variant: cusz,           pipeline: configs/pipelines/cusz.toml}
+
+  - {compressor: fzgm,   variant: cuszhi_tp,      pipeline: configs/pipelines/cusz_hi_tp.toml,
+     skip_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {compressor: fzgm,   variant: cuszhi_cr,      pipeline: configs/pipelines/cusz_hi_cr.toml,
+     skip_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  # cuszp3 — 2-D preset
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3.toml,
+     only_datasets: [CESM-2D]}
+  # cuszp3 — 3-D preset
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  # cuszp3 — 1-D preset
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_1d.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_1d_outlier.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: fzgm,   variant: fzgpu,          pipeline: configs/pipelines/fzgpu.toml,
+     skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
+
+  - {compressor: fzgm,   variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}
+

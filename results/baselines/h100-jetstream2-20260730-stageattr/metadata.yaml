@@ -1,0 +1,105 @@
+# Baseline: H100 / JetStream2 — FZGM STAGE ATTRIBUTION
+# See results/baselines/README.md for the schema this file follows.
+#
+# NOT a full-corpus sweep and NOT a cross-machine baseline. This is a small,
+# purpose-built run whose only job is to answer "where does the time go, per stage,
+# per phase, per dataset?" for every FZGM pipeline. It exists because the
+# full-corpus baselines CANNOT answer it for the compress side — see
+# compress_phase_gap below.
+#
+# Native compressors are absent by construction: they emit no per-stage timing, so
+# there is nothing to attribute. Do not read this baseline as an FZGM-vs-native
+# comparison; for that use h100-jetstream2-20260729-fullcorpus.
+
+baseline_id: h100-jetstream2-20260730-stageattr
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (GPU-passthrough cloud VM, single-tenant, host skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9"    # nvhpc/25.7; the full-corpus H100 baseline used 12.6
+date: "2026-07-30"
+experiment_config: configs/experiments/fzgm_stage_attribution.yaml
+clocks_locked: true     # scripts/lock_clocks.sh, max boost 1980 MHz; released after
+
+source:
+  kind: benchkit_native_output
+  original_session_id: 20260730-stageattr-h100
+  fidelity: full        # runs.jsonl + provenance.json copied verbatim
+  # Single process, single GPU, no sharding and no resume, so the merge-dedupe
+  # hazard recorded on mi100-delta-fullcorpus-20568712 does not apply.
+
+harness:
+  git_sha: 030d237
+  fzgpumodules_git_sha: 9756242
+  # CAVEAT on that sha: build_benchmarking/bin/fzgmod-cli is dated 2026-07-29 21:24 UTC
+  # and 9756242 was committed at 21:38 UTC — the binary was built from the working tree
+  # ~14 min before the commit landed, so it is content-equivalent to 9756242 rather than
+  # built from it. The decisive evidence is in the data, not the timestamp: this session
+  # contains 704 compress-phase stage entries, which only a binary carrying the
+  # setMemoryStrategy() profiling fix can produce (see compress_phase_gap).
+  build_preset: benchmarking   # build_benchmarking/, CMAKE_CUDA_ARCHITECTURES=90
+  python: 3.12.3
+
+scope:
+  datasets: 13
+  fields_per_dataset: 2   # except NWCHEM and EXAFEL, which have 1
+  error:  {mode: rel_range, bounds: [1.0e-3]}
+  pipelines: 9            # all FZGM presets
+  cells: 195
+  # ONE error bound on purpose. Stage shares are a property of the DAG and the data
+  # geometry, not of eb — a sweep would multiply cost without adding an axis anyone
+  # reads. If that assumption is ever challenged, this is the run to re-do with
+  # bounds: [1e-2, 1e-3, 1e-4] and a per-eb split in the artifact.
+
+cells:
+  total: 195
+  ok: 195
+  failed: 0
+
+compress_phase_gap: >
+  THE REASON THIS BASELINE EXISTS. Every full-corpus baseline (A100, H100, H200,
+  MI100) carries decompress-only `stages[]`. Pipeline::setMemoryStrategy() replaced
+  the CompressionDAG wholesale and did not re-apply enableProfiling() to the
+  replacement, so the compress DAG silently ran unprofiled while the decompress DAG
+  did not. `stages[]` was therefore present and well-formed but half empty, and the
+  failure mode was ABSENT data rather than wrong data — nothing in the row flagged it.
+  Fixed in FZGPUModules 9756242, with a regression test
+  (tests/pipeline/test_profiling.cpp, Profiling.SurvivesMemoryStrategyChange) verified
+  to fail when the fix is reverted. All four full-corpus baselines predate that fix and
+  cannot be retro-fitted; compress-side attribution has to come from here.
+
+headline_results: >
+  Which stage dominates, how often it dominates, and how far its share moves. Shares
+  are averaged only over datasets where the stage is actually PRESENT — some pipelines
+  swap a stage by geometry (cuszp3 runs TiledLorenzo on 2-D/3-D and plain Lorenzo on
+  its 1-D preset), and scoring an absent stage as 0% would report that swap as wild
+  inconsistency instead of as a different pipeline.
+
+    cusz          Huffman  compress 12/12 (69-90%)   decompress 12/12 (59-98%)
+    fzgpu         BitplaneRZE      8/9              BitplaneRZE      9/9  (59-74%)
+    cuszp2_*      Lorenzo         12/13             AdaptiveBitpack 11/13
+    cuszhi_tp     GInterp          8/9              GInterp          8/9
+    cuszhi_cr     GInterp          7/9              Huffman          5/9
+    pfpl          Bitshuffle      11/13             Difference      10/13
+
+  The cuSZp2 line is the one worth acting on: compress and decompress are limited by
+  DIFFERENT kernels, so the two phases need separate optimisation targets and a single
+  "cuSZp2 hot stage" claim is wrong whichever stage you name. cuszhi_cr is the least
+  consistent pipeline in the corpus and its dominant stage is not even stable across
+  phases.
+
+known_issues: >
+  1. ONE error bound (1e-3) and TWO fields per dataset. Sufficient for "which stage
+     dominates", NOT sufficient for any claim about how shares vary with eb or across
+     fields within a dataset. Do not aggregate this with the full-corpus baselines.
+  2. Stage order in the artifact is taken from the DECOMPRESS trace and reused for
+     compress so a stage keeps its colour and slot in both bars. Compress order is the
+     DAG forward order, which is USUALLY the reverse of decompress but is not derived
+     by reversing it — that breaks on branching DAGs with repeated stages.
+  3. CUDA 12.9 here vs 12.6 on h100-jetstream2-20260729-fullcorpus, and a different
+     build preset. Absolute per-stage times are therefore not directly comparable with
+     that baseline; the SHARES, which is all this run is used for, are robust to it.
+  4. Device time only. Host-side and allocator costs are outside `stages[]`, so shares
+     sum to 100% of GPU stage time, not of wall time.
+
+consumed_by: scripts/build_stage_attribution_json.py
+related_decisions: [D24, D27, D30]

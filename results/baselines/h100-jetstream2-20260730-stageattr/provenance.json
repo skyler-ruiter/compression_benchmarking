@@ -1,0 +1,75 @@
+{
+  "session_id": "20260730-stageattr-h100",
+  "timestamp": "2026-07-30T00:42:27.553141+00:00",
+  "shard": null,
+  "gpu": {
+    "available": true,
+    "vendor": "nvidia",
+    "name": "NVIDIA H100 80GB HBM3",
+    "driver": "595.84",
+    "memory_total": "81559 MiB",
+    "sm_clock": "1830 MHz",
+    "sm_clock_max": "1980 MHz",
+    "mem_clock": "2619 MHz",
+    "ecc": "Enabled",
+    "persistence": "Enabled"
+  },
+  "host": {
+    "node": "skyler-h100",
+    "system": "Linux",
+    "release": "7.0.0-28-generic",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "scheduler": {},
+  "software": {
+    "modules": "nvhpc/25.7/nvhpc/25.7",
+    "module_list": "Currently Loaded Modules:\n  1) nvhpc/25.7/nvhpc/25.7",
+    "spack_env": null,
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Tue_May_27_02:21:03_PDT_2025\nCuda compilation tools, release 12.9, V12.9.86\nBuild cuda_12.9.r12.9/compiler.36037853_0"
+  },
+  "harness": {
+    "git_sha": "030d237",
+    "config_sha256": "9ec7218029235c1a6ebd1646adfd5d87ce6441540a023f697143aa92470f18cf",
+    "python": "3.12.3"
+  },
+  "compressors": {
+    "fzgm:cusz": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszhi_tp": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszhi_cr": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp2_outlier": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp2_plain": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp3_plain": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:cuszp3_outlier": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:fzgpu": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    },
+    "fzgm:pfpl": {
+      "cli_path": "/home/exouser/FZGPUModules/build_benchmarking/bin/fzgmod-cli",
+      "name": "fzgmod-cli"
+    }
+  },
+  "nvidia_smi": "Thu Jul 30 00:42:27 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 595.84                 Driver Version: 595.84         CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H100 80GB HBM3          On  |   00000000:04:00.0 Off |                    0 |\n| N/A   38C    P0            109W /  700W |       0MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+"
+}
