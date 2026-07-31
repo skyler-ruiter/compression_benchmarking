@@ -1,0 +1,160 @@
+# Baseline: A100 / BigRed200 — FULL-CORPUS (paper-scale) sweep
+# See results/baselines/README.md for the schema this file follows.
+#
+# Second machine in the full-corpus generation, and the cross-check partner for
+# h100-jetstream2-20260729-fullcorpus: same experiment_config, same natives built,
+# so the two are cell-for-cell comparable. Supersedes the 210-cell
+# a100-bigred200-slurm7802064 for paper-scale work; it does NOT supersede it as a
+# like-for-like point against the old 4-field series (different config, and the
+# cuSZ-Hi memory-strategy change sits between them — see known_issues).
+
+baseline_id: a100-bigred200-fullcorpus-slurm7828800
+gpu: NVIDIA A100-SXM4-40GB
+site: IU BigRed200, partition gpu, node nid0668 (x1000c1s5b0n1), --exclusive
+driver: "595.71.05"
+cuda_toolkit: "12.6"
+date: "2026-07-31"   # quoted: unquoted YAML parses as a date object, which
+                     # build_comparison_artifact.py cannot JSON-serialise
+experiment_config: configs/experiments/fzgm_vs_native_full.yaml
+clocks_locked: false
+# Admin-only on BigRed200 (D15); --exclusive held the node single-tenant instead.
+# timing_reliable is true on 9388 of 9416 ok cells (99.7%).
+
+source:
+  kind: benchkit_native_output
+  original_session_id: fullcorpus-gpu
+  slurm_job_id: 7828800
+  fidelity: full  # runs.jsonl + provenance.json copied verbatim, no reconstruction
+  # SINGLE task, not an array, despite what the runbook prescribes: submitted as
+  # `--array=0-7`-shaped script but run at shard 0/1, one process, one GPU, 28 h 27 m
+  # wall inside a 48 h limit. It therefore never resumed and never requeued, so the
+  # merge-dedupe hazard recorded on mi100-delta-fullcorpus-20568712 does not apply
+  # here — `merge` was a no-op validation pass (9684 in, 9684 unique out).
+
+harness:
+  git_sha: 030d237
+  # PLUS the uncommitted configs/experiments/fzgm_vs_native_full.yaml change described
+  # under scope.native_cuszhi_f64_skip. Commit that diff alongside this baseline or the
+  # sha does not reproduce the 9,684-cell geometry.
+  fzgpumodules_git_sha: 487ee52   # build_bench/ binary dated 2026-07-28 16:49 EDT,
+                                  # i.e. built from 487ee52; 9756242 and c71f9ae landed
+                                  # after the build and are NOT in these results.
+                                  # Same sha as the H100 and MI100 full-corpus baselines.
+  build_preset: release           # CMAKE_CUDA_ARCHITECTURES=80
+  python: 3.12.11
+
+scope:
+  datasets: 13
+  fields: 186
+  cells: 9684
+  native_cuszhi_f64_skip: >
+    9,684 cells, NOT the H100's 9,816. The difference is exactly 132 cells: native
+    cuszhi_tp and cuszhi_cr now carry skip_datasets [MIRANDA, S3D, NWCHEM, BROWN].
+    The cuSZ-Hi CLI is f32-only and exits 255 on -t f64, so on the H100 those 132
+    cells were recorded as hard failures; here they are not attempted. This is
+    ASYMMETRIC on purpose — FZGM's cuszhi presets handle f64 correctly and their
+    MIRANDA/S3D rows are kept as deliberate FZGM-only f64 data. The 9,684 cells
+    are a strict subset of the H100's 9,816 and every one of them pairs 1:1
+    (verified: 9,684 common cell_keys, zero A100-only keys).
+
+cells:
+  total: 9684
+  ok: 9416
+  failed: 268
+  known_failures: >
+    ALL 268 failures are native-side; FZGM had ZERO failures across 4,860 cells,
+    matching the H100 result exactly. Native cuSZ-Hi accounts for 264 (SIGABRT,
+    a few SIGSEGV) across 6 datasets — CESMATM-3D 92, CESM-2D 54, HURR 48,
+    SCALE-LETKF 36, EXAALT 24, HACC 10 — and native cuSZ for the other 4 (EXAALT
+    vx/vy/vz/zz at eb=1e-3, SIGSEGV). Two distinct cuSZ-Hi crash sites appear in
+    the logs: `illegal memory access` at spline3.cu:541 and `invalid argument` at
+    compressor.inl:312.
+
+    CRITICAL CROSS-MACHINE RESULT: all 268 are ALSO failures in
+    h100-jetstream2-20260729-fullcorpus — the failing sets intersect exactly, with
+    zero A100-only failures. The H100's extra 132 are precisely the f64 cells this
+    config now skips. Native cuSZ-Hi's fragility is therefore a property of the
+    codebase and the input fields, NOT of the GPU, the CUDA version, or the build.
+    Root cause still not established (same as the H100 baseline: failures are
+    field-specific and do not correlate cleanly with dynamic range).
+
+cross_check_vs_h100: >
+  D23 check against h100-jetstream2-20260729-fullcorpus over the 9,416 cells where
+  both are ok. CR agrees to 0.0 at p50 and 3.8e-3 at p99, max 1.1e-1; 8,807 of 9,416
+  (93.5%) are bit-identical. ALL disagreement is confined to the native side:
+  cuszhi_cr 357 cells, cuszhi_tp 218, cusz 18. Every FZGM row is bit-identical
+  across the two architectures, which is the intended cross-check.
+    - The cuSZ-Hi spread is GInterp floating-point non-associativity across
+      architectures — same signature as the H200/MI100 pair.
+    - The 18 native-cuSZ cells are all EXAALT/HACC/BROWN, max 8.1e-4 relative, and
+      their PSNR is identical to 2 dp in every case. Benign, but new: the H200/MI100
+      pair saw no cusz disagreement at all, because Delta does not build the natives.
+  PSNR differs by >0.01 dB on 38 cells, all native cuSZ-Hi, all under 0.15 dB.
+
+headline_results: >
+  FZGM robustness: of the 268 native failures, 234 have a directly comparable FZGM
+  cell, and FZGM succeeds on 234/234 (232 also pass the validity gate below).
+
+  FZGM vs native, geometric mean of per-cell ratios over 3,921 cells where BOTH
+  sides are valid (see validity_gate) — CR / compress-throughput / decompress-throughput:
+    cusz            n=512  CR 1.066  cT 0.649  dT 1.019
+    cuszhi_cr       n=287  CR 0.885  cT 0.517  dT 0.192
+    cuszhi_tp       n=288  CR 0.779  cT 0.488  dT 0.401
+    cuszp2_outlier  n=518  CR 0.847  cT 0.414  dT 0.674
+    cuszp2_plain    n=518  CR 1.000  cT 0.380  dT 0.543
+    cuszp3_outlier  n=413  CR 0.898  cT 0.530  dT 0.471
+    cuszp3_plain    n=488  CR 1.002  cT 0.499  dT 0.374
+    fzgpu           n=379  CR 1.055  cT 0.780  dT 0.742
+    pfpl            n=518  CR 0.998  cT 0.539  dT 0.523
+  The CR column reproduces the H100's to within 0.004 on every pipeline (largest gap:
+  cuszhi_cr 0.885 vs 0.888) — strong evidence the CR story is architecture-independent.
+  The throughput columns do NOT reproduce and are not expected to: FZGM loses more
+  ground to the natives on the A100 than on the H100 (e.g. cusz cT 0.649 here vs 0.779
+  there, cuszp2_plain 0.380 vs 0.408). Report throughput per-GPU; never pool the two.
+  NOTE the cuSZ-Hi throughput columns are NOT comparable with pre-2026-07-28
+  baselines: the native side got faster when its presets moved to PREALLOCATE (D27).
+
+validity_gate: >
+  `status: ok` is NOT sufficient for this corpus — same finding as the H100. Use
+  `eb_satisfied AND cr > 1 AND isfinite(psnr)`, which keeps 8,632 of 9,416 ok cells.
+  Breakdown of what it drops:
+    - 676 cells exceed their error bound (7.2% of ok — the tracked A100/H100/MI100
+      range is 4.3-7.2%, so this is the top of the family, not an outlier). ALL are
+      rel_range mode, zero in abs, every compressor affected (fzgm 276, cuszp3 171,
+      fzgpu 102, cuszhi 74, cusz 27, cuszp2 26). 386 are marginal (ratio 1.001-1.01,
+      consistent with rounding at the boundary); 99 exceed by >10x and are real
+      breakdowns. The per-compressor split tracks the H100's within a few cells.
+    - 12 cells have cr <= 1 (data EXPANDED).
+    - 108 cells have non-finite PSNR.
+  Worst offenders are again native cuSZ at eb=1e-4 on EXAALT/HACC: PSNR ~= -23.6 dB
+  with CR ~= 0.5 — it doubled the data size while destroying it, and still exited 0.
+  Those rows are more dangerous than the 268 hard failures precisely because they
+  pass an unattended `status == ok` filter.
+
+known_issues: >
+  1. CESM-2D SFCLDICE and SFCLDLIQ are ENTIRELY ZERO, so PSNR is legitimately +inf
+     and CR is the codec's constant-data ratio. Not bugs, but they poison any PSNR
+     mean and inflate CR aggregates — exclude from paper tables or report separately.
+     Source of most of the 108 non-finite-PSNR cells. (Carried from the H100 baseline;
+     it is a property of the corpus, not the machine.)
+  2. The rel_range error-bound violations are NOT root-caused — genuine codec property
+     vs. an off-by-epsilon in how the harness derives eb_abs_effective. The marginal
+     cluster is suspicious of the latter, the >10x tail is clearly the former. That the
+     rate is nearly identical on A100 and H100 (7.2% vs 7.2%) is itself evidence it is
+     deterministic and data-dependent rather than hardware-related. Resolve before
+     publishing eb-satisfaction claims.
+  3. cuSZ-Hi throughput discontinuity vs all pre-2026-07-28 baselines (MINIMAL ->
+     PREALLOCATE, D27). CR and PSNR unaffected — PREALLOCATE is byte-identical.
+  4. Native cuSZ-Hi's coverage gaps mean many (field x pipeline) pairs have no native
+     counterpart. Comparison artifacts must render these as "native crashed" rather
+     than silently dropping the cell, or FZGM's robustness advantage disappears from
+     the very tables that should show it.
+  5. Clocks were NOT locked (admin-only, D15). timing_reliable is true on 99.7% of ok
+     cells, but prefer *_device_ms_min where it is false. The H100 baseline WAS
+     clock-locked; a throughput comparison between the two carries that asymmetry on
+     top of the architectural difference.
+  6. provenance.json records CUDA_VISIBLE_DEVICES=0,1,2,3 because --exclusive exposes
+     the whole node, even though --gpus=1 was requested. Only one GPU was used (single
+     process, no sharding), but the field does not prove that on its own.
+
+related_decisions: [D15, D20, D21, D22, D23, D24, D25, D26, D27]

@@ -55,6 +55,11 @@
 #   - fzgpu skips MIRANDA: FZ-GPU is float32-only (adapters/fzgpu.py raises on f64), so
 #     the native side cannot run and the pairing has no meaning. Dropped on both sides
 #     to keep the pair symmetric rather than emitting an unpairable FZGM row.
+#   - NATIVE cuszhi skips the f64 datasets (MIRANDA, S3D, NWCHEM, BROWN): the cuSZ-Hi CLI
+#     is f32-only and exits 255 on -t f64. Added 2026-07-28 after a pre-flight on the A100
+#     caught 132 guaranteed-fail cells. Unlike fzgpu this is asymmetric — FZGM's cuszhi
+#     handles f64 fine, so its MIRANDA/S3D rows are kept as FZGM-only f64 data. NOTE this
+#     changes the native-cuszhi row count vs. any run started before this date.
 #   - cuszp3 is dimension-matched end to end (D17): the 2-D 8x8 preset for CESM-2D, the
 #     3-D 4x4x4 preset for every 3-D dataset, the 1-D Lorenzo(block=32) preset for
 #     HACC/EXAALT. Mismatching these silently pairs different algorithms.
@@ -110,10 +115,20 @@ runs:
   - {compressor: cusz,   variant: cusz,           pipeline: default}
   - {compressor: fzgm,   variant: cusz,           pipeline: configs/pipelines/cusz.toml}
 
-  - {compressor: cuszhi, variant: cuszhi_tp,      pipeline: tp}
+  # Native cuszhi skips the f64 datasets: the cuSZ-Hi CLI is f32-only (its usage states
+  # "t dtype : f32 or fp4") and rejects -t f64 outright with `ERR must specify data type`
+  # (exit 255) — 132 guaranteed-fail cells otherwise. Same class of limitation as FZ-GPU
+  # below, but handled ASYMMETRICALLY on purpose: FZ-GPU is dropped on both sides because
+  # neither side can run f64, whereas FZGM's cuszhi presets DO handle f64 correctly. Their
+  # MIRANDA/S3D rows are therefore kept as deliberate FZGM-only f64 data rather than
+  # discarded to preserve pairing. Those rows have no native counterpart by construction —
+  # do not read their absence as a native failure.
+  - {compressor: cuszhi, variant: cuszhi_tp,      pipeline: tp,
+     skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
   - {compressor: fzgm,   variant: cuszhi_tp,      pipeline: configs/pipelines/cusz_hi_tp.toml,
      skip_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
-  - {compressor: cuszhi, variant: cuszhi_cr,      pipeline: cr}
+  - {compressor: cuszhi, variant: cuszhi_cr,      pipeline: cr,
+     skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
   - {compressor: fzgm,   variant: cuszhi_cr,      pipeline: configs/pipelines/cusz_hi_cr.toml,
      skip_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
 
