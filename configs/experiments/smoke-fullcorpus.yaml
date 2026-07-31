@@ -1,0 +1,37 @@
+# Pre-flight for the full-corpus sweep: one field from each NEWLY-ADDED dataset,
+# with emphasis on f64 (MIRANDA/S3D/NWCHEM/BROWN) since the f64-into-f32-stage bug
+# (D27) is only reachable now that f64 datasets are registered.
+name: smoke-fullcorpus
+description: Pre-flight for fzgm_vs_native_full on the A100.
+datasets: [MIRANDA, S3D, NWCHEM, BROWN, EXAFEL, SCALE-LETKF, QMCPACK-3D]
+fields:
+  MIRANDA:     [density]
+  S3D:         [TEMP]
+  NWCHEM:      [t631]
+  BROWN:       [sample_B_1p0]
+  EXAFEL:      [data]
+  SCALE-LETKF: [PRES]
+  QMCPACK-3D:  [orbital_000]
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+repetitions: 1
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+runs:
+  - {compressor: cusz,   variant: cusz,           pipeline: default}
+  - {compressor: fzgm,   variant: cusz,           pipeline: configs/pipelines/cusz.toml}
+  - {compressor: cuszhi, variant: cuszhi_tp,      pipeline: tp,
+     skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}   # cuSZ-Hi CLI is f32-only
+  - {compressor: fzgm,   variant: cuszhi_tp,      pipeline: configs/pipelines/cusz_hi_tp.toml,
+     skip_datasets: [NWCHEM, BROWN]}
+  - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
+  - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+  - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:3d",
+     only_datasets: [MIRANDA, S3D, EXAFEL, SCALE-LETKF, QMCPACK-3D]}
+  - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [MIRANDA, S3D, EXAFEL, SCALE-LETKF, QMCPACK-3D]}
+  - {compressor: pfpl,   variant: pfpl,           pipeline: default}
+  - {compressor: fzgm,   variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}
