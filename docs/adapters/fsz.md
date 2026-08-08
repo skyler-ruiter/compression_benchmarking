@@ -214,6 +214,40 @@ GB/s, FSZ ahead. FZGM's 1.33x host-over-device eats the entire device-side win.
 So a *ranking* claim on a small field needs the ratio checked first; an
 aggregate over fields of this size does not. Same pattern as D33, milder.
 
+## Buffer-state methodology (per the author, Jiajun Huang)
+
+> I measure end-to-end performance with no assumptions about GPU buffer state.
+> cuSZp's decompression skips zero blocks and needs a pre-zeroed output buffer,
+> which cudaMalloc does not guarantee, so I time that memset as part of its
+> pipeline; FSZ zeroes inside the decompression call, so its timing already
+> includes the cost.
+
+Checked against both sides of this adapter (2026-08-08); no correction needed.
+
+- **FSZ**: confirmed in `src/fsz.cu` — `fsz_decompress_with_ws` issues
+  `cudaMemsetAsync(d_out, 0, origSize, stream)` on the *same stream*, before the
+  decompress kernel, gated on `high_cr` (`original_bytes / compressed_bytes >
+  100`). Both timing paths bracket the *whole* call (the stock CLI's own
+  `cudaEvent` pair, and `fsz_hosttime`'s), so the memset was already inside
+  every `device_ms`/`host_ms` this adapter has ever recorded. It fires on 2 of
+  the 20 `fsz_vs_native` cells: NYX `baryon_density`@1e-2 (CR 127.8x) and NYX
+  `temperature`@1e-2 (CR 115.2x).
+- **FZGM has no matching dependency to omit.** None of the three `fsz.toml`
+  stages assume a pre-zeroed buffer: `AdaptiveBitpackStage` decode writes zero
+  per-element for a zero-rate block rather than skipping the write
+  (`decode_unpack_kernel_warp`); `AdaptiveLorenzoStage` inverse writes every
+  live element directly; `QuantizerStage` in the in-place/linear mode this
+  preset uses writes every element directly too ("no memset needed" per its own
+  comment at `quantizer.cu:601` — the memset-before-scatter path is only for
+  non-inplace outlier mode, unused here).
+
+**One asymmetry worth flagging, not fixing:** at CR > 100 this genuinely favors
+FSZ beyond bytes-moved — a single bulk `cudaMemsetAsync` runs closer to peak HBM
+bandwidth than FZGM paying the zero-rate cost element-by-element in its decode
+kernel. If the corpus grows more triple-digit-CR fields, expect FSZ's
+decompress edge to widen further there for this reason, independent of the
+fusion-vs-materialization story above.
+
 ## Caveats
 
 - **Throughput here is not a like-for-like compressor comparison.** It prices
