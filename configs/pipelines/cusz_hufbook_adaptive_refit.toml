@@ -1,0 +1,38 @@
+[pipeline]
+# cusz_hufbook_adaptive.toml with book_refit_interval = 4.
+#
+# Arm of configs/experiments/fzgm_huffman_book.yaml. Measures what unconditional
+# periodic refitting COSTS, not what it saves.
+#
+# benchkit compresses the same field repeatedly inside one process, so the code
+# distribution never drifts and a refit can never recover ratio here -- by
+# construction this arm should match cusz_hufbook_adaptive on CR and lose
+# throughput. That loss is the number we want: the amortized price of one extra
+# histogram + D2H + host tree build every 4 calls, which is what you pay to cover
+# the drift case that setRefitThreshold cannot see (a block that is MORE
+# compressible than the fitted one but still poorly served by its book).
+#
+# The ratio side of refitting is measured separately by
+# fzgmod-profile-huffman-drift, which feeds genuinely different steps.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 1024
+encode_mode = "Fine"
+book_source = "Adaptive"
+book_refit_interval = 4
+inputs = [{from = "lrz", port = "codes"}]

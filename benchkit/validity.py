@@ -78,15 +78,37 @@ REASONS: dict[str, tuple[str, str]] = {
         "unexplained rather than benign. Excluded from quality means; the row is still "
         "valid for CR and throughput, so this reason alone does not gate those.",
     ),
+    "lossless_expansion": (
+        "lossless output larger than input",
+        "cr <= 1 on a lossless run. Unlike the lossy `expansion` case this is a real "
+        "measurement, not a failure: some fields are incompressible byte-wise and the "
+        "codec's framing overhead shows up as a ratio below 1. RETAINED in aggregates "
+        "-- excluding it would bias every lossless CR mean upward by deleting the "
+        "cases where the codec lost. Counted here so the count can be quoted.",
+    ),
+    "lossless_exact": (
+        "lossless run, no quality to report",
+        "error_mode == lossless: the codec reconstructed the input bit-exactly, so MSE "
+        "is 0 and PSNR is legitimately infinite. This is the run succeeding, not an "
+        "anomaly -- but an infinite PSNR cannot enter a quality mean, so the row is "
+        "gated out of quality aggregates only. Its CR and throughput are fully valid "
+        "and are the whole point of the run.",
+    ),
 }
 
-# Reasons that disqualify a row from EVERY aggregate. `psnr_nonfinite` is
-# deliberately absent: it gates quality only (see quality_valid()).
+# Reasons that disqualify a row from EVERY aggregate. `psnr_nonfinite` and
+# `lossless_exact` are deliberately absent: they gate quality only (see
+# quality_valid()).
 _HARD_REASONS = ("failed", "degenerate_field", "expansion", "eb_violated_severe")
 
 
 def _finite(x) -> bool:
     return x is not None and isinstance(x, (int, float)) and math.isfinite(x)
+
+
+def is_lossless(row: dict) -> bool:
+    """True for a run that declared no error bound and must be bit-exact."""
+    return row.get("error_mode") == "lossless"
 
 
 def degenerate_fields(rows: list[dict]) -> set[tuple]:
@@ -95,10 +117,18 @@ def degenerate_fields(rows: list[dict]) -> set[tuple]:
     Data-driven on purpose -- see the module docstring. A field is only called
     degenerate if it has at least one ok row and *all* of them are exact, so a
     single lossless cell among lossy ones never triggers it.
+
+    `lossless` rows are excluded from the vote entirely, not merely outvoted. The
+    detector infers "this field is constant" from "no compressor could produce any
+    error on it", and that inference is only sound over LOSSY runs -- a lossless
+    codec reconstructs every field exactly, constant or not. Without this, an
+    nvCOMP-vs-FZGM-lossless session (where every row is exact by construction)
+    would mark all 186 fields degenerate and the gate would drop the entire
+    session. See DESIGN.md D31.
     """
     seen: dict[tuple, list[dict]] = {}
     for r in rows:
-        if r.get("status") != "ok":
+        if r.get("status") != "ok" or is_lossless(r):
             continue
         seen.setdefault((r.get("dataset"), r.get("field")), []).append(r)
     out = set()
@@ -120,15 +150,30 @@ def row_reasons(row: dict, degenerate: set[tuple]) -> list[str]:
 
     cr = row.get("cr")
     if _finite(cr) and float(cr) <= 1.0:
-        out.append("expansion")
+        # For a LOSSY codec, cr <= 1 is a corruption signal: it has never been seen
+        # without catastrophic quality beside it (PSNR -23.6 dB), so the row is
+        # describing a failure, not a ratio. For a LOSSLESS codec it is an ordinary
+        # measurement -- nvCOMP LZ4 compresses CESM-2D/CLDHGH to 0.996x, because raw
+        # f32 mantissas are close to incompressible byte-wise and the framing
+        # overhead is real. Dropping those rows would bias every lossless CR mean
+        # upward by silently deleting exactly the cases where the codec lost.
+        # Counted and reported separately, but RETAINED.
+        out.append("lossless_expansion" if is_lossless(row) else "expansion")
 
     if row.get("eb_satisfied") is False:
         ratio = row.get("err_over_bound")
         if not _finite(ratio) or float(ratio) > MARGINAL_EB_RATIO:
+            # A lossless codec that returned anything but the input is broken, not
+            # merely off-bound -- there is no MARGINAL_EB_RATIO slack to fall under
+            # (metrics.compute_quality sets err_over_bound = 0 for these, so the
+            # `not _finite` arm never carries them here).
             out.append("eb_violated_severe")
 
+    # An infinite PSNR means "exact" either way; what differs is whether that was
+    # the point. For a lossless run it is the contract being met, so it gets its own
+    # reason code rather than being filed under "unexplained".
     if not _finite(row.get("psnr")) and "degenerate_field" not in out:
-        out.append("psnr_nonfinite")
+        out.append("lossless_exact" if is_lossless(row) else "psnr_nonfinite")
 
     return out
 

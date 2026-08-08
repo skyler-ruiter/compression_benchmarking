@@ -1,0 +1,63 @@
+# SZ3 (CPU) vs its structural GPU analogue: GInterp -> Huffman -> GPU-Zstd.
+#
+#   python -m benchkit run configs/experiments/sz3_vs_ginterp_gpu_zstd.yaml
+#
+# THE QUESTION
+# ------------
+# SZ3's default ALGO_INTERP path is spline **interpolation** + quantization,
+# **Huffman** over the quant codes, then **Zstd** over the bitstream.
+# `configs/pipelines/ginterp_huffman_gpu_zstd.toml` is that exact structure built
+# from FZGM stages (GInterp / Huffman / GPULZ-split + entropy). So this is the
+# closest CPU-to-GPU like-for-like available: same algorithm family, same three
+# layers, one on a CPU and one on an H100.
+#
+# What to look for is **CR and PSNR agreement**, not throughput. If the GPU
+# pipeline lands in the same ratio/quality neighbourhood at matched error bounds,
+# the GPU port is faithful and the throughput difference is the whole story. If it
+# does not, the gap is algorithmic and worth chasing before any speed claim.
+#
+# READING THE THROUGHPUT COLUMNS: do not. SZ3 is CPU-only and its adapter measures
+# **external wall clock around the subprocess, including process startup**
+# (docs/adapters/sz3.md), while the FZGM rows are device time. Those numbers are
+# not comparable and are not the point of this experiment. The `*_host_ms` fields
+# added in D33 are the closest thing to a fair axis if you want one.
+#
+# CONTEXT ROWS
+# ------------
+# - `cusz_hi_cr.toml`: same GInterp front end, but cuSZ-Hi's LC back end
+#   (RRE -> Zigzag -> RZE) instead of GPU-Zstd. Isolates what swapping the
+#   back end does to CR at a fixed predictor.
+# - `cusz.toml`: Lorenzo + Huffman, i.e. the non-interpolation GPU baseline —
+#   says how much the interpolation predictor is worth at all.
+name: sz3_vs_ginterp_gpu_zstd
+description: >
+  SZ3 (CPU interpolation+Huffman+Zstd) against the same structure on GPU
+  (GInterp+Huffman+GPU-Zstd), checking CR/PSNR agreement at matched bounds.
+
+datasets: [CESM-2D, HURR, NYX]
+fields:
+  CESM-2D: [CLDHGH, PRECT, TS]
+  HURR:    [U, QVAPOR]
+  NYX:     [temperature, baryon_density]
+
+error:
+  # rel_range is the cross-tool comparable: FZGM "NOA" == SZ3 "REL". Using SZ3's
+  # own "REL" against FZGM's "REL" would silently compare eb*range to
+  # eb*max|data| (DESIGN §5.4) — the classic way to make one tool look better.
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # The comparison
+  - {compressor: sz3,  variant: reference,        pipeline: "sz3:default"}
+  - {compressor: fzgm, variant: ginterp-gpuzstd,  pipeline: configs/pipelines/ginterp_huffman_gpu_zstd.toml}
+
+  # Context
+  - {compressor: fzgm, variant: ginterp-lc,       pipeline: configs/pipelines/cusz_hi_cr.toml}
+  - {compressor: fzgm, variant: lorenzo-huffman,  pipeline: configs/pipelines/cusz.toml}

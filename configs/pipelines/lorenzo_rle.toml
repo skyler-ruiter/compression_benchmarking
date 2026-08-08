@@ -1,0 +1,36 @@
+[pipeline]
+# LorenzoQuant → RLE (whole-array mode) — baseline arm for chunked RLE.
+#
+# Arm of configs/experiments/fzgm_rle_bitpack.yaml. No pipeline in
+# configs/pipelines/ contained an RLE stage before this one, so the chunked-RLE
+# work had no benchmark surface at all.
+#
+# Shape is deliberately cusz.toml's front end (LorenzoQuant, uint16 zigzagged
+# codes) with RLE substituted for Huffman: quantized prediction residuals are
+# where runs actually come from, since a smooth field at a loose bound sends most
+# elements to the same zero-error code. RLEStage should only be used when the
+# upstream reliably produces runs -- worst case output is 4 + 2x the input.
+#
+# chunk_size = 0 selects the whole-array path: a device-wide CUB scan plus a
+# four-kernel dependency chain, and a decode that needs a device-to-host
+# readback. The _c4096 / _c8192 arms replace that with one thread block per
+# chunk and a block-local scan.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "rle"
+type = "RLE"
+data_type = "uint16"
+chunk_size = 0
+inputs = [{from = "lrz", port = "codes"}]

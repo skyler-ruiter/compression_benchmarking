@@ -1,0 +1,65 @@
+# Coder vs coder: FZGM's GPU-Zstd back end and nvCOMP's Zstd on IDENTICAL input.
+#
+#   # once, to build the input:
+#   python scripts/extract_quant_codes.py --dataset CESM-2D \
+#       --fields CLDHGH,PRECT,TS --eb 1e-3 --out-root ${BENCHKIT_DATA_ROOT}/derived
+#   python -m benchkit run configs/experiments/nvcomp_vs_fzgm_backend.yaml
+#
+# WHAT THIS ISOLATES
+# ------------------
+# nvcomp_vs_fzgm_lossless.yaml compares the two back ends on raw f32 fields, which
+# is a fair fight but not the one FZGM's back end was designed for: it was tuned on
+# Lorenzo residuals, where there is real structure to match, not on raw mantissa
+# bytes. This experiment hands both coders exactly the bytes FZGM's own preset
+# feeds its back end — the uint16 quant codes from LorenzoQuant at NOA eb=1e-3,
+# radius 2048 — so the remaining difference is the coders.
+#
+#   fzgm   gpu_zstd_codes.toml   GPULZ(split) -> Huffman<u16> + ANS x3
+#   nvcomp nvcomp:zstd           ZstdManager(chunk=65536)
+#
+# READING THE RESULTS
+# -------------------
+# `cr` here is a BACK-END ratio over an already-2x-reduced intermediate. It is not
+# a compression ratio for CESM-2D and must never be quoted as one; the end-to-end
+# number for the same field and bound comes from gpu_zstd.toml in a lossy
+# experiment. `original_bytes` is the codes size, so throughput is per byte of
+# codes, not per byte of field — do not pool these rows with raw-field rows.
+#
+# The codes also exclude LorenzoQuant's outlier streams, which both back ends would
+# carry identically. extract_quant_codes.py reports the outlier fraction per field
+# (0% for these three at this bound); a field with a large fraction has a codes
+# stream representing less of its data, and its back-end ratio is correspondingly
+# less representative.
+name: nvcomp_vs_fzgm_backend
+description: >
+  Back-end isolation for the nvCOMP comparison: FZGM's GPULZ+Huffman+ANS coder and
+  nvCOMP's Zstd (plus family) over the identical uint16 Lorenzo quant codes.
+
+datasets: [CESM-2D-qcodes-noa1e-3]
+fields: all
+
+error:
+  mode: lossless            # both sides are pure coders; no bound exists
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # FZGM's back end, byte-for-byte the coder half of configs/pipelines/gpu_zstd.toml
+  - {compressor: fzgm, variant: fzgm-gpuzstd-backend, pipeline: configs/pipelines/gpu_zstd_codes.toml}
+
+  # nvCOMP. Zstd is the comparison; the rest place it within its own family on
+  # this input, which is far more compressible than raw f32 and separates the
+  # algorithms much more sharply.
+  # chunk=16384 as well as the vendor-recommended 65536: on this H100 the smaller
+  # chunk is up to 2.1x faster for ~0.2% worse ratio, because chunk count is the
+  # parallelism. nvCOMP is quoted at its best, as FZGM is. See docs/adapters/nvcomp.md.
+  - {compressor: nvcomp, variant: nvcomp-zstd,     pipeline: "nvcomp:zstd"}
+  - {compressor: nvcomp, variant: nvcomp-zstd-16k, pipeline: "nvcomp:zstd:chunk=16384"}
+  - {compressor: nvcomp, variant: nvcomp-lz4,      pipeline: "nvcomp:lz4"}
+  - {compressor: nvcomp, variant: nvcomp-deflate,  pipeline: "nvcomp:deflate"}
+  - {compressor: nvcomp, variant: nvcomp-gdeflate, pipeline: "nvcomp:gdeflate"}
+  - {compressor: nvcomp, variant: nvcomp-ans,      pipeline: "nvcomp:ans"}

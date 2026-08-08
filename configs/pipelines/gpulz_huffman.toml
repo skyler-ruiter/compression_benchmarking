@@ -1,0 +1,23 @@
+# FZGM GPULZ -> Huffman — the counterpart to `nvcomp:deflate` / `nvcomp:gdeflate`.
+#
+# LZ77 followed by Huffman over the result *is* DEFLATE's structure, so this is
+# the closest FZGM equivalent to nvCOMP's Deflate and GDeflate. Huffman is
+# uint8/256 because it codes GPULZ's byte-granular output, not quant codes.
+#
+# GDeflate is the fairer of the two nvCOMP targets: it is a GPU-reshaped DEFLATE
+# variant rather than a bit-exact DEFLATE stream, which is also what this is.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lz"
+type = "GPULZ"
+chunk_size = 2048
+word_size = 4
+match_level = 1
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint8"
+bklen = 256
+inputs = [{from = "lz", port = "output"}]

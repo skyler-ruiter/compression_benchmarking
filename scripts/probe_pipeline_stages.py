@@ -55,19 +55,53 @@ def dims_for(name: str) -> list[int]:
     return DIMS_1D if "_1d" in name else DIMS_3D
 
 
+def _literal_bklen(tpl: PipelineToml) -> int | None:
+    """Codebook length of a uint16 Huffman stage, if the preset has one.
+
+    Only consulted for coder-only presets, to size their synthetic input's symbol
+    alphabet (see probe()). None means "no uint16 Huffman", i.e. a byte-alphabet
+    preset that the f32 ramp already satisfies.
+    """
+    for s in tpl.doc.get("stage", []):
+        if s.get("type") == "Huffman" and s.get("input_type") == "uint16":
+            return int(s.get("bklen", 0)) or None
+    return None
+
+
 def probe(cli: str, preset: Path, workdir: Path) -> dict:
     dims = dims_for(preset.stem)
     n = dims[0] * dims[1] * dims[2]
-    raw = workdir / f"{preset.stem}.f32"
-    # A smooth ramp: compresses, and avoids the all-constant path that some stages
-    # short-circuit (which could hide a stage from the trace).
     import struct
-    with open(raw, "wb") as fh:
-        fh.write(struct.pack(f"<{n}f", *[(i % 997) * 0.01 for i in range(n)]))
 
     tpl = PipelineToml.load(preset)
+    raw = workdir / f"{preset.stem}.f32"
+
+    # A smooth ramp: compresses, and avoids the all-constant path that some stages
+    # short-circuit (which could hide a stage from the trace).
+    #
+    # A *coder-only* preset (no predictor) reads its input as symbols, not floats,
+    # so an f32 ramp is not merely meaningless to it — it is invalid. gpu_zstd_codes
+    # feeds a Huffman<uint16> with a 4096-entry book, and f32 bytes reinterpreted as
+    # uint16 overflow it ("out-of-range symbol(s) detected"), failing the probe and
+    # dropping the preset out of the stage map that `benchkit stale` depends on. So
+    # match the synthetic data to what the preset's literals coder declares.
+    bklen = _literal_bklen(tpl) if not tpl.lossy_stages() else None
+    with open(raw, "wb") as fh:
+        if bklen:
+            fh.write(struct.pack(f"<{2 * n}H", *[(i % 997) % bklen for i in range(2 * n)]))
+        else:
+            fh.write(struct.pack(f"<{n}f", *[(i % 997) * 0.01 for i in range(n)]))
     cfg = workdir / f"{preset.stem}.toml"
-    cfg.write_text(tpl.render(1e-3, "NOA", dims=dims, input_size=n * 4, dtype="f32"))
+    # Coder-only (lossless) presets declare no error_bound, so there is nothing to
+    # render — ship them verbatim. They still need to appear in the stage map:
+    # `benchkit stale` uses it to answer "which cells does a change to GPULZ /
+    # Huffman / ANS invalidate?", and those are exactly the stages these presets
+    # are made of. Skipping them would silently under-report the stale set.
+    # See configs/pipelines/gpu_zstd_lossless.toml and DESIGN.md D31/D32.
+    if tpl.lossy_stages():
+        cfg.write_text(tpl.render(1e-3, "NOA", dims=dims, input_size=n * 4, dtype="f32"))
+    else:
+        cfg.write_text(tpl.text)
 
     report = workdir / f"{preset.stem}.json"
     argv = [cli, "-b", "-i", str(raw), "-l", f"{dims[0]}x{dims[1]}x{dims[2]}",

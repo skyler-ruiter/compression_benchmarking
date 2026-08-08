@@ -1,0 +1,26 @@
+[pipeline]
+# lorenzo_rle.toml with chunk_size = 8192 — chunked RLE, upper end of the
+# documented sweet spot. See lorenzo_rle_c4096.toml for what chunking changes.
+#
+# Arm of configs/experiments/fzgm_rle_bitpack.yaml. Paired with _c4096 to bracket
+# the 4096-8192 range; the docs measured both at 136 GB/s encode, so a difference
+# here is either noise or an H100-specific effect worth naming.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "rle"
+type = "RLE"
+data_type = "uint16"
+chunk_size = 8192
+inputs = [{from = "lrz", port = "codes"}]

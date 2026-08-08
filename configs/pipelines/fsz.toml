@@ -1,0 +1,52 @@
+[pipeline]
+# FSZ — Quantizer(linear) → AdaptiveLorenzo → AdaptiveBitpack
+#
+# Copied from FZGPUModules examples/presets/fsz.toml. Baseline arm of
+# configs/experiments/fzgm_fsz.yaml.
+#
+# AdaptiveLorenzo splits the input into 256-element tiles (blocks_per_tile x 32)
+# and per tile picks the cheapest of LZ1 / LZ2 / LZ1+centering / LZ2+centering by
+# EXACT encoded byte cost -- not entropy, not a heuristic -- because it models
+# what AdaptiveBitpack will actually emit. The prediction chain runs the whole
+# tile rather than restarting every 32 elements, so only the tile's first one or
+# two residuals are raw instead of one per coder block; with a fixed-rate coder
+# that is most of the win, since a single raw seed sets the bit width for its
+# whole block.
+#
+# The cost model is exact ONLY with AdaptiveBitpack at block_size = 32. Do not
+# retarget this preset at a different coder or block size without revisiting it.
+#
+# There is no native FSZ build to compare against. The meaningful reference is
+# configs/pipelines/cuszp2.toml / cuszp3.toml: same AdaptiveBitpack coder, plain
+# Lorenzo / TiledLorenzo predictor, so the delta isolates AdaptiveLorenzo.
+#
+# Prior work: FSZ, Jiajun Huang, SC'26 (arXiv:2607.15413). This is a modular
+# reimplementation of FSZ's prediction stage -- the reference fuses prediction,
+# quantization and encoding into a single kernel, so this is not a like-for-like
+# throughput comparison against the paper.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+linear_mode = true
+
+[[stage]]
+name = "alrz"
+type = "AdaptiveLorenzo"
+data_type = "int32"
+blocks_per_tile = 8
+enable_order2 = true
+enable_centering = true
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+inputs = [{from = "alrz"}]

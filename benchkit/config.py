@@ -15,6 +15,10 @@ import yaml
 
 # ---- dataset manifest -------------------------------------------------------
 
+# Element width in bytes per dtype token. Anything unlisted falls back to 4.
+_ELEMENT_SIZE = {"f32": 4, "f64": 8, "i32": 4, "i64": 8,
+                 "u8": 1, "u16": 2, "u32": 4}
+
 
 @dataclass
 class FieldSpec:
@@ -34,7 +38,11 @@ class FieldSpec:
 
     @property
     def element_size(self) -> int:
-        return 8 if self.dtype in ("f64", "i64") else 4
+        # Integer widths exist for *derived* datasets, not raw SDRBench fields: the
+        # back-end-isolation experiment feeds both FZGM's and nvCOMP's lossless
+        # coders the identical uint16 Lorenzo quant codes produced by
+        # scripts/extract_quant_codes.py (see docs/adapters/nvcomp.md).
+        return _ELEMENT_SIZE.get(self.dtype, 4)
 
     @property
     def original_bytes(self) -> int:
@@ -110,7 +118,19 @@ class DatasetCatalog:
 # cross-tool comparable: every EBLC supports it (as "REL" for ABS/REL tools, "NOA" for
 # ABS/NOA/REL tools like FZGM/PFPL). `from_toml` means "use the bound the pipeline
 # already declares" — for shipping a hand-tuned config as-is (no sweep).
-CANONICAL_MODES = {"abs", "rel_range", "rel_maxabs", "from_toml"}
+#
+# `lossless` is not an error bound at all — it declares that the run has NO lossy
+# stage and the reconstruction must be bit-exact. It exists for the general-purpose
+# GPU codecs (nvCOMP's Zstd/LZ4/Deflate/GDeflate/ANS) and for FZGM pipelines built
+# from coder stages alone, which are the only way to compare those two families on
+# the same job. Like `from_toml` it takes no `error.bounds`. Rows carry
+# max_abs_err == 0 by construction, which the validity gate has to know about —
+# see benchkit/validity.py and DESIGN.md D31.
+CANONICAL_MODES = {"abs", "rel_range", "rel_maxabs", "from_toml", "lossless"}
+
+# Modes that carry no numeric error bound, so `error.bounds` is absent and the
+# matrix expands to a single unbounded cell per (run entry, field).
+UNBOUNDED_MODES = {"from_toml", "lossless"}
 
 
 @dataclass
@@ -187,7 +207,8 @@ class ExperimentConfig:
         mode = err.get("mode", "rel_range")
         if mode not in CANONICAL_MODES:
             raise ValueError(f"{path}: error.mode '{mode}' not in {sorted(CANONICAL_MODES)}")
-        bounds = [None] if mode == "from_toml" else [float(b) for b in err["bounds"]]
+        bounds = ([None] if mode in UNBOUNDED_MODES
+                  else [float(b) for b in err["bounds"]])
         cfg = cls(
             name=raw.get("name", Path(path).stem),
             datasets=list(raw["datasets"]),

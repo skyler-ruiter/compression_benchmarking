@@ -31,9 +31,13 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
 ## Project layout
 
 - `benchkit/` — the package: `config`, `datasets`(in config.py), `pipelines` (TOML
-  load/render), `adapters/{base,fzgm,cusz_ref,cuszhi,cuszp,fzgpu,pfpl,mans,sz3,zfp,
-  mgard,sperr,lscomp}`, `metrics` (harness-owned), `gpu` (throttle sampler),
-  `provenance`, `store` (JSONL), `runner`, `analysis`, `cli`, `site`.
+  load/render), `adapters/{base,fzgm,cusz_ref,cuszhi,cuszp,fsz,fzgpu,pfpl,mans,sz3,zfp,
+  mgard,sperr,lscomp,nvcomp}`, `metrics` (harness-owned), `fzm` (.fzm archive
+  reader), `gpu` (throttle sampler), `provenance`, `store` (JSONL), `runner`,
+  `analysis`, `cli`, `site`.
+- `tools/nvcomp_cli/` — the only compressor CLI built *in this repo*. nvCOMP ships
+  as a library with no vendor binary that reports device time; build with
+  `scripts/build-nvcomp-cli.sh`.
 - `configs/` — `datasets.yaml`, `experiments/*.yaml`, `pipelines/*.toml`,
   `site.example.yaml` (copy to gitignored `site.local.yaml`).
 - `docs/` — `DESIGN.md`, `adapters/`. `scripts/submit.slurm` — SLURM array template.
@@ -49,8 +53,35 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
   number trusted from a tool is device kernel time. Recompute throughput in one unit
   (decimal GB/s) — tools disagree (GB/s vs GiB/s vs MiB/ms).
 - **Error-mode names collide.** Canonical modes are `abs`/`rel_range`/`rel_maxabs`/
-  `from_toml`. **FZGM `REL` = `eb·max(|data|)` (Lorenzo), NOT range** — the cross-tool
-  comparable is `rel_range` (= FZGM `NOA` = cuSZ `REL`). See DESIGN §5.4.
+  `from_toml`/`lossless`. **FZGM `REL` = `eb·max(|data|)` (Lorenzo), NOT range** — the
+  cross-tool comparable is `rel_range` (= FZGM `NOA` = cuSZ `REL`). See DESIGN §5.4.
+- **`lossless` is a mode, not a bound** (D31). For nvCOMP and for FZGM coder-only
+  pipelines: no `error.bounds`, contract is bit-exactness. Every such row has
+  `max_abs_err == 0` and `psnr == inf` *by construction*, so `validity.py` carves
+  them out of the degeneracy detector and treats `cr <= 1` as a real measurement
+  (`lossless_expansion`, retained) rather than corruption. `report --aggregate`
+  showing "0 usable for quality" on a lossless session is correct, not a failure.
+- **Never compare FZGM's `gpu_zstd` preset to nvCOMP Zstd end-to-end** (D32). The
+  preset is lossy, nvCOMP is lossless; the 10.87x-vs-1.14x gap on CESM-2D/CLDHGH is
+  the Lorenzo predictor, not the coder. Use `nvcomp_vs_fzgm_lossless.yaml` (predictor
+  stripped) or `nvcomp_vs_fzgm_backend.yaml` (identical quant codes into both).
+  See `docs/adapters/nvcomp.md`.
+- **`device_ms` excludes different amounts of work per tool — check
+  `*_host_over_device` before quoting a throughput ratio** (D33). FZGM's `device_ms`
+  is `dag_elapsed_ms` (CUDA events around `dag->execute()` only); for a **split-mode**
+  pipeline it omits the host-side assembly of the coded ports into an archive, which
+  measured **3.53x** on raw f32 (single-stream control: 1.02x). nvCOMP runs 1.00x.
+  Device-only said FZGM compresses 3.5x faster than nvCOMP Zstd; host wall says
+  nvCOMP is *ahead*. Both are now in every row.
+- **Pin, record, and re-check reference-tool versions** (D37). nvCOMP is pinned to
+  5.3.0.16 and its version is recorded per session as `nvcomp_version`; the work
+  started a release behind on 5.2.0.10 (CR bit-identical, but ANS compress +34% in
+  5.3). Every reference compressor here is a hand-built tree — nothing keeps them
+  current. `docs/adapters/nvcomp.md` has the redist check commands.
+- **Give a reference tool its best config, not its documented default** (D34).
+  nvCOMP's header recommends chunk 65536; on this H100 that costs Zstd up to 2.1x
+  (16 KB is the optimum) because chunk count is the parallelism. FZGM's side is
+  tuned by measurement, so nvCOMP is swept too.
 - **FZGM is TOML-first** (`-c config.toml`), not `--stages`: full DAGs, and the rendered
   TOML is archived per run. The PATH `fzgmod-cli` may be **stale** (no `--report-json`) —
   point `FZGMOD_CLI` at the intended build.
@@ -110,9 +141,15 @@ drift). Design + limits: `docs/stage-level-invalidation.md`.
 M1 (core loop) + M2 (HPC execution + timing reliability) complete. M3 (reference
 adapters) well underway: cuSZ, cuSZ-Hi, cuSZp2/3, FZ-GPU, PFPL (GPU) and now SZ3, zfp,
 MGARD, SPERR (CPU/GPU, added on the JetStream2 H100 node — see docs/adapters/*.md) all
-have working adapters. MANS and lsCOMP remain stubs (lossless/quantized-integer
-compressors that don't map onto the abs/rel_range/rel_maxabs model without a
-quantization-wrapper design — see docs/adapters/mans.md, docs/adapters/lscomp.md).
+have working adapters, plus **nvCOMP** (GPU lossless: zstd/lz4/deflate/gdeflate/ans,
+via the repo-built `tools/nvcomp_cli` — see docs/adapters/nvcomp.md) and **FSZ**
+(SC'26, released 2026-08 — the compressor FZGM's `AdaptiveLorenzoStage` was
+reconstructed from the paper alone; see docs/adapters/fsz.md). MANS and lsCOMP
+remain stubs (quantized-integer compressors that don't map onto the
+abs/rel_range/rel_maxabs model without a quantization-wrapper design — see
+docs/adapters/mans.md, docs/adapters/lscomp.md). Note the `lossless` mode added for
+nvCOMP (D31) is the missing half of what those two stubs need: they still lack the
+quantizer, but no longer lack a way to express "no error bound".
 See the roadmap in `docs/DESIGN.md` §9.
 
 ## Conventions

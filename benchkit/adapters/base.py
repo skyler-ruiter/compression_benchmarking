@@ -70,6 +70,17 @@ class BenchmarkResult:
     compress_device_ms_all: list[float]
     decompress_device_ms_all: list[float]
     compressed_bytes: int
+    # Host wall time around the SAME calls, when the tool reports it. Not a second
+    # throughput number — it is the audit that says how much a device-only figure
+    # excludes, and comparing two tools' device_ms without it can be badly
+    # misleading. FZGM's split-mode compress measured 1.26 ms device against
+    # 3.60 ms host (its four coded ports are assembled into one archive on the
+    # host, outside the event bracket that defines dag_elapsed_ms), while nvCOMP's
+    # manager writes one contiguous device buffer and shows ~0.01 ms of gap. The
+    # device-only ratio therefore overstated FZGM's advantage by ~3x. Empty for
+    # tools that report no host time. See docs/adapters/nvcomp.md.
+    compress_host_ms_all: list[float] = field(default_factory=list)
+    decompress_host_ms_all: list[float] = field(default_factory=list)
     stages: list[dict] = field(default_factory=list)
     # fzgm only: {stage_name: source_fingerprint} for the stages this run executed.
     # Lets `benchkit stale --against-build` detect that a stage's code changed since
@@ -85,6 +96,22 @@ class BenchmarkResult:
     graph_requested: bool = False
     graph_active: bool | None = None
     graph_reason: str | None = None
+    # Peak device memory the tool reported for the run, in bytes. FZGM gets this
+    # from its pool tracker (Pipeline::getPeakMemoryUsage()); it is the whole basis
+    # of the memory comparison, so a None here means that comparison cannot be made
+    # for the row rather than that the peak was zero. None for tools that report no
+    # peak — most native baselines.
+    peak_device_bytes: int | None = None
+    # fzgm only: whether liveness-driven buffer coloring was *requested*. The
+    # colored/uncolored pair is the measurement in the peak-memory ablation, and
+    # without this field the two arms are indistinguishable in the row. None for
+    # tools where the concept does not apply.
+    coloring_enabled: bool | None = None
+    # fzgm only: {stage_name: [tokens]} for stages whose behaviour differed from
+    # what was configured in a way that affects comparability — see
+    # Stage::getRunNotes(). Currently the only token is "huffman_adaptive_fallback".
+    # Empty is the normal case and means nothing surprising happened.
+    run_notes: dict[str, list[str]] = field(default_factory=dict)
 
 
 class AdapterError(RuntimeError):

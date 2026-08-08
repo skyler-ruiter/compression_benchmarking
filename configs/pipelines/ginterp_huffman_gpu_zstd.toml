@@ -1,0 +1,89 @@
+# GInterp -> Huffman -> GPU-Zstd — the GPU analogue of SZ3's default pipeline.
+#
+# SZ3's ALGO_INTERP path is: spline **interpolation** predict + quantize ->
+# **Huffman** over the quant codes -> **Zstd** over the resulting bitstream. This
+# config is that same three-stage structure built from FZGM stages:
+#
+#   SZ3                          this pipeline
+#   ---------------------------  --------------------------------------------
+#   interpolation + quantizer    GInterp            (cuSZ-Hi Spline path)
+#   Huffman                      Huffman<uint16>    (bklen = 2*quant_radius)
+#   Zstd (CPU, lossless)         GPULZ split -> Huffman<uint8> + ANS x3
+#
+# Built to answer "does the GPU pipeline land in the same CR/PSNR neighbourhood as
+# the CPU reference doing the same thing?" — see
+# configs/experiments/sz3_vs_ginterp_gpu_zstd.yaml.
+#
+# Why the Merge: GInterp emits `codes` plus `anchor`, `outlier_vals` and
+# `outlier_idxs`. Only `codes` goes to Huffman, so without a Merge the three
+# outlier ports would be uncoded leaf outputs and the GPU-Zstd back end would
+# never see them — SZ3's Zstd pass covers the whole serialized blob, so this one
+# has to as well or the comparison is rigged in our favour. Same reasoning as
+# cusz_hi_cr.toml, which merges before its LC chain.
+#
+# The literals coder is Huffman<uint8>/256 here, not uint16/4096: by this point
+# the stream is a Huffman *bitstream* plus binary outlier data, which has no
+# 16-bit symbol structure. (gpu_zstd_codes.toml uses uint16 because there the
+# input really is uint16 quant codes.)
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "gi"
+type = "GInterp"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 2048                 # NOA eb=1e-3 auto-radius ~ ceil(2/eb) = 2000
+outlier_capacity = 0.2
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 4096                        # = 2*quant_radius
+inputs = [{from = "gi", port = "codes"}]
+
+# One blob: [Huffman(codes) | anchor | outlier_vals | outlier_idxs].
+[[stage]]
+name = "merge"
+type = "Merge"
+segments = ["vle", "anchor", "outlier_vals", "outlier_idxs"]
+inputs = [
+  {from = "huf", port = "output"},
+  {from = "gi",  port = "anchor"},
+  {from = "gi",  port = "outlier_vals"},
+  {from = "gi",  port = "outlier_idxs"},
+]
+
+# ── GPU-Zstd back end over the merged blob ───────────────────────────────────
+[[stage]]
+name = "lz"
+type = "GPULZ"
+split_mode = true
+chunk_size = 2048
+word_size = 4
+match_level = 1
+inputs = [{from = "merge", port = "output"}]
+
+[[stage]]
+name = "huf_lit"
+type = "Huffman"
+input_type = "uint8"
+bklen = 256
+inputs = [{from = "lz", port = "literals"}]
+
+[[stage]]
+name = "ans_len"
+type = "ANS"
+inputs = [{from = "lz", port = "lengths"}]
+
+[[stage]]
+name = "ans_off"
+type = "ANS"
+inputs = [{from = "lz", port = "offsets"}]
+
+[[stage]]
+name = "ans_meta"
+type = "ANS"
+inputs = [{from = "lz", port = "meta"}]

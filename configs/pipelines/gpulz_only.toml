@@ -1,0 +1,18 @@
+# FZGM GPULZ alone (single-stream) — the counterpart to `nvcomp:lz4`.
+#
+# Both are LZ77-family match coders with no entropy stage behind them, which is
+# what LZ4 is by definition. GPULZ's window is far shorter (offsets <= 255 at
+# word granularity, chunks of `chunk_size` bytes compressed independently) than
+# LZ4's, so expect FZGM to trail on ratio here — that limitation is the subject
+# of docs/results/sz3-vs-ginterp-gpu-zstd.md.
+#
+# split_mode is OFF: a split only pays off when separate coders consume the
+# ports, and there are none here.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lz"
+type = "GPULZ"
+chunk_size = 2048
+word_size = 4
+match_level = 1

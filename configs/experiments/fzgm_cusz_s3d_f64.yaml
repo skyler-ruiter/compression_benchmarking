@@ -1,0 +1,45 @@
+# The one cell that survived the 2026-08-08 quantizer precision fix.
+#
+# 20260808-f64-precision-fix cleared all four cuszp variants on S3D/N2 (err_over_bound
+# 81.08 -> eb satisfied) once QuantizerStage quantized in TInput. `cusz` did not: it
+# runs LorenzoQuantStage, a different stage, and still reports 22.73x over bound at
+# eb=1e-4 with PSNR 53.3 dB and `status: ok`.
+#
+# LorenzoQuant already rounded in TInput (`round(input[i] * ebx2_r)`), so the kernel
+# is not the cause here. Its serialized header narrowed the absolute bound to float32,
+# which is a real defect and is now fixed — this experiment exists to find out whether
+# it was THE cause, or whether a third mechanism is at work. The in-process test
+# cannot answer that: pipeline_round_trip reuses the live stage object and never reads
+# the header, so only a file round-trip on real data settles it.
+#
+#   source .venv/bin/activate && source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/fzgm_cusz_s3d_f64.yaml \
+#          --session-id 20260808-cusz-s3d-f64
+name: fzgm_cusz_s3d_f64
+
+fields:
+  S3D: [N2, PRES]
+  CESM-2D: [PSL]
+
+datasets:
+  - S3D
+  - CESM-2D
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 3
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # The failing variant. CESM-2D/PSL is f32 and comes along as the control: if the
+  # header fix changed anything there, the change was not precision-specific.
+  - {compressor: fzgm, variant: cusz, pipeline: configs/pipelines/cusz.toml}
+
+  # fzgpu shares LorenzoQuant with cusz and differs only in the coder, so it
+  # separates "the predictor/quantizer stage" from "the Huffman path".
+  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml}

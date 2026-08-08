@@ -1,0 +1,81 @@
+# Targeted regression probe: re-measure exactly the cells that came back SEVERELY
+# wrong in the 2026-07-28 full-corpus session, to find out which are still live.
+#
+# Provenance of this cell list: audit of 20260728-fullcorpus-skyler-h100 (4,860 FZGM
+# rows) for rows recorded `status: ok` but with err_over_bound > 10x. 24 such rows,
+# 20 distinct (variant, dataset, field). PSNR on those rows ranged from 53.3 dB down
+# to -96 dB. Every one of them was `status: ok` -- the eb_satisfied gate is the only
+# thing that separated them from usable data.
+#
+# Since that session the following landed and MAY have fixed some of these; this
+# experiment exists to find out which, rather than assume:
+#   - RRE/RZE missing __syncthreads on the forward path (race feeding malformed chunks)
+#   - GInterp uninitialized scratch reads + uninitialized outlier tails
+#   - NOA/PREL value-range scan including the zero-padding tail
+#   - Huffman codebook clamping now detected instead of silently emitting a bad stream
+#
+# What the failure patterns suggest (hypotheses, to be confirmed by the results):
+#   - EXAALT vx/vy/vz/zz @1e-4: cusz AND fzgpu fail with *identical* err_over_bound.
+#     Their only shared stage is LorenzoQuant -> suspect LorenzoQuant, not the coders.
+#   - S3D/N2 @1e-4: cusz, cuszp2 (both), cuszp3 (both) all fail; cuszp2/3 share
+#     err_over_bound = 81.08 exactly.
+#   - pfpl S3D/N2 and S3D/PRES: err_over_bound scales exactly 10x as eb shrinks
+#     (6.68e6 -> e7 -> e8), i.e. the ABSOLUTE error is constant and independent of the
+#     error bound. That is the signature of output that is simply wrong, not of a
+#     bound being missed. PSNR -96 dB.
+#
+#   source .venv/bin/activate && source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/fzgm_severe_regression.yaml \
+#          --session-id 20260807-severe-regression
+name: fzgm_severe_regression
+
+fields:
+  EXAALT: [vx, vy, vz, zz]
+  EXAFEL: [data]
+  HACC: [vy, xx]
+  S3D: [N2, PRES]
+  CESM-2D: [PSL]
+
+datasets:
+  - EXAALT
+  - EXAFEL
+  - HACC
+  - S3D
+  - CESM-2D
+
+error:
+  mode: rel_range
+  # All three bounds the severe rows appeared at. pfpl/S3D failed at every one, which
+  # is itself diagnostic -- keep all three so that pattern stays visible.
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 3
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # cusz: severe on EXAALT (all four), EXAFEL, HACC, S3D/N2
+  - {compressor: fzgm, variant: cusz, pipeline: configs/pipelines/cusz.toml}
+
+  # fzgpu: severe on EXAALT (all four) with err_over_bound identical to cusz's
+  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml,
+     skip_datasets: [S3D]}
+
+  # pfpl: the worst rows (-96 dB) on S3D, plus CESM-2D/PSL
+  - {compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
+
+  # cuszp2/cuszp3: severe only on S3D/N2, all four variants at the same 81.08
+  - {compressor: fzgm, variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml,
+     only_datasets: [S3D]}
+  - {compressor: fzgm, variant: cuszp2_plain, pipeline: configs/pipelines/cuszp2_plain.toml,
+     only_datasets: [S3D]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [S3D]}
+  - {compressor: fzgm, variant: cuszp3_plain, pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [S3D]}
+
+  # cuszhi_cr: severe on EXAFEL/data
+  - {compressor: fzgm, variant: cuszhi_cr, pipeline: configs/pipelines/cusz_hi_cr.toml,
+     only_datasets: [EXAFEL, CESM-2D, S3D]}

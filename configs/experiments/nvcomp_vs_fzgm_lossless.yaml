@@ -1,0 +1,75 @@
+# FZGM's GPU-Zstd back end vs nvCOMP, head-to-head on raw fields.
+#
+#   python -m benchkit run configs/experiments/nvcomp_vs_fzgm_lossless.yaml
+#
+# THE COMPARISON
+# --------------
+# nvCOMP's Zstd is a lossless byte-stream codec. FZGM's `gpu_zstd` preset is an
+# error-bounded LOSSY compressor whose Zstd-shaped back end sits behind a Lorenzo
+# predictor. Reporting the preset's ~11-21x against nvCOMP Zstd's ~1.1x would be
+# comparing a predictor against a coder.
+#
+# So both sides run under `error.mode: lossless` on the identical raw bytes:
+#
+#   fzgm   gpu_zstd_lossless.toml   GPULZ(split) -> Huffman<u8> + ANS x3
+#   nvcomp nvcomp:zstd              ZstdManager(chunk=65536)
+#
+# Same input, same bit-exactness contract, so CR and GB/s are directly comparable.
+# The other nvCOMP algorithms are included as context for where Zstd sits in its
+# own family, and FZGM's simpler `gpulz->ans` chain as context for what the
+# four-port split buys. Every row here has max_abs_err == 0 by construction —
+# validity.py knows about this (D31) and gates PSNR out while keeping CR and
+# throughput, which are the numbers this experiment is about.
+#
+# For the complementary question — "what does the Lorenzo front end buy over a
+# general-purpose lossless codec?" — see the lossy rows in fzgm_vs_native.yaml
+# and cross-plot against these. For coder-vs-coder on identical quantized input,
+# see nvcomp_vs_fzgm_backend.yaml.
+name: nvcomp_vs_fzgm_lossless
+description: >
+  GPU lossless head-to-head on raw f32 fields: FZGM's GPU-Zstd back end (predictor
+  removed) vs nvCOMP Zstd/LZ4/Deflate/GDeflate/ANS. Same bytes in, bit-exact out.
+
+datasets: [CESM-2D, HURR, NYX]
+fields:
+  CESM-2D: [CLDHGH, PRECT, TS, FLDSC]
+  HURR:    [U, V, QVAPOR]
+  NYX:     [temperature, baryon_density, velocity_x]
+
+error:
+  # No bounds key: `lossless` takes no error bound (like from_toml). Every run
+  # entry below must be a codec with no lossy stage — the fzgm adapter refuses a
+  # pipeline that declares an error_bound under this mode rather than mislabeling
+  # the row, because validity.py keys its carve-outs on error_mode.
+  mode: lossless
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: false          # JetStream2 H100 VM: clocks not lockable, trust timing_reliable
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # ── FZGM ────────────────────────────────────────────────────────────────────
+  - {compressor: fzgm, variant: fzgm-gpuzstd, pipeline: configs/pipelines/gpu_zstd_lossless.toml}
+
+  # ── nvCOMP ──────────────────────────────────────────────────────────────────
+  # Pipeline string is `nvcomp:<algo>[:chunk=N][:level=N]` — nvCOMP has no config
+  # file. chunk defaults to 65536, which is what nvCOMP's own header recommends
+  # ("For best performance, a chunk size of 65536 bytes is recommended").
+  #
+  # Measured on this H100, that recommendation costs Zstd a lot of throughput,
+  # because chunk count *is* the parallelism: 25.9 MB / 64 KB is 396 chunks across
+  # 132 SMs, ~3 per SM. Compress on CESM-2D/CLDHGH:
+  #     4 KB 7.55  8 KB 8.08  16 KB 8.84  32 KB 6.87  64 KB 4.22  256 KB 1.61 GB/s
+  # i.e. 16 KB is 2.1x the vendor default for 0.2% worse CR. The effect shrinks on
+  # large fields, which already have chunks to spare (NYX 536 MB: 8.80 vs 7.70,
+  # 1.14x). FZGM's side of this comparison is tuned (chunk_size/word_size/
+  # match_level all chosen by measurement), so nvCOMP gets the same courtesy —
+  # both are run and the better one is what gets quoted. See docs/adapters/nvcomp.md.
+  - {compressor: nvcomp, variant: nvcomp-zstd,     pipeline: "nvcomp:zstd"}
+  - {compressor: nvcomp, variant: nvcomp-zstd-16k, pipeline: "nvcomp:zstd:chunk=16384"}
+  - {compressor: nvcomp, variant: nvcomp-lz4,      pipeline: "nvcomp:lz4"}
+  - {compressor: nvcomp, variant: nvcomp-deflate,  pipeline: "nvcomp:deflate"}
+  - {compressor: nvcomp, variant: nvcomp-gdeflate, pipeline: "nvcomp:gdeflate"}
+  - {compressor: nvcomp, variant: nvcomp-ans,      pipeline: "nvcomp:ans"}

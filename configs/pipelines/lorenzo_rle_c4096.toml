@@ -1,0 +1,40 @@
+[pipeline]
+# lorenzo_rle.toml with chunk_size = 4096 — chunked RLE.
+#
+# Arm of configs/experiments/fzgm_rle_bitpack.yaml. One thread block owns one
+# chunk end to end with a block-local scan, collapsing the whole-array path's
+# four-kernel dependency chain to two kernels plus a scan over num_chunks rather
+# than n. Decode gains the same block-per-chunk parallelism and needs no D2H at
+# all -- element count and chunk size come from the serialized stage header --
+# so chunked decode is additionally CUDA Graph-capturable, which the whole-array
+# path is not.
+#
+# 4096-8192 bytes is the documented sweet spot (136 GB/s encode vs 52 GB/s
+# whole-array on 128 MB of quantizer-like codes). This arm and _c8192 bracket it.
+#
+# The ratio cost is a forced run boundary at every chunk head plus a
+# 4 x (num_chunks + 1) byte offset table. Negligible for short runs, real for
+# runs much longer than a chunk -- watch for it at the loose 1e-2 bound, where a
+# smooth field produces long constant stretches.
+#
+# Chunked mode sets getRequiredInputAlignment() to the chunk size, so the
+# pipeline zero-pads the input to whole chunks transparently.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "rle"
+type = "RLE"
+data_type = "uint16"
+chunk_size = 4096
+inputs = [{from = "lrz", port = "codes"}]

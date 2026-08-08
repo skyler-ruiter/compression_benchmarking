@@ -1,0 +1,91 @@
+# FZGM's FSZ preset against NATIVE FSZ (H100).
+#
+# `fzgm_fsz.yaml` states there is no native FSZ build to compare against. That
+# was true when it was written: AdaptiveLorenzoStage was reconstructed from the
+# SC'26 paper alone. FSZ 1.0.0 was released 2026-08 (BSD-3), so the
+# reconstruction can now be checked against the original.
+#
+# What this experiment can and cannot answer:
+#
+#   CR and quality ARE like-for-like. Both sides quantize with the same rule
+#   (q = round(x / 2eb), reconstruct q * 2eb), run the same four-variant
+#   per-tile predictor over 256-element tiles, and hand the residuals to the
+#   same fixed-rate 32-element bitpacker with the same exact-byte cost model.
+#   A CR gap is therefore a real format/metadata difference, and a quality gap
+#   would mean the quantizers disagree.
+#
+#   THROUGHPUT IS NOT like-for-like, and no arm here makes it so. FSZ fuses
+#   quantization, prediction and encoding into ONE kernel that reads the input
+#   (twice, recomputing quantization rather than spilling it) and writes only
+#   the compressed stream. FZGM materializes an int32 code array and an int32
+#   residual array in global memory between three kernels, so it moves roughly
+#   4x the bytes at 512 MB. The ratio measured here prices the modular DAG,
+#   which is a known and separately-tracked property of the model (see the same
+#   note in fzgm_fsz.yaml about the cuSZp natives) — it is context for the
+#   architecture, not a defect of the predictor.
+#
+# The two same-coder FZGM controls are carried over from fzgm_fsz.yaml so this
+# session can be read against that one directly: the fsz-vs-cuszp2 delta is the
+# predictor, the fsz-vs-native delta is the fusion.
+#
+# Error mode: FSZ's `-eb rel` is documented as a fraction of (max - min), which
+# is exactly canonical rel_range = FZGM `NOA`. Both presets quantize with
+# linear_mode/no outliers, so the arms are internally consistent.
+#
+# Run:
+#   source scripts/env-jetstream2.sh
+#   export FSZ_CLI=$HOME/compressors/FSZ/build/fsz
+#   ./scripts/build-fsz-hosttime.sh        # optional; adds the host-time audit
+#   python -m benchkit run configs/experiments/fsz_vs_native.yaml
+#
+# REPORT DEVICE TIME, as everywhere else here — it is what cuSZp, cuSZ and FSZ
+# all publish, so it is the only figure comparable to a number in someone else's
+# paper. Both arms also carry host wall time when the harness above is built;
+# that is the D33 audit (measured 1.003-1.08 host/device for FSZ, 1.02-1.39 for
+# FZGM), and it is what says the device comparison is safe to quote. The one
+# place it matters: on EXAALT/xx, the smallest field, device time says FZGM
+# decompresses 1.20x faster and host time says FSZ is 1.04x ahead — check the
+# ratio before making a ranking claim on a small field. See docs/adapters/fsz.md.
+
+name: fsz_vs_native
+description: >
+  FZGM's fsz.toml preset (Quantizer -> AdaptiveLorenzo -> AdaptiveBitpack)
+  against native FSZ 1.0.0 on H100. CR and quality are a like-for-like check of
+  the paper-only reimplementation; throughput prices modular-DAG
+  materialization against FSZ's single fused kernel.
+
+datasets:
+  - EXAALT
+  - CESM-2D
+  - HURR
+  - NYX
+  - CESMATM-3D
+  - HACC
+
+# Same subset as fzgm_fsz.yaml so the two sessions can be read together.
+fields:
+  EXAALT:      [xx]
+  CESM-2D:     [CLDHGH, LHFLX]
+  HURR:        [CLOUD, QVAPOR]
+  NYX:         [baryon_density, temperature]
+  CESMATM-3D:  [CLOUD, T]     # `T` is the documented 1.95x centering case
+  HACC:        [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fsz,  variant: fsz-native,     pipeline: default}
+  - {compressor: fzgm, variant: fzgm-fsz-bpt8,
+     pipeline: configs/pipelines/fsz.toml}
+
+  # Same-coder control: AdaptiveBitpack with a plain (non-adaptive) predictor.
+  - {compressor: fzgm, variant: fzgm-cuszp2,
+     pipeline: configs/pipelines/cuszp2.toml}

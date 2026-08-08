@@ -1,0 +1,38 @@
+[pipeline]
+# fsz.toml with enable_order2 = false — LZ1 variants only.
+#
+# Arm of configs/experiments/fzgm_fsz.yaml. Separates the two things
+# AdaptiveLorenzo does at once. With order-2 off it still gets FSZ's cross-block
+# prediction state (the chain runs the whole 256-element tile rather than
+# restarting every 32) and still adapts between LZ1 and LZ1+centering, but it can
+# no longer choose a second-order residual.
+#
+# Read against fsz.toml, this arm prices the second-order predictor. Read against
+# cuszp2.toml -- plain Lorenzo, same coder, chain restarting every block -- the
+# remainder is the cross-block prediction state on its own.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+linear_mode = true
+
+[[stage]]
+name = "alrz"
+type = "AdaptiveLorenzo"
+data_type = "int32"
+blocks_per_tile = 8
+enable_order2 = false
+enable_centering = true
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+inputs = [{from = "alrz"}]

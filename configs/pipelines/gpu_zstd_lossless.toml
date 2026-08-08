@@ -1,0 +1,76 @@
+# FZGM "GPU Zstandard", LOSSLESS — GPULZ (split) -> {Huffman, ANS x3}
+#
+# gpu_zstd.toml with the LorenzoQuant predictor removed. Nothing here declares an
+# error_bound, so the DAG is bit-exact by construction and the pipeline consumes
+# the raw field bytes directly.
+#
+# This is the pipeline for the nvCOMP head-to-head. nvCOMP's Zstd is a lossless
+# byte-stream codec; FZGM's gpu_zstd preset is an error-bounded lossy compressor.
+# Putting 21x next to 1.14x compares two different jobs, so the comparison that
+# means something runs *this* config — the same LZ77 + entropy back end, on the
+# same bytes, under the same bit-exactness contract:
+#
+#     benchkit  error.mode: lossless
+#     FZGM      GPULZ(split) -> Huffman<uint8> + ANS x3     <- this file
+#     nvCOMP    ZstdManager(chunk=65536)                    <- nvcomp:zstd
+#
+# Run it with configs/experiments/nvcomp_vs_fzgm_lossless.yaml.
+# See docs/adapters/nvcomp.md for the full contract and the two framings.
+memory_strategy = "PREALLOCATE"
+
+# -- LZ77 over the raw field ---------------------------------------------------
+# word_size = 4 matches the f32 element width, so matches align to element
+# boundaries the way they do on the quant codes in the lossy preset. On raw
+# mantissa bytes there is far less to match than on Lorenzo residuals — that
+# difference IS the result this experiment is measuring, on both sides equally.
+[[stage]]
+name = "lz"
+type = "GPULZ"
+split_mode = true                   # 4 ports instead of one interleaved stream
+chunk_size = 2048
+word_size = 4
+match_level = 1                     # + hashed long-range candidates
+
+# -- literals: BYTE alphabet here, not uint16 ----------------------------------
+# The lossy preset codes literals as uint16 because Lorenzo quant codes *are*
+# uint16 and their high/low bytes correlate. Raw f32 field data has no such
+# 16-bit symbol structure — the literals port is undifferentiated mantissa bytes.
+# So this is Huffman<uint8> with a 256-symbol book, which is also exactly what
+# Zstd itself does over literals, and what nvCOMP's Zstd does on the other side.
+[[stage]]
+name = "huf_lit"
+type = "Huffman"
+input_type = "uint8"
+bklen = 256
+inputs = [{from = "lz", port = "literals"}]
+
+# ── Optional: Adaptive Huffman codebook ──────────────────────────────────────
+# Uncomment to trade a per-call histogram + host-side codebook build (with its
+# stream sync) for a book fitted once and reused. Measured on this preset,
+# H100, CESM-2D/CLDHGH (see docs/results/adaptive-huffman-gpu-zstd.md):
+#
+#     book_source = "Adaptive"
+#
+# compress 20.6 -> 22.6 GB/s (1.09x), compression ratio unchanged (1.11x both).
+#
+# The gain shrinks with input size (the per-call cost is amortised): on
+# gpu_zstd_lossless, 1.09x at 25.9 MB, 1.03x at 100 MB, 1.02x at 536 MB.
+# Codebook drift across 5 genuinely different CESM-2D fields: 0.19% mean,
+# 0.35% worst, 0 refits. Do NOT use book_source = "Fixed" — it costs ~60% CR.
+
+
+# -- sequences: ANS per port ---------------------------------------------------
+[[stage]]
+name = "ans_len"
+type = "ANS"
+inputs = [{from = "lz", port = "lengths"}]
+
+[[stage]]
+name = "ans_off"
+type = "ANS"
+inputs = [{from = "lz", port = "offsets"}]
+
+[[stage]]
+name = "ans_meta"
+type = "ANS"
+inputs = [{from = "lz", port = "meta"}]

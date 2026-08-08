@@ -1,0 +1,36 @@
+[pipeline]
+# fsz.toml with blocks_per_tile = 16 (512-element tiles).
+#
+# Arm of configs/experiments/fzgm_fsz.yaml. blocks_per_tile is the main lever:
+# longer tiles mean a longer prediction chain (fewer raw seeds, less per-tile
+# metadata) but coarser adaptation, since one variant choice now has to serve
+# 512 elements instead of 256. The stage docs claim 16 "generally compresses
+# better at some throughput cost" -- this arm tests that on H100.
+#
+# The upper bound is 32: a tile must fit one CUDA block.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+linear_mode = true
+
+[[stage]]
+name = "alrz"
+type = "AdaptiveLorenzo"
+data_type = "int32"
+blocks_per_tile = 16
+enable_order2 = true
+enable_centering = true
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+inputs = [{from = "alrz"}]

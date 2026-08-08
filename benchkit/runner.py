@@ -102,7 +102,10 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
         spec = RunSpec(field=fspec, error_mode=cfg.error_mode, error_bound=eb,
                        pipeline=entry.pipeline, variant=entry.variant, graph=entry.graph)
         wd = store.workdir(run_id)
-        ebtxt = "toml" if eb is None else f"{eb:g}"
+        # Display only — cell_key() keeps its own "toml" spelling for eb=None so
+        # resume/merge still match rows written before `lossless` existed.
+        ebtxt = f"{eb:g}" if eb is not None else (
+            "lossless" if cfg.error_mode == "lossless" else "toml")
         label = (f"{entry.compressor}:{entry.variant} [{Path(entry.pipeline).name}] "
                  f"{fspec.dataset}/{fspec.field} eb={ebtxt}")
         try:
@@ -135,10 +138,19 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                                           size.original_bytes, cfg.warmup_reps, tcv)
             dt = metrics.summarize_timing(bench.decompress_device_ms_all,
                                           size.original_bytes, cfg.warmup_reps, tcv)
+            # Host wall time around the same calls, when the tool reports it. See
+            # BenchmarkResult.compress_host_ms_all and DESIGN.md D33 — a device-only
+            # number is only comparable across tools if you know what each excludes.
+            cht = metrics.summarize_timing(bench.compress_host_ms_all,
+                                           size.original_bytes, cfg.warmup_reps, tcv) \
+                if bench.compress_host_ms_all else None
+            dht = metrics.summarize_timing(bench.decompress_host_ms_all,
+                                           size.original_bytes, cfg.warmup_reps, tcv) \
+                if bench.decompress_host_ms_all else None
             thermal = bool(gpu.get("throttled_thermal"))
             reliable = ct.stable and dt.stable and not thermal
             row = _row(run_id, store.session_id, entry, fspec, cfg, prep,
-                       size, qual, ct, dt, bench)
+                       size, qual, ct, dt, bench, cht, dht)
             row["cell_key"] = key
             row["decompressed_sha256"] = dsha
             row["decompressed_retained"] = cfg.retain_decompressed
@@ -195,7 +207,8 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
     return store
 
 
-def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench) -> dict:
+def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench,
+         cht=None, dht=None) -> dict:
     return {
         "run_id": run_id,
         "session_id": session_id,
@@ -230,6 +243,19 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench) -> 
         "compress_throughput_gbs": ct.throughput_gbs,
         "decompress_throughput_gbs": dt.throughput_gbs,
         "throughput_unit": "GB/s_decimal",
+        # Host wall time around the same calls (None when the tool reports none).
+        # `*_host_over_device` is the number to look at: 1.0 means the device figure
+        # excludes nothing, and a large value means a device-only cross-tool
+        # comparison is not measuring the same thing on both sides. FZGM split-mode
+        # compress runs ~2.9x; nvCOMP ~1.0x. See DESIGN.md D33.
+        "compress_host_ms_median": None if cht is None else cht.median_ms,
+        "decompress_host_ms_median": None if dht is None else dht.median_ms,
+        "compress_host_throughput_gbs": None if cht is None else cht.throughput_gbs,
+        "decompress_host_throughput_gbs": None if dht is None else dht.throughput_gbs,
+        "compress_host_over_device": (
+            None if cht is None or ct.median_ms <= 0 else cht.median_ms / ct.median_ms),
+        "decompress_host_over_device": (
+            None if dht is None or dt.median_ms <= 0 else dht.median_ms / dt.median_ms),
         "timing_reps": ct.n,
         "compress_cv": ct.cv,
         "decompress_cv": dt.cv,
@@ -244,6 +270,24 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench) -> 
         "eb_satisfied": qual.eb_satisfied,
         # cross-check: tool's own PSNR vs harness-computed (should agree closely)
         "native_psnr": (bench.native_quality or {}).get("psnr_db"),
+        # Peak device memory. MB (1e6) to match the throughput columns' decimal
+        # convention; the raw byte count is kept alongside so nothing is lost to
+        # rounding when the ablation compares two close peaks. None when the tool
+        # reports no peak — most native baselines — which is *not* the same as 0.
+        "peak_device_bytes": bench.peak_device_bytes,
+        "peak_device_mb": (None if bench.peak_device_bytes is None
+                           else bench.peak_device_bytes / 1e6),
+        # fzgm: which arm of the coloring ablation this row is. Rows with
+        # coloring_enabled False are the "worst-case reservation" arm.
+        "coloring_enabled": bench.coloring_enabled,
+        # fzgm: stage-level events that change how a row should be compared.
+        # `run_notes` is the full record; the boolean is the one case that affects
+        # CR comparability today and is promoted so it can be filtered on directly.
+        # False (not None) when the tool reported notes support and had none.
+        "run_notes": bench.run_notes or None,
+        "huffman_adaptive_fallback": (
+            None if bench.coloring_enabled is None      # non-fzgm: concept N/A
+            else any("huffman_adaptive_fallback" in v for v in bench.run_notes.values())),
         "stages": bench.stages,
         "stage_versions": bench.stage_versions,
         "graph_requested": bench.graph_requested,

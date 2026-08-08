@@ -1,0 +1,118 @@
+# Stage-for-stage parity, BROADENED — Lorenzo quant codes, 3 error bounds.
+#
+#   python -m benchkit run configs/experiments/nvcomp_parity_codes_broad.yaml
+#
+# The companion to nvcomp_parity_raw_broad.yaml. That one runs every coder on raw
+# field bytes; this one runs them on the **Lorenzo quant codes** — the input
+# FZGM's coders were actually tuned on, and the tier where the strong claims in
+# docs/results/nvcomp-stage-parity.md live (GPULZ 1.64x over LZ4, GPULZ+Huffman
+# 1.62x over Deflate, GPU-Zstd 1.26x over Zstd).
+#
+# WHAT IS BEING VARIED THAT WASN'T BEFORE
+# ---------------------------------------
+# The original result was 3 fields of 1 dataset at 1 error bound. Here: 5 datasets
+# x 3 fields x **3 error bounds** (NOA 1e-2 / 1e-3 / 1e-4). The bound is the axis
+# most likely to move the answer and was never varied at all — it sets the width
+# of the code distribution, and every claim above is a claim about how well each
+# coder exploits that distribution:
+#
+#   loose (1e-2)  narrow, highly skewed codes  -> favours entropy coding, RLE
+#   tight (1e-4)  wide, flatter codes          -> favours match/LZ coding
+#
+# If GPULZ's lead over LZ4 is real it should survive both ends. If it only holds
+# at 1e-3 on CESM-2D, that is worth knowing before it goes in a paper.
+#
+# Datasets are the derived `*-qcodes-noa*` entries in configs/datasets.yaml
+# (regenerate with scripts/extract_quant_codes.py). Outlier fractions are
+# <= 0.007% everywhere, so the codes represent essentially the whole field.
+#
+# CR HERE IS A BACK-END RATIO, NOT A COMPRESSION RATIO (D32). `original_bytes` is
+# the codes stream, not the source field. Never pool these rows with the raw tier
+# and never quote one as a field CR. See docs/adapters/nvcomp.md.
+#
+# nvCOMP is at chunk=16384, its measured-best on this H100 (D34).
+name: nvcomp_parity_codes_broad
+description: >
+  Broadened per-coder comparison on identical uint16 Lorenzo quant codes, lossless
+  both sides, across 5 datasets x 3 fields x 3 error bounds — the evidence base for
+  the parity claims in docs/results/nvcomp-stage-parity.md.
+
+datasets:
+  - CESM-2D-qcodes-noa0.01
+  - CESM-2D-qcodes-noa0.001
+  - CESM-2D-qcodes-noa0.0001
+  - HURR-qcodes-noa0.01
+  - HURR-qcodes-noa0.001
+  - HURR-qcodes-noa0.0001
+  - NYX-qcodes-noa0.01
+  - NYX-qcodes-noa0.001
+  - NYX-qcodes-noa0.0001
+  - MIRANDA-qcodes-noa0.01
+  - MIRANDA-qcodes-noa0.001
+  - MIRANDA-qcodes-noa0.0001
+  - EXAALT-qcodes-noa0.01
+  - EXAALT-qcodes-noa0.001
+  - EXAALT-qcodes-noa0.0001
+
+fields:
+  CESM-2D-qcodes-noa0.01: all
+  CESM-2D-qcodes-noa0.001: all
+  CESM-2D-qcodes-noa0.0001: all
+  HURR-qcodes-noa0.01: all
+  HURR-qcodes-noa0.001: all
+  HURR-qcodes-noa0.0001: all
+  NYX-qcodes-noa0.01: all
+  NYX-qcodes-noa0.001: all
+  NYX-qcodes-noa0.0001: all
+  MIRANDA-qcodes-noa0.01: all
+  MIRANDA-qcodes-noa0.001: all
+  MIRANDA-qcodes-noa0.0001: all
+  EXAALT-qcodes-noa0.01: all
+  EXAALT-qcodes-noa0.001: all
+  EXAALT-qcodes-noa0.0001: all
+
+error:
+  mode: lossless
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # ── the four paired claims under test ───────────────────────────────────────
+  - {compressor: fzgm,   variant: fzgm-ans,        pipeline: configs/pipelines/ans_only.toml}
+  - {compressor: nvcomp, variant: nvcomp-ans,      pipeline: "nvcomp:ans:chunk=16384"}
+
+  - {compressor: fzgm,   variant: fzgm-gpulz,      pipeline: configs/pipelines/gpulz_only.toml}
+  - {compressor: nvcomp, variant: nvcomp-lz4,      pipeline: "nvcomp:lz4:chunk=16384"}
+
+  - {compressor: fzgm,   variant: fzgm-gpulz-huf,  pipeline: configs/pipelines/gpulz_huffman.toml}
+  - {compressor: nvcomp, variant: nvcomp-deflate,  pipeline: "nvcomp:deflate:chunk=16384"}
+  - {compressor: nvcomp, variant: nvcomp-gdeflate, pipeline: "nvcomp:gdeflate:chunk=16384"}
+
+  # gpu_zstd_codes.toml, not gpu_zstd_lossless.toml: on uint16 codes the literals
+  # coder is Huffman<uint16> with a 4096-entry book (= 2 * quant_radius), because
+  # the codes ARE uint16 symbols. That is the back end of the gpu_zstd preset.
+  - {compressor: fzgm,   variant: fzgm-gpuzstd,    pipeline: configs/pipelines/gpu_zstd_codes.toml}
+  - {compressor: nvcomp, variant: nvcomp-zstd,     pipeline: "nvcomp:zstd:chunk=16384"}
+
+  # ── unpaired nvCOMP reference points ────────────────────────────────────────
+  - {compressor: nvcomp, variant: nvcomp-snappy,   pipeline: "nvcomp:snappy:chunk=16384"}
+  - {compressor: nvcomp, variant: nvcomp-gzip,     pipeline: "nvcomp:gzip:chunk=16384"}
+
+  # dtype=ushort throughout: every derived dataset here is uint16 codes, whatever
+  # the source field's precision was (MIRANDA is f64 but its codes are u16).
+  # Bitcomp gets both algorithms — sparse (level=1) measured better on codes
+  # (5.825 vs 5.525 on CESM-2D/CLDHGH), which is what the skewed code
+  # distribution predicts, and is worth confirming across datasets.
+  - {compressor: nvcomp, variant: nvcomp-bitcomp,        pipeline: "nvcomp:bitcomp:chunk=16384:dtype=ushort"}
+  - {compressor: nvcomp, variant: nvcomp-bitcomp-sparse, pipeline: "nvcomp:bitcomp:chunk=16384:dtype=ushort:level=1"}
+
+  # Cascaded at its default and at the raw-tier best, same as the raw experiment.
+  # Expect it to do poorly here: its delta pass re-differences an already
+  # decorrelated residual stream (2.308 on CESM-2D/CLDHGH codes vs 8.144 for
+  # FZGM GPU-Zstd). Confirming that across datasets is the point.
+  - {compressor: nvcomp, variant: nvcomp-cascaded-default, pipeline: "nvcomp:cascaded:chunk=16384:dtype=ushort:rles=2:deltas=1:bp=1"}
+  - {compressor: nvcomp, variant: nvcomp-cascaded-best,    pipeline: "nvcomp:cascaded:chunk=16384:dtype=ushort:rles=0:deltas=1:bp=1"}

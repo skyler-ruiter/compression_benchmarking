@@ -1,0 +1,71 @@
+# Stage-for-stage parity: each FZGM coder against its nvCOMP counterpart.
+#
+#   python -m benchkit run configs/experiments/nvcomp_stage_parity.yaml
+#
+# The nvcomp_vs_fzgm_* experiments compare whole back ends. This one asks the
+# narrower question: **is each individual FZGM coder competitive with NVIDIA's
+# implementation of the same algorithm?** Pairings, by algorithm family:
+#
+#   FZGM `ans_only.toml`      (rANS, dietGPU port)  <->  nvcomp:ans
+#   FZGM `gpulz_only.toml`    (LZ77, no entropy)    <->  nvcomp:lz4
+#   FZGM `gpulz_huffman.toml` (LZ77 + Huffman)      <->  nvcomp:deflate, nvcomp:gdeflate
+#   FZGM `gpu_zstd_lossless`  (LZ77 split + H/ANS)  <->  nvcomp:zstd
+#
+# FZGM's Huffman has no nvCOMP counterpart (nvCOMP ships no standalone Huffman),
+# and nvCOMP's Bitcomp/Cascaded have no FZGM counterpart, so neither appears.
+#
+# TWO INPUTS, ON PURPOSE
+# ----------------------
+# Raw f32 fields *and* the derived Lorenzo quant codes. FZGM's coders were tuned
+# on predictor residuals, nvCOMP's are general-purpose, and the two inputs are
+# where that difference shows up — running only the first would understate FZGM,
+# running only the second would flatter it. Build the codes first:
+#
+#   python scripts/extract_quant_codes.py --dataset CESM-2D \
+#       --fields CLDHGH,PRECT,TS --eb 1e-3
+#
+# Rows from the two datasets must not be pooled: `original_bytes` differs in
+# meaning (field bytes vs codes bytes) and the qcodes CR is a back-end ratio.
+# See docs/adapters/nvcomp.md.
+#
+# nvCOMP appears at chunk=16384, its measured-best on this H100 (D34) — the
+# vendor default of 65536 costs it up to 2.1x and would not be a fair fight.
+name: nvcomp_stage_parity
+description: >
+  Per-coder comparison of FZGM's ANS / GPULZ / GPULZ+Huffman against nvCOMP's
+  ANS / LZ4 / Deflate / GDeflate on identical bytes, lossless both sides.
+
+datasets: [CESM-2D, CESM-2D-qcodes-noa1e-3]
+fields:
+  CESM-2D: [CLDHGH, PRECT, TS]
+  CESM-2D-qcodes-noa1e-3: all
+
+error:
+  mode: lossless
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # ── entropy coder: rANS vs ANS ──────────────────────────────────────────────
+  - {compressor: fzgm,   variant: fzgm-ans,        pipeline: configs/pipelines/ans_only.toml}
+  - {compressor: nvcomp, variant: nvcomp-ans,      pipeline: "nvcomp:ans:chunk=16384"}
+
+  # ── LZ77, no entropy stage: GPULZ vs LZ4 ────────────────────────────────────
+  - {compressor: fzgm,   variant: fzgm-gpulz,      pipeline: configs/pipelines/gpulz_only.toml}
+  - {compressor: nvcomp, variant: nvcomp-lz4,      pipeline: "nvcomp:lz4:chunk=16384"}
+
+  # ── LZ77 + Huffman (DEFLATE's structure) ────────────────────────────────────
+  - {compressor: fzgm,   variant: fzgm-gpulz-huf,  pipeline: configs/pipelines/gpulz_huffman.toml}
+  - {compressor: nvcomp, variant: nvcomp-deflate,  pipeline: "nvcomp:deflate:chunk=16384"}
+  - {compressor: nvcomp, variant: nvcomp-gdeflate, pipeline: "nvcomp:gdeflate:chunk=16384"}
+
+  # ── full Zstd-shaped back end, for continuity with the other experiments ────
+  - {compressor: fzgm,   variant: fzgm-gpuzstd,    pipeline: configs/pipelines/gpu_zstd_lossless.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: fzgm-gpuzstd,    pipeline: configs/pipelines/gpu_zstd_codes.toml,
+     only_datasets: [CESM-2D-qcodes-noa1e-3]}
+  - {compressor: nvcomp, variant: nvcomp-zstd,     pipeline: "nvcomp:zstd:chunk=16384"}

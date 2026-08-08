@@ -28,6 +28,9 @@ _MODE_MAP = {
 _NATIVE_BASIS = {"ABS": "abs", "NOA": "range", "REL": "maxabs"}
 # CLI lowercase form for the --stages path.
 _CLI_MODE = {"ABS": "abs", "NOA": "noa", "REL": "rel"}
+# dtypes fzgmod-cli's -t flag accepts directly; anything else is handed to it as a
+# raw byte stream (see _io).
+_FZGM_CLI_DTYPES = {"f32", "f64"}
 
 
 def _tool_error(report: Path, log: Path) -> str:
@@ -86,7 +89,31 @@ class FzgmAdapter(Adapter):
     def _prepare_toml(self, spec: RunSpec, workdir: Path) -> Prepared:
         tpl = PipelineToml.load(spec.pipeline)
         out = workdir / "pipeline.toml"
-        if spec.error_mode == "from_toml":
+        if spec.error_mode == "lossless":
+            # A coder-only DAG (GPULZ/Huffman/ANS/RZE/... with no predictor or
+            # quantizer) is shipped verbatim: there is no bound to render, and the
+            # contract is bit-exactness, which the harness checks directly.
+            # This is what makes the nvCOMP head-to-head possible — see
+            # configs/pipelines/gpu_zstd_lossless.toml and docs/adapters/nvcomp.md.
+            #
+            # Refuse a config that actually carries a bound rather than shipping it:
+            # `lossless` would otherwise become a label on a lossy row, and the
+            # error_mode field is exactly what validity.py keys its degeneracy and
+            # expansion carve-outs on (D31). A mislabeled row corrupts the gate for
+            # every other row in the session, silently.
+            lossy = tpl.lossy_stages()
+            if lossy:
+                names = ", ".join(str(s.get("name", s.get("type", "?"))) for s in lossy)
+                raise AdapterError(
+                    f"{spec.pipeline}: error_mode='lossless' but this pipeline has "
+                    f"bound-carrying stage(s): {names}. A lossless run must contain no "
+                    f"lossy stage. Use a coder-only pipeline (e.g. "
+                    f"configs/pipelines/gpu_zstd_lossless.toml), or run this config "
+                    f"under from_toml/rel_range instead.")
+            eb, native_mode, basis = 0.0, "lossless", "lossless"
+            text = tpl.text
+            tpl.check_dtype(spec.field.dtype)
+        elif spec.error_mode == "from_toml":
             eb, native_mode = tpl.declared_eb_mode()
             text = tpl.text                      # ship the config verbatim
             basis = _NATIVE_BASIS.get(native_mode, "abs")
@@ -112,8 +139,11 @@ class FzgmAdapter(Adapter):
         )
 
     def _prepare_stages(self, spec: RunSpec, workdir: Path) -> Prepared:
-        if spec.error_mode == "from_toml":
-            raise AdapterError("from_toml mode requires a .toml pipeline, not a --stages chain")
+        if spec.error_mode in ("from_toml", "lossless"):
+            raise AdapterError(
+                f"{spec.error_mode} mode requires a .toml pipeline, not a --stages "
+                f"chain (a --stages chain always renders -m/-e, so it cannot express "
+                f"'no bound at all')")
         native_mode, basis = _MODE_MAP[spec.error_mode]
         eb = float(spec.error_bound)
         args = ["--stages", spec.pipeline, "-m", _CLI_MODE[native_mode], "-e", repr(eb)]
@@ -122,7 +152,23 @@ class FzgmAdapter(Adapter):
 
     # -- run ------------------------------------------------------------------
     def _io(self, f: FieldSpec) -> list[str]:
-        return ["-l", f.dim_arg, "-t", f.dtype]
+        if f.dtype in _FZGM_CLI_DTYPES:
+            return ["-l", f.dim_arg, "-t", f.dtype]
+        # Integer-typed *derived* datasets — the uint16 Lorenzo quant codes the
+        # back-end-isolation experiment feeds to FZGM's coder-only pipelines
+        # (scripts/extract_quant_codes.py). fzgmod-cli's -t only accepts f32/f64,
+        # but a coder-only DAG never interprets its input as numbers: GPULZ,
+        # Huffman and ANS all consume bytes. So present the same byte stream as an
+        # equivalent f32 length. Only the byte COUNT reaches the tool; the harness
+        # still reads both files back as u16 for its own bit-exactness check, which
+        # is the check that actually matters here.
+        nbytes = f.original_bytes
+        if nbytes % 4 != 0:
+            raise AdapterError(
+                f"{f.dataset}/{f.field}: dtype '{f.dtype}' is presented to fzgmod-cli "
+                f"as raw bytes, but {nbytes} bytes is not a multiple of 4 so it "
+                f"cannot be expressed as an f32 length. Pad the derived field.")
+        return ["-l", str(nbytes // 4), "-t", "f32"]
 
     def compress(self, spec: RunSpec, prep: Prepared, workdir: Path) -> CompressResult:
         f = spec.field
@@ -179,13 +225,36 @@ class FzgmAdapter(Adapter):
         t = rep["timing"]
         comp = t.get("compress", {}).get("device_ms", {}).get("all", [])
         dec = t.get("decompress", {}).get("device_ms", {}).get("all", [])
+        # FZGM's device_ms is dag_elapsed_ms: a CUDA event pair around dag->execute()
+        # only. Host-side work inside pipeline->compress() but outside that bracket —
+        # buffer metadata collection and, for split-mode pipelines, assembling the
+        # coded ports into one archive — is excluded. On gpu_zstd_lossless/CLDHGH that
+        # is 2.33 ms against 1.26 ms of device time; a single-stream pipeline shows
+        # 0.016 ms. Capture host_wall_ms so the exclusion is visible in the row rather
+        # than only in the tool's own JSON. See DESIGN.md D33.
+        comp_host = t.get("compress", {}).get("host_wall_ms", {}).get("all", [])
+        dec_host = t.get("decompress", {}).get("host_wall_ms", {}).get("all", [])
         # Nested under "graph" (only present when --graph was passed): {requested, active,
         # incompatible_reason}. Older binaries without --graph support omit the block
         # entirely — graph_active stays None ("requested but unknown") rather than False.
         graph_block = rep.get("graph", {})
+        # Peak device memory (Pipeline::getPeakMemoryUsage(), via the pool tracker).
+        # The "memory" block is absent on binaries predating it — keep None rather
+        # than 0 so a missing measurement is distinguishable from a zero peak.
+        mem_block = rep.get("memory") or {}
+        peak = mem_block.get("peak_device_bytes")
+        # `coloring` echoes what was *requested* (CLI --no-coloring or the TOML
+        # `coloring` key), not whether the DAG found anything to alias. That is the
+        # value the ablation needs: it identifies the arm even on topologies where
+        # coloring saves nothing, which is a real and reportable outcome.
+        coloring = rep.get("config", {}).get("coloring")
+        # Omitted entirely when no stage had anything to report.
+        notes = rep.get("run_notes") or {}
         return BenchmarkResult(
             compress_device_ms_all=[float(x) for x in comp],
             decompress_device_ms_all=[float(x) for x in dec],
+            compress_host_ms_all=[float(x) for x in comp_host],
+            decompress_host_ms_all=[float(x) for x in dec_host],
             compressed_bytes=int(rep["size"]["compressed_bytes"]),
             stages=rep.get("stages", []),
             stage_versions=rep.get("stage_versions", {}) or {},
@@ -194,4 +263,7 @@ class FzgmAdapter(Adapter):
             graph_requested=spec.graph,
             graph_active=graph_block.get("active"),
             graph_reason=graph_block.get("incompatible_reason"),
+            peak_device_bytes=None if peak is None else int(peak),
+            coloring_enabled=coloring,
+            run_notes={k: list(v) for k, v in notes.items()},
         )

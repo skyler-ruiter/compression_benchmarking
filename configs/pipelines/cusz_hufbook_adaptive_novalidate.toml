@@ -1,0 +1,40 @@
+[pipeline]
+# cusz_hufbook_adaptive.toml with validate_symbol_range = false.
+#
+# Arm of configs/experiments/fzgm_huffman_book.yaml. Isolates the cost of the
+# device-side symbol-range guard that Adaptive/Fixed reinstate.
+#
+# Once a book is pinned nothing histograms, so the `sum(h_freq) == inlen` check
+# that catches an out-of-range symbol in PerBlock no longer runs. The guard
+# replaces it with a grid-stride pass + a 4-byte D2H + a MANDATORY stream sync
+# (huffman_stage.cu:404-414) -- mandatory because an out-of-range index faults
+# inside the encode kernel and cannot be reported after the fact. Documented at
+# ~16% of Adaptive's throughput at 24.7 MiB on a 3080 Ti.
+#
+# Disabling it is safe HERE and only here because the range is guaranteed
+# upstream: LorenzoQuant with zigzag_codes = true and quant_radius = 512 emits
+# codes in [0, 1022], and bklen = 1024 = 2 * quant_radius covers it. Disabling
+# it with genuinely out-of-range symbols is undefined behaviour and in practice
+# takes down the CUDA context.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 1024
+encode_mode = "Fine"
+book_source = "Adaptive"
+validate_symbol_range = false
+inputs = [{from = "lrz", port = "codes"}]

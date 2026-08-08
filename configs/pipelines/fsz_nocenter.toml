@@ -1,0 +1,42 @@
+[pipeline]
+# fsz.toml with enable_centering = false.
+#
+# Arm of configs/experiments/fzgm_fsz.yaml. Prices the centering variants, which
+# subtract the tile's integer mean before differencing.
+#
+# Centering is nearly free to EVALUATE -- a constant offset cancels out of a k-th
+# order difference for every element with k predecessors, so the centered
+# variants differ from the uncentered ones only in the tile's first one (LZ1) or
+# two (LZ2) residuals, all inside coder block 0, and their cost follows from
+# re-rating that single block. But choosing it costs a `means` side channel: one
+# T per centered tile, compacted to only the tiles that chose it.
+#
+# So this arm answers whether centering earns its side channel. It should matter
+# most on fields with a large constant offset (CESM `T` is the documented 1.95x
+# case) and be near-noise elsewhere.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+linear_mode = true
+
+[[stage]]
+name = "alrz"
+type = "AdaptiveLorenzo"
+data_type = "int32"
+blocks_per_tile = 8
+enable_order2 = true
+enable_centering = false
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+inputs = [{from = "alrz"}]

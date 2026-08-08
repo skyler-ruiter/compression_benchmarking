@@ -52,6 +52,24 @@ FZGM adapter quirks (the `rel`-basis finding, huffman/zigzag, TOML-first) are in
 [docs/adapters/fzgm.md](docs/adapters/fzgm.md); the full design in
 [docs/DESIGN.md](docs/DESIGN.md).
 
+### Lossless codecs (nvCOMP)
+
+nvCOMP's Zstd/LZ4/Deflate/GDeflate/ANS take no error bound, so they run under the
+`lossless` error mode against FZGM pipelines built from coder stages alone:
+
+```bash
+./scripts/build-nvcomp-cli.sh          # nvCOMP ships no CLI; this repo builds one
+python -m benchkit run configs/experiments/nvcomp_vs_fzgm_lossless.yaml
+
+# coder-vs-coder on identical Lorenzo quant codes:
+python scripts/extract_quant_codes.py --dataset CESM-2D --fields all --eb 1e-3
+python -m benchkit run configs/experiments/nvcomp_vs_fzgm_backend.yaml
+```
+
+**Do not** compare FZGM's lossy `gpu_zstd` preset to nvCOMP Zstd directly — the gap
+is the Lorenzo predictor, not the coder. [docs/adapters/nvcomp.md](docs/adapters/nvcomp.md)
+explains both framings and the validity-gate consequences of lossless rows.
+
 ## Why it's structured this way (the short version)
 
 - **The harness owns the metrics.** CR, PSNR, NRMSE, and error-bound checks are computed

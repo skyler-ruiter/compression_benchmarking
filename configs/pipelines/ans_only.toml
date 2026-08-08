@@ -1,0 +1,13 @@
+# FZGM ANS alone — the direct counterpart to `nvcomp:ans`.
+#
+# FZGM's ANSStage is a rANS coder ported from dietGPU; nvCOMP's ANS is NVIDIA's
+# own. Both are pure entropy coders over a byte stream with no modelling stage in
+# front, so running each alone on identical bytes is a true like-for-like: same
+# input, same lossless contract, same job.
+#
+# Used by configs/experiments/nvcomp_stage_parity.yaml. Lossless runs only.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "ans"
+type = "ANS"

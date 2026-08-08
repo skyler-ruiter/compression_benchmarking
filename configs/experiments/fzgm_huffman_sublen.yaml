@@ -1,0 +1,70 @@
+# Validation for the adaptive Huffman `sublen` tuning (FZGM hf_bk.cc).
+#
+# `capi_phf_coarse_tune_sublen` was the constant 768 regardless of input length,
+# which fixes pardeg = ceil(n/768) and so fixes the coarse path's entire parallel
+# decomposition. It is now size-adaptive (target pardeg ~131072, floored at the
+# historical 768 so nothing below ~100M elements changes).
+#
+# Run this file TWICE against the same build, distinguished only by environment:
+#
+#   FZ_HF_SUBLEN=768 python -m benchkit run configs/experiments/fzgm_huffman_sublen.yaml \
+#       --session-id sublen-old
+#   python -m benchkit run configs/experiments/fzgm_huffman_sublen.yaml \
+#       --session-id sublen-new
+#
+# then join the two sessions on cell_key. The rendered TOML is identical in both,
+# so the sessions differ only in encode geometry -- which is the point, and also
+# why this cannot be expressed as two arms inside one session (benchkit has no
+# per-arm environment).
+#
+# WHY encode_mode = "Coarse" HERE. `Buf` computes
+# `sublen = use_HFR ? 1024 : capi_phf_coarse_tune_sublen(inlen)`, so a preset
+# declaring encode_mode = "Fine" pins sublen to 1024 and opts out of the tuning
+# entirely -- even though the fine kernel then never engages on realistic data
+# (it needs every code <= 8 bits; measured 12-24 bits everywhere). The shipped
+# cusz.toml declares "Fine", so it silently gets fine's partition geometry and
+# none of fine's benefit. These `_coarse` presets exist to measure the tuning
+# without that confound.
+#
+# FIELD SUBSET IS DELIBERATELY WIDER THAN THE TUNING SET. The rule was fitted on
+# CLDHGH / CLOUDf48 / baryon_density / CLOUD / vx / xx. Everything else below is
+# a held-out field, so a rule that only works on what it was fitted to will show
+# up here as a regression rather than being hidden.
+
+name: fzgm_huffman_sublen
+description: >
+  Old (768) vs size-adaptive Huffman sublen on H100, PerBlock and Adaptive book
+  sources, over a field set that extends well beyond the six fields the rule was
+  tuned on. Run twice with FZ_HF_SUBLEN set / unset and join on cell_key.
+
+datasets:
+  - EXAALT
+  - CESM-2D
+  - HURR
+  - NYX
+  - CESMATM-3D
+  - HACC
+
+fields:
+  EXAALT:      [xx, yy]                      # yy held out
+  CESM-2D:     [CLDHGH, LHFLX, TMQ, PRECT]   # TMQ, PRECT held out
+  HURR:        [CLOUD, QVAPOR, P]            # P held out
+  NYX:         [baryon_density, temperature, velocity_x]   # velocity_x held out
+  CESMATM-3D:  [CLOUD, T, RELHUM]            # RELHUM held out
+  HACC:        [vx, xx]                      # xx held out
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: fzgm-huf-adaptive-coarse,
+     pipeline: configs/pipelines/cusz_hufbook_adaptive_coarse.toml}
+  - {compressor: fzgm, variant: fzgm-huf-perblock-coarse,
+     pipeline: configs/pipelines/cusz_coarse.toml}

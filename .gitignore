@@ -11,6 +11,9 @@ configs/site.local.yaml
 external/**/build/
 external/**/install/
 
+# nvcomp_cli is source in this repo, but its build tree is not
+tools/**/build/
+
 # Downloaded datasets
 data/
 datasets/

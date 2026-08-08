@@ -1,0 +1,106 @@
+# Chunked RLE + bitpack auto-shift evaluation (H100).
+#
+# Two small, independent coder knobs from the same batch of changes.
+#
+# CHUNKED RLE. The whole-array path is a device-wide CUB scan plus a four-kernel
+# dependency chain, and its decode needs a device-to-host readback. Chunked mode
+# gives one thread block one chunk end to end with a block-local scan: two
+# kernels plus a scan over num_chunks rather than n, and a decode that reads its
+# element count and chunk size from the serialized stage header instead of a D2H
+# -- which additionally makes chunked DECODE CUDA Graph-capturable where the
+# whole-array path is not. Documented as 52 -> 136 GB/s encode on 128 MB of
+# quantizer-like codes, with 4096-8192 bytes the sweet spot; the _c4096/_c8192
+# arms bracket it.
+#
+# The ratio cost is a forced run boundary at every chunk head plus a
+# 4 x (num_chunks + 1) offset table -- negligible for short runs, real for runs
+# much longer than a chunk. The 1e-2 bound is where to look for it: a smooth
+# field at a loose bound sends long stretches to the same code, and a constant
+# array encodes to one run PER CHUNK rather than one run total.
+#
+# No pipeline in configs/pipelines/ contained an RLE stage before this round, so
+# there is no historical baseline to compare against -- these four arms are the
+# whole story.
+#
+# BITPACK AUTO-SHIFT. `shift` removes dead LOW bits and is lossy in general;
+# `auto_shift` picks the largest PROVABLY lossless shift by GPU OR-reduce. Only
+# the auto form is benchmarked, because a hand-set shift would change the
+# reconstruction and the CR comparison would stop being a comparison. Expect
+# ~1.0x: after Zigzag, a residual stream's low bits are exactly the bits that
+# vary, so the knob should correctly decline to fire. That is a real result --
+# the cost side (a reduction + D2H + sync, and loss of CUDA Graph compatibility
+# while active) is what the arm is actually pricing.
+#
+# VALIDITY-GATE NOTE: every arm here keeps a LOSSY quantizer upstream. That is
+# load-bearing, not incidental. benchkit's validity gate declares a field
+# `degenerate_field` and hard-excludes it for ALL variants when every ok row for
+# that field has max_abs_err == 0, so an all-lossless experiment would gate away
+# its own entire corpus. Check the exclusion audit for `degenerate_field` before
+# trusting any aggregate from this file.
+#
+# EXPECTED EXPANSION CELLS -- do not treat these as failures. RLE's ratio here is
+# violently data-dependent, measured before the sweep on CLDHGH at eb 1e-2:
+# NYX/baryon_density 792x, HURR/CLOUD 12.2x, CESM/LHFLX 8.7x, but HACC/vx 1.24x
+# and EXAALT/xx 0.72x. The 1-D particle fields have no runs to find, so they
+# expand and the validity gate will hard-exclude them from CR aggregates as
+# `expansion`. They are deliberately KEPT in the matrix because their THROUGHPUT
+# rows are valid and are the actual subject of this experiment -- whole-array vs
+# chunked encode/decode speed is meaningful whether or not the coder happened to
+# compress. Read RLE ratio per-field from the raw table, never from an aggregate.
+#
+# BOUNDS DIFFER FROM THE OTHER TWO EXPERIMENTS in this round (1e-2/1e-3 rather
+# than 1e-2/1e-4) for the same reason: RLE needs runs, and runs come from
+# elements collapsing onto the zero-error code. At 1e-4, CLDHGH expands (0.82x)
+# and the whole CR side of the experiment would be gated away. Throughput
+# comparisons against fzgm_huffman_book.yaml / fzgm_fsz.yaml are therefore valid
+# at 1e-2 only.
+#
+# Run:
+#   source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/fzgm_rle_bitpack.yaml
+
+name: fzgm_rle_bitpack
+description: >
+  Chunked RLE (chunk_size 0 / 4096 / 8192) and BitpackStage auto_shift on H100.
+  Same field subset as the other two experiments in this round; bounds are
+  1e-2/1e-3 rather than 1e-2/1e-4 because RLE needs runs (see the BOUNDS note in
+  the header), so cross-experiment throughput comparison is valid at 1e-2.
+
+datasets:
+  - EXAALT
+  - CESM-2D
+  - HURR
+  - NYX
+  - CESMATM-3D
+  - HACC
+
+fields:
+  EXAALT:      [xx]
+  CESM-2D:     [CLDHGH, LHFLX]
+  HURR:        [CLOUD, QVAPOR]
+  NYX:         [baryon_density, temperature]
+  CESMATM-3D:  [CLOUD, T]
+  HACC:        [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3]   # see BOUNDS note above -- 1e-4 gates the CR side away
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: fzgm-rle-whole,
+     pipeline: configs/pipelines/lorenzo_rle.toml}
+  - {compressor: fzgm, variant: fzgm-rle-c4096,
+     pipeline: configs/pipelines/lorenzo_rle_c4096.toml}
+  - {compressor: fzgm, variant: fzgm-rle-c8192,
+     pipeline: configs/pipelines/lorenzo_rle_c8192.toml}
+
+  - {compressor: fzgm, variant: fzgm-bitpack-base,
+     pipeline: configs/pipelines/quantizer_lorenzo_bitpack.toml}
+  - {compressor: fzgm, variant: fzgm-bitpack-autoshift,
+     pipeline: configs/pipelines/quantizer_lorenzo_bitpack_autoshift.toml}

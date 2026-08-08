@@ -1,0 +1,106 @@
+# Stage-for-stage parity, BROADENED — raw fields, lossless both sides.
+#
+#   python -m benchkit run configs/experiments/nvcomp_parity_raw_broad.yaml
+#
+# WHY THIS EXISTS
+# ---------------
+# docs/results/nvcomp-stage-parity.md makes strong claims — GPULZ beats LZ4 1.64x
+# on ratio, GPULZ+Huffman beats Deflate 1.62x, GPU-Zstd beats Zstd 1.26x — from
+# THREE fields of ONE dataset (CESM-2D) at ONE error bound. That is not enough
+# evidence for a claim of parity-or-better, and this experiment is the check.
+#
+# Five datasets spanning the axes that could plausibly overturn it:
+#
+#   CESM-2D   2-D climate, f32     smooth, the original result (continuity)
+#   HURR      3-D weather, f32     mixed; CLOUD is spiky and near-sparse
+#   NYX       3-D cosmology, f32   includes baryon_density, the known pathological
+#                                  field (docs/results/sz3-vs-ginterp-gpu-zstd.md:
+#                                  22 distinct codes, one at 99.999%)
+#   MIRANDA   3-D turbulence, f64  DOUBLE precision — 8-byte elements, a different
+#                                  match/word alignment story for every LZ coder
+#   EXAALT    1-D molecular, f32   1-D particle data; no spatial locality to exploit
+#
+# This file is the RAW tier: every coder sees the untouched field bytes. Its
+# companion nvcomp_parity_codes_broad.yaml is the quant-code tier (the input FZGM's
+# coders were tuned on) and sweeps error bounds. **Rows from the two must never be
+# pooled** — `original_bytes` means different things (field bytes vs codes bytes)
+# and a qcodes ratio is a back-end ratio, not a compression ratio. See D32 and
+# docs/adapters/nvcomp.md.
+#
+# nvCOMP is at chunk=16384, its measured-best on this H100 (D34), not the
+# documented 65536 — the reference tool gets its best config, not its default.
+name: nvcomp_parity_raw_broad
+description: >
+  Broadened per-coder comparison of FZGM's ANS / GPULZ / GPULZ+Huffman / GPU-Zstd
+  against nvCOMP's ANS / LZ4 / Deflate / GDeflate / Zstd (plus Snappy, Gzip,
+  Bitcomp and Cascaded as unpaired reference points) on identical raw field bytes,
+  lossless both sides, across 5 datasets and both f32 and f64.
+
+datasets: [CESM-2D, HURR, NYX, MIRANDA, EXAALT]
+fields:
+  CESM-2D: [CLDHGH, PRECT, TS]
+  HURR:    [CLOUD, QVAPOR, U]
+  NYX:     [baryon_density, temperature, velocity_x]
+  MIRANDA: [density, pressure, velocityx]
+  EXAALT:  [xx, vx, yy]
+
+error:
+  mode: lossless
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # ── the four paired claims under test ───────────────────────────────────────
+  # entropy coder: rANS vs ANS
+  - {compressor: fzgm,   variant: fzgm-ans,        pipeline: configs/pipelines/ans_only.toml}
+  - {compressor: nvcomp, variant: nvcomp-ans,      pipeline: "nvcomp:ans:chunk=16384"}
+
+  # LZ77, no entropy stage: GPULZ vs LZ4
+  - {compressor: fzgm,   variant: fzgm-gpulz,      pipeline: configs/pipelines/gpulz_only.toml}
+  - {compressor: nvcomp, variant: nvcomp-lz4,      pipeline: "nvcomp:lz4:chunk=16384"}
+
+  # LZ77 + Huffman = DEFLATE's structure
+  - {compressor: fzgm,   variant: fzgm-gpulz-huf,  pipeline: configs/pipelines/gpulz_huffman.toml}
+  - {compressor: nvcomp, variant: nvcomp-deflate,  pipeline: "nvcomp:deflate:chunk=16384"}
+  - {compressor: nvcomp, variant: nvcomp-gdeflate, pipeline: "nvcomp:gdeflate:chunk=16384"}
+
+  # full Zstd-shaped back end
+  - {compressor: fzgm,   variant: fzgm-gpuzstd,    pipeline: configs/pipelines/gpu_zstd_lossless.toml}
+  - {compressor: nvcomp, variant: nvcomp-zstd,     pipeline: "nvcomp:zstd:chunk=16384"}
+
+  # ── unpaired nvCOMP reference points ────────────────────────────────────────
+  # No FZGM counterpart is claimed for these; they are here to say how far the
+  # ceiling actually is. Snappy and Gzip are byte coders like the ones above.
+  - {compressor: nvcomp, variant: nvcomp-snappy,   pipeline: "nvcomp:snappy:chunk=16384"}
+  - {compressor: nvcomp, variant: nvcomp-gzip,     pipeline: "nvcomp:gzip:chunk=16384"}
+
+  # Bitcomp and Cascaded are TYPE-AWARE: they model the input as an array of a
+  # given element width, so `dtype` must match the field and is gated per dataset.
+  # nvCOMP 5.3 has no f32 element type (NVCOMP_TYPE_FLOAT was removed), so f32 is
+  # described as 4-byte *integer* width — a real modelling limit of the comparison,
+  # not a choice. f64 MIRANDA gets 8-byte width.
+  #
+  # This is not optional tuning. At nvCOMP's own default dtype (uchar) both
+  # measure CR ~1.0; at the correct width, 1.44 / 1.52 on CESM-2D/CLDHGH. Running
+  # them defaulted would report "compresses nothing" and be wrong.
+  - {compressor: nvcomp, variant: nvcomp-bitcomp,  pipeline: "nvcomp:bitcomp:chunk=16384:dtype=uint",
+     only_datasets: [CESM-2D, HURR, NYX, EXAALT]}
+  - {compressor: nvcomp, variant: nvcomp-bitcomp,  pipeline: "nvcomp:bitcomp:chunk=16384:dtype=ulonglong",
+     only_datasets: [MIRANDA]}
+
+  # Cascaded appears TWICE on purpose: at nvCOMP's documented default scheme and
+  # at the one measured best on CESM-2D/CLDHGH (rles=0 — RLE hurt monotonically
+  # there: 1.539 / 1.531 / 1.515 / 1.508 for 0/1/2/3 passes). Running both is how
+  # we find out whether that sweep generalises or was a one-field artefact.
+  - {compressor: nvcomp, variant: nvcomp-cascaded-default, pipeline: "nvcomp:cascaded:chunk=16384:dtype=uint:rles=2:deltas=1:bp=1",
+     only_datasets: [CESM-2D, HURR, NYX, EXAALT]}
+  - {compressor: nvcomp, variant: nvcomp-cascaded-best,    pipeline: "nvcomp:cascaded:chunk=16384:dtype=uint:rles=0:deltas=1:bp=1",
+     only_datasets: [CESM-2D, HURR, NYX, EXAALT]}
+  - {compressor: nvcomp, variant: nvcomp-cascaded-default, pipeline: "nvcomp:cascaded:chunk=16384:dtype=ulonglong:rles=2:deltas=1:bp=1",
+     only_datasets: [MIRANDA]}
+  - {compressor: nvcomp, variant: nvcomp-cascaded-best,    pipeline: "nvcomp:cascaded:chunk=16384:dtype=ulonglong:rles=0:deltas=1:bp=1",
+     only_datasets: [MIRANDA]}

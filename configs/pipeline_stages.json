@@ -1,7 +1,32 @@
 {
   "_comment": "Which stages each pipeline preset runs, probed from the real binary (scripts/probe_pipeline_stages.py). Used by `benchkit stale --stage` to find cells affected by a stage change without re-running them. Regenerate whenever a preset changes.",
   "pipelines": {
+    "ans_only.toml": {
+      "compress": [
+        "ANS"
+      ],
+      "decompress": [
+        "ANS"
+      ],
+      "stages": [
+        "ANS"
+      ]
+    },
     "cusz.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_coarse.toml": {
       "compress": [
         "LorenzoQuant",
         "Huffman"
@@ -83,6 +108,76 @@
         "RRE",
         "RZE",
         "Zigzag"
+      ]
+    },
+    "cusz_hufbook_adaptive.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_hufbook_adaptive_coarse.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_hufbook_adaptive_novalidate.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_hufbook_adaptive_refit.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "cusz_hufbook_fixed.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
       ]
     },
     "cusz_minimal.toml": {
@@ -266,6 +361,74 @@
         "TiledLorenzo"
       ]
     },
+    "fsz.toml": {
+      "compress": [
+        "Quantizer",
+        "AdaptiveLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ]
+    },
+    "fsz_bpt16.toml": {
+      "compress": [
+        "Quantizer",
+        "AdaptiveLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ]
+    },
+    "fsz_lz1.toml": {
+      "compress": [
+        "Quantizer",
+        "AdaptiveLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ]
+    },
+    "fsz_nocenter.toml": {
+      "compress": [
+        "Quantizer",
+        "AdaptiveLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "AdaptiveLorenzo",
+        "Quantizer"
+      ]
+    },
     "fzgpu.toml": {
       "compress": [
         "LorenzoQuant",
@@ -306,6 +469,168 @@
       "stages": [
         "BitplaneRZE",
         "LorenzoQuant"
+      ]
+    },
+    "ginterp_huffman_gpu_zstd.toml": {
+      "compress": [
+        "GInterp",
+        "Huffman",
+        "Merge",
+        "GPULZ",
+        "Huffman",
+        "ANS",
+        "ANS",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "ANS",
+        "ANS",
+        "Huffman",
+        "GPULZ",
+        "Merge",
+        "Huffman",
+        "GInterp"
+      ],
+      "stages": [
+        "ANS",
+        "GInterp",
+        "GPULZ",
+        "Huffman",
+        "Merge"
+      ]
+    },
+    "gpu_zstd.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "GPULZ",
+        "Huffman",
+        "ANS",
+        "ANS",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "ANS",
+        "ANS",
+        "Huffman",
+        "GPULZ",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "ANS",
+        "GPULZ",
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
+    "gpu_zstd_codes.toml": {
+      "compress": [
+        "GPULZ",
+        "Huffman",
+        "ANS",
+        "ANS",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "ANS",
+        "ANS",
+        "Huffman",
+        "GPULZ"
+      ],
+      "stages": [
+        "ANS",
+        "GPULZ",
+        "Huffman"
+      ]
+    },
+    "gpu_zstd_lossless.toml": {
+      "compress": [
+        "GPULZ",
+        "Huffman",
+        "ANS",
+        "ANS",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "ANS",
+        "ANS",
+        "Huffman",
+        "GPULZ"
+      ],
+      "stages": [
+        "ANS",
+        "GPULZ",
+        "Huffman"
+      ]
+    },
+    "gpulz_huffman.toml": {
+      "compress": [
+        "GPULZ",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "GPULZ"
+      ],
+      "stages": [
+        "GPULZ",
+        "Huffman"
+      ]
+    },
+    "gpulz_only.toml": {
+      "compress": [
+        "GPULZ"
+      ],
+      "decompress": [
+        "GPULZ"
+      ],
+      "stages": [
+        "GPULZ"
+      ]
+    },
+    "lorenzo_rle.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "RLE"
+      ],
+      "decompress": [
+        "RLE",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "LorenzoQuant",
+        "RLE"
+      ]
+    },
+    "lorenzo_rle_c4096.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "RLE"
+      ],
+      "decompress": [
+        "RLE",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "LorenzoQuant",
+        "RLE"
+      ]
+    },
+    "lorenzo_rle_c8192.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "RLE"
+      ],
+      "decompress": [
+        "RLE",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "LorenzoQuant",
+        "RLE"
       ]
     },
     "pfpl.toml": {
@@ -349,6 +674,26 @@
       ]
     },
     "quantizer_lorenzo_bitpack.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "Zigzag",
+        "Bitpack"
+      ],
+      "decompress": [
+        "Bitpack",
+        "Zigzag",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitpack",
+        "Lorenzo",
+        "Quantizer",
+        "Zigzag"
+      ]
+    },
+    "quantizer_lorenzo_bitpack_autoshift.toml": {
       "compress": [
         "Quantizer",
         "Lorenzo",

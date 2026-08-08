@@ -955,3 +955,146 @@ residuals become "outliers" at tighter bounds) or a raw/packed-format selection 
 **First seen (original, catastrophic pattern):** fzgm_vs_native, cuszp2 HURR/TC eb=1e-3,
 2026-07-02 (E14). **Broadened (moderate pattern, cuszp3):** fzgm_vs_native, cuszp3_outlier
 CESM-2D/HURR, 2026-07-03 (first bound-sweep run to include eb=1e-2 and eb=1e-4).
+
+---
+
+## E22 — GPULZ (non-split) writes past its declared output bound on a partial final chunk
+
+**Status:** **FIXED** in FZGPUModules 2026-08-06 (same day). Discovered while running
+`configs/experiments/nvcomp_stage_parity.yaml`. Kept here because the diagnosis — and
+especially the silent mid-pipeline variant — is worth not relearning.
+
+**Symptom:**
+```
+[fzgmod-cli] error: cudaMemcpyAsync failed: invalid argument
+```
+`-z` (compress-to-file) exits 1. `-b` (benchmark) on the same pipeline and data
+succeeds. Intermittent at the CLI level: on 3 CESM-2D fields of identical size,
+CLDHGH and PRECT failed while TS passed.
+
+**Affected pipelines:** any whose terminal stage is a **non-split** `GPULZ`
+(`configs/pipelines/gpulz_only.toml`). **Split mode is NOT affected** — every
+`gpu_zstd*` and `ginterp_*` preset uses `split_mode = true` and is safe, so no
+published result depends on this.
+
+**Trigger:** `input_bytes % chunk_size != 0`, i.e. a partial final chunk. Exact
+multiples never fail.
+
+**Root cause:** `GPULZStage::estimateOutputSizes()` returns, for the non-split
+forward path, `align4(n_bytes + hdr)` with `hdr = 8 + 8 * n_chunks`. That is exact
+when every chunk is full, and **too small when the last chunk is partial**. The DAG
+allocates the output buffer at that bound; the encode kernel then writes past it,
+and `Pipeline::writeToFile()` — which D2H-copies `meta.actual_size` bytes out of a
+buffer allocated at the bound (`compressor_io.cpp:213`) — is where it first becomes
+visible as an invalid-argument memcpy.
+
+Measured overrun (`actual_output_size_` minus the declared bound), 1 MB random f32,
+`chunk_size = 2048`:
+
+| input bytes | tail bytes | bound | actual | overrun |
+|---|---|---|---|---|
+| 1,048,576 | 0 (exact) | 1,052,680 | 1,052,680 | **0** |
+| 1,048,580 | 4 | 1,052,692 | 1,052,704 | **12** |
+| 1,049,088 | 512 | 1,053,200 | 1,053,228 | **28** |
+| 1,049,600 | 1024 | 1,053,712 | 1,053,752 | **40** |
+| 1,050,620 | 2044 | 1,054,732 | 1,054,736 | **4** |
+| 25,920,000 (CESM-2D field) | 512 | 26,021,264 | 26,021,292 | **28** |
+
+The overrun scales with the tail chunk's shape, not with input size. The exact
+missing term was not derived — that needs the stream format, and the measurements
+above are enough to prove the bound is wrong.
+
+**Why it is intermittent, and why that is the dangerous part:** the overrun is a
+few tens of bytes, so whether it faults depends on how much slack the memory pool
+happened to leave after the buffer. Two consequences:
+
+1. As a **terminal** stage it fails loudly (the D2H is bounds-checked by CUDA).
+2. **Mid-pipeline it does not.** `gpulz_huffman.toml` — same non-split GPULZ, with
+   Huffman downstream — exits 0 on the exact inputs where `gpulz_only.toml` exits 1,
+   because the terminal buffer is Huffman's and GPULZ's overrun lands in a pool
+   interior. The device-side write past the allocation still happened; nothing
+   reports it. Any non-split GPULZ in the middle of a DAG is silently corrupting
+   whatever the pool placed after it.
+
+**Reproducer:**
+```bash
+python -c "import numpy as np; np.random.default_rng(0).random(262272,dtype=np.float32).tofile('/tmp/p.f32')"
+fzgmod-cli -c configs/pipelines/gpulz_only.toml -t f32 -l 262272 -i /tmp/p.f32 -z -o /tmp/o.fzm
+# -> [fzgmod-cli] error: cudaMemcpyAsync failed: invalid argument
+```
+
+**Fix:** both branches of `GPULZStage::estimateOutputSizes()` now bound against the
+*padded* extent, `n_chunks * chunk_size`, rather than the input size. The split-mode
+`literals` port had the same latent defect (a raw-fallback tail chunk contributes a
+full `chunk_size` to it) and was fixed with it, though no measurement had tripped it.
+
+Five regression tests added in `tests/stages/test_gpulz.cpp` covering unpadded inputs
+across all three chunk sizes, all four word sizes, and both split modes; each asserts
+the reported size *and* a canary region past the declared bound. Verified they fail
+without the fix (overruns of 4–40 B reported per configuration) and pass with it.
+The existing suite had passed 48/48 because **every GPULZ test helper padded to a
+chunk multiple before calling `estimateOutputSizes()`** — the one shape that breaks
+it was never constructed.
+
+**Audit of the other chunked coders: GPULZ was the only one affected.** RRE, RZE,
+CLOG, HCLOG, RARE and RAZE all *clamp* the tail (`in_size = min(CS, total - off)`)
+and never emit more than `in_size` per chunk, so their `n_bytes + hdr` bound is exact.
+AdaptiveBitpack and BitplaneRZE size through padding-aware `configure()` /
+`maxArchiveBytes()`. GPULZ was the one stage that pads rather than clamps, which is
+exactly why it was the one with the bug.
+
+**Related:** fixing this exposed E23 below, on the same trigger.
+
+
+---
+
+## E23 — the inverse DAG shrank a sink buffer below what its stage writes, silently zeroing whole chunks
+
+**Status:** **FIXED** in FZGPUModules 2026-08-06. Found while verifying the E22 fix.
+
+**Symptom:** none. Exit code 0, `status: ok`, no warning, no CUDA error. The only
+signal was the harness's own bit-exactness check on a `lossless` row:
+`eb_satisfied = False`, `psnr = 10.32`, `max_abs_err = 50632` on
+`CESM-2D-qcodes-noa1e-3 / PRECT`. Sibling fields `CLDHGH` and `TS`, byte-for-byte
+the same size, were clean.
+
+**Affected:** any pipeline whose **first forward stage** (= inverse *sink*) writes
+more than it reports, at an input length that is not a multiple of its chunk size.
+In practice: GPULZ (zero-pads its tail chunk) and BitplaneRZE (decodes to `pad_len`).
+Presets reached: `gpulz_only`, `gpulz_huffman`, `gpu_zstd_lossless`,
+`gpu_zstd_codes`. **Not** `gpu_zstd.toml` or `ginterp_*` — those start with
+LorenzoQuant/GInterp, so the full-corpus sweep and every lossy result are out of
+reach structurally.
+
+**Root cause:** `Pipeline::buildInverseDAG()` propagated each stage's
+`estimateOutputSizes()` and then *overrode* every source's result buffer with "the
+exact per-source uncompressed size" from the archive. That size is exact for what
+the sink stage **reports**, not for what it **writes**. GPULZ zero-pads a partial
+tail chunk, decodes the whole padded extent, and then reports the pre-padding size
+so downstream element counts stay right — its inverse `estimateOutputSizes()` says
+so explicitly. The override discarded that larger estimate, leaving the decode
+kernel writing past its buffer.
+
+**Why it corrupted data far from the tail.** Under `PREALLOCATE` the region packed
+behind the sink buffer is the **input compressed buffer**. The tail chunk's
+overrunning write therefore raced the *other* chunks' reads of the compressed
+stream, inside the same kernel launch. Those chunks parsed a mutated stream and
+came out as `flag_size == 0 / data_size == 0` — the all-zero-chunk sentinel — so
+they were zero-filled. The corruption presented as whole chunks of zeros scattered
+through the file, nowhere near the tail: 14,480 B across 372 of 6,329 chunks.
+Data-dependent, not size-dependent — which is why one of three identically-sized
+fields failed.
+
+**Fix:** `max(estimate, exact size)` instead of the override. The exact size still
+wins wherever the estimate is smaller (its original purpose); it can no longer
+undercut the stage.
+
+**Reproducing it is finicky, and that is the lesson.** The GPULZ *stage* round-trips
+this input correctly in isolation. A warm in-process `Pipeline` round trip is clean.
+So is an in-process `fzgmod_cli_main()` compress-then-decompress. It needs separate
+processes for the pool to land the overrun somewhere that changes the answer. The
+regression test `CLI/GpulzUnpaddedInputFileRoundTripIsLossless` is therefore
+**deterministic only under `ctest --preset compute-san`**, where memcheck reports 31
+invalid global writes without the fix and 0 with it. A correctness bug that only
+shows up under a sanitizer in-process is one that a normal test run will not catch —
+budget for the sanitizer preset when a stage writes more than it reports.

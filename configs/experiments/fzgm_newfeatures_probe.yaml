@@ -1,0 +1,37 @@
+# Per-cell wall-time probe for the three fzgm new-feature experiments.
+#
+# Not a result. Its only job is to measure how long a cell actually takes on the
+# two extremes of the corpus -- a 26 MB 2-D field and a 1.12 GB 1-D field -- so
+# the full matrices can be sized before committing hours to them. Delete or
+# ignore the session it produces.
+#
+#   python -m benchkit run configs/experiments/fzgm_newfeatures_probe.yaml \
+#          --session-id probe
+name: fzgm_newfeatures_probe
+description: Wall-time probe only; not a measurement.
+
+datasets: [CESM-2D, HACC]
+fields:
+  CESM-2D: [CLDHGH]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: probe-huf-perblock,
+     pipeline: configs/pipelines/cusz.toml}
+  - {compressor: fzgm, variant: probe-huf-adaptive,
+     pipeline: configs/pipelines/cusz_hufbook_adaptive.toml}
+  - {compressor: fzgm, variant: probe-fsz,
+     pipeline: configs/pipelines/fsz.toml}
+  - {compressor: fzgm, variant: probe-rle-c4096,
+     pipeline: configs/pipelines/lorenzo_rle_c4096.toml}
+  - {compressor: cusz, variant: probe-cusz-native}

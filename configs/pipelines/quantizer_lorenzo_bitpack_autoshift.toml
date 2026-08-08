@@ -1,0 +1,55 @@
+[pipeline]
+# quantizer_lorenzo_bitpack.toml with auto_shift = true.
+#
+# Arm of configs/experiments/fzgm_rle_bitpack.yaml. Measures the new bitpack
+# shift option in its safe, self-tuning form.
+#
+# base and shift attack opposite ends of the word: base removes dead HIGH bits
+# (values clustered far from zero, always lossless), shift removes dead LOW bits
+# (values that are all multiples of 1 << shift, lossless ONLY if those bits are
+# already zero). A hand-set shift is lossy in general -- the inverse restores
+# (packed << shift) + base, so dropped low bits come back rounded down.
+#
+# auto_shift is the non-lossy way to use it: a GPU OR-reduce picks the LARGEST
+# PROVABLY LOSSLESS shift for the actual data. That is why this arm sets
+# auto_shift rather than a fixed shift value -- a fixed shift would change the
+# reconstruction and make the CR comparison against the baseline meaningless,
+# since the two arms would no longer be answering the same question.
+#
+# Expect little or nothing here: after Zigzag, the low bits of a residual stream
+# are exactly the bits that vary. A measured ~1.0x is a real result -- it says
+# the knob is correctly declining to fire, not that it is broken. The cost side
+# is the point: auto_shift adds a reduction + D2H + sync and disables CUDA Graph
+# compatibility while active.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.05
+zigzag_codes = false
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "zz"
+type = "Zigzag"
+data_type = "int32"
+inputs = [{from = "lrz", port = "output"}]
+
+[[stage]]
+name = "pack"
+type = "Bitpack"
+input_type = "uint32"
+nbits = 16
+auto_shift = true
+inputs = [{from = "zz", port = "output"}]

@@ -1,0 +1,43 @@
+[pipeline]
+# cusz.toml with HuffmanBookSource::Fixed — an analytic Laplace book, no
+# histogram ever.
+#
+# Arm of configs/experiments/fzgm_huffman_book.yaml. This is the throughput
+# ceiling for the codebook question (it skips the histogram entirely, on every
+# call including the first) and simultaneously the compression-ratio floor.
+#
+# book_center = 0.0 because the upstream LorenzoQuant sets zigzag_codes = true:
+# zigzag puts the zero-error code at symbol 0, not at bklen/2 where an unsigned
+# quantizer of radius bklen/2 would put it. The default of -1.0 means bklen/2 and
+# would be centred on entirely the wrong symbol here.
+#
+# book_scale = 16 = bklen/64, the "reasonably configured" setting from
+# docs/stages/huffman.md, whose measured cost was a geometric mean of -31% ratio
+# on this preset shape (worst case -93% across presets). We expect this arm to
+# lose badly on CR; the point is to quantify what the throughput ceiling costs,
+# and to confirm on H100 that Adaptive reaches the same steady state without
+# paying it.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 1024
+encode_mode = "Fine"
+book_source = "Fixed"
+book_model = "Laplace"
+book_center = 0.0
+book_scale = 16.0
+inputs = [{from = "lrz", port = "codes"}]

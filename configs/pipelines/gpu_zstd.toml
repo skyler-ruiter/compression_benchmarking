@@ -1,0 +1,102 @@
+# FZGM "GPU Zstandard" — LorenzoQuant -> GPULZ (split) -> {Huffman, ANS x3}
+#
+# Ported from FZGPUModules examples/presets/gpu_zstd.toml. LOSSY: the predictor
+# carries the error bound, which benchkit renders per cell (error_bound /
+# error_bound_mode are overwritten by pipelines.py — the values below are
+# placeholders and are never the ones that run under a swept error mode).
+#
+# Reproduces Zstandard's block structure on the GPU. Zstd splits a compressed
+# block into a *literals* section (Huffman coded) and a *sequences* section (FSE
+# coded), because the two carry very different symbol distributions and
+# interleaving them raises the entropy any single coder sees. GPULZ's split mode
+# emits that separation as four ports, each coded on its own:
+#
+#     literals -> Huffman<uint16>   (Zstd: Huffman over literals)
+#     lengths  -> ANS               (Zstd: FSE over Match_Length codes)
+#     offsets  -> ANS               (Zstd: FSE over offset codes)
+#     meta     -> ANS               (header + per-chunk size table + flag bitmaps)
+#
+# Use this against the *lossy* reference compressors (cuSZ, cuSZp, FZ-GPU, ...).
+# It is NOT the pipeline to compare against nvCOMP Zstd — nvCOMP is lossless, so
+# the head-to-head uses gpu_zstd_lossless.toml, which is this DAG with the
+# predictor removed. See docs/adapters/nvcomp.md.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "PREL"
+# quant_radius is capped by the literals Huffman, not by the predictor:
+# HuffmanStage histograms into *shared* memory, so its 2*radius-entry codebook has
+# to fit there. 2048 -> 4096 entries -> 16 KB is fine; 32768 -> 64 K entries ->
+# 256 KB faults. HuffmanStage also narrows bklen to uint16_t, so bklen must stay
+# <= 65535, capping radius at 32767 regardless.
+quant_radius = 2048
+outlier_capacity = 0.2
+zigzag_codes = true                 # Huffman needs contiguous codes in [0, 2r-2]
+
+# -- LZ77 stage, emitting Zstd-style separated streams -------------------------
+[[stage]]
+name = "lz"
+type = "GPULZ"
+split_mode = true                   # 4 ports instead of one interleaved stream
+chunk_size = 2048
+word_size = 4                       # match granularity; 4 measured best on uint16
+                                    # quant codes (FZGM docs/stages/gpulz.md)
+match_level = 1                     # + hashed long-range candidates
+inputs = [{from = "lrz", port = "codes"}]
+
+# -- literals: keep the natural uint16 code alphabet ---------------------------
+# The larger half of the split's benefit. Lorenzo-quantized uint16 codes carry
+# strong correlation between a code's high and low byte; coding them as *bytes*
+# throws that away (4.14 bits/byte vs 3.43 as uint16 symbols).
+[[stage]]
+name = "huf_lit"
+type = "Huffman"
+input_type = "uint16"
+bklen = 4096                        # = 2*quant_radius; must be even
+inputs = [{from = "lz", port = "literals"}]
+
+# ── Optional: Adaptive Huffman codebook ──────────────────────────────────────
+# Uncomment to trade a per-call histogram + host-side codebook build (with its
+# stream sync) for a book fitted once and reused. Measured on this preset,
+# H100, CESM-2D/CLDHGH (see docs/results/adaptive-huffman-gpu-zstd.md):
+#
+#     book_source = "Adaptive"
+#
+# compress 26.6 -> 30.7 GB/s (1.15x), compression ratio unchanged (10.87x both).
+#
+# The gain shrinks with input size (the per-call cost is amortised): on
+# gpu_zstd_lossless, 1.09x at 25.9 MB, 1.03x at 100 MB, 1.02x at 536 MB.
+# Codebook drift across 5 genuinely different CESM-2D fields: 0.19% mean,
+# 0.35% worst, 0 refits. Do NOT use book_source = "Fixed" — it costs ~60% CR.
+
+
+# -- sequences: ANS (rANS) stands in for Zstd's FSE (tANS) ---------------------
+# Same coder family, and the right choice for these streams: small, heavily
+# skewed alphabets where Huffman's >=1-bit-per-symbol floor is costly. Unlike
+# Zstd these are three *separate* streams rather than one interleaved bitstream
+# with three FSE states — on a GPU, same-level DAG stages run concurrently on
+# separate streams, so separate ports let their coders overlap.
+[[stage]]
+name = "ans_len"
+type = "ANS"
+inputs = [{from = "lz", port = "lengths"}]
+
+[[stage]]
+name = "ans_off"
+type = "ANS"
+inputs = [{from = "lz", port = "offsets"}]
+
+[[stage]]
+name = "ans_meta"
+type = "ANS"
+inputs = [{from = "lz", port = "meta"}]
+
+# No Merge stage on purpose: nothing downstream consumes the concatenation, and
+# merging early would hand each coder's inverse an interior pointer at an
+# arbitrary byte offset — both the Huffman and ANS decoders read their bitstreams
+# as 32-bit words and fault on the misaligned read.

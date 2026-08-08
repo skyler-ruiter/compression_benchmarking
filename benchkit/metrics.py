@@ -15,7 +15,12 @@ from pathlib import Path
 import numpy as np
 
 _NP_DTYPE = {"f32": np.float32, "f64": np.float64,
-             "i32": np.int32, "i64": np.int64}
+             "i32": np.int32, "i64": np.int64,
+             # Unsigned integer widths are for derived datasets — currently the
+             # uint16 Lorenzo quant codes the back-end-isolation experiment feeds
+             # to both FZGM's and nvCOMP's lossless coders (see
+             # scripts/extract_quant_codes.py). Never a raw SDRBench field.
+             "u8": np.uint8, "u16": np.uint16, "u32": np.uint32}
 
 
 def _read(path: str | Path, dtype: str, count: int) -> np.ndarray:
@@ -90,12 +95,23 @@ def compute_quality(original_path: str | Path, decompressed_path: str | Path,
         psnr = 0.0
     nrmse = math.sqrt(mse) / vrange if vrange > 0 else 0.0
 
-    basis_val = {"abs": 1.0, "range": vrange, "maxabs": vmaxabs}.get(basis)
-    if basis_val is None:
-        raise ValueError(f"unknown eb basis '{basis}'")
-    eb_abs = error_bound * basis_val
-    over = max_abs / eb_abs if eb_abs > 0 else math.inf
-    eb_satisfied = max_abs <= eb_abs * (1.0 + eb_tol)
+    if basis == "lossless":
+        # Not an error bound: the contract is bit-exactness. Expressing it as
+        # "eb = 0" through the generic path would divide by zero and report
+        # err_over_bound = inf even for a perfect round-trip, which then has to be
+        # special-cased everywhere downstream (and inf is not valid JSON). Say what
+        # is actually true instead — the bound is 0, the overshoot is 0, and a
+        # lossless codec that returns anything but the input has failed, with no
+        # eb_tol slack, since there is no bound for round-off to sit under.
+        eb_abs, over = 0.0, 0.0
+        eb_satisfied = max_abs == 0.0
+    else:
+        basis_val = {"abs": 1.0, "range": vrange, "maxabs": vmaxabs}.get(basis)
+        if basis_val is None:
+            raise ValueError(f"unknown eb basis '{basis}'")
+        eb_abs = error_bound * basis_val
+        over = max_abs / eb_abs if eb_abs > 0 else math.inf
+        eb_satisfied = max_abs <= eb_abs * (1.0 + eb_tol)
 
     return QualityMetrics(
         val_min=vmin, val_max=vmax, val_range=vrange, val_maxabs=vmaxabs, mse=mse,

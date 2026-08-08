@@ -1,0 +1,100 @@
+# FSZ pipeline evaluation -- AdaptiveLorenzo (H100).
+#
+# The question: what does FSZ's adaptive, cross-block, optionally second-order
+# predictor actually buy over the plain Lorenzo predictors already in FZGM, and
+# what does the per-tile variant search cost in throughput?
+#
+# NOTE (2026-08-07): when this was written there was no native FSZ build to
+# compare against. FSZ 1.0.0 was released 2026-08 under BSD-3, and there is now
+# an adapter (`configs/experiments/fsz_vs_native.yaml`, docs/adapters/fsz.md).
+# The caveat below still holds for THROUGHPUT and is why that comparison is a
+# separate experiment: the reference implementation fuses prediction,
+# quantization and encoding into a single CUDA kernel, whereas FZGM's
+# AdaptiveLorenzo is the prediction step alone, composed with QuantizerStage
+# upstream and AdaptiveBitpackStage downstream, so an "FZGM FSZ vs native FSZ"
+# throughput number measures the modular-DAG materialization tax, not the
+# predictor. CR and quality against native ARE like-for-like, and were checked:
+# identical PSNR on all 20 cells, CR geomean 0.9928, with 99.6% of the deficit
+# accounted for by FZGM's `modes` side channel (FSZ packs the same two flags
+# free into spare bits of its rate byte).
+#
+# So the reference is INTERNAL and controlled: fzgm-cuszp2 and fzgm-cuszp3 run
+# the SAME AdaptiveBitpack coder with a different predictor (plain Lorenzo
+# block=32 / TiledLorenzo 8x8). The delta against those isolates AdaptiveLorenzo.
+# Native cuszp2/cuszp3 are included only for absolute context -- they are fused
+# single-kernel implementations and are expected to be faster than any modular
+# arm here; that gap is a known, separately-tracked property of the DAG model,
+# not a finding of this experiment.
+#
+# The ablation arms decompose AdaptiveLorenzo's three simultaneous ideas:
+#   fzgm-fsz-bpt8     everything on, 256-element tiles (FSZ's default)
+#   fzgm-fsz-bpt16    512-element tiles: longer prediction chain, less per-tile
+#                     metadata, coarser adaptation
+#   fzgm-fsz-lz1      order-2 off  -> prices the second-order predictor
+#   fzgm-fsz-nocenter centering off -> prices the `means` side channel
+# Read fzgm-fsz-lz1 against fzgm-cuszp2 and the remainder is FSZ's cross-block
+# prediction state on its own, which the stage docs argue is most of the win
+# (a single raw seed sets the bit width for its whole 32-element coder block, so
+# eliminating 7 of 8 seeds matters more than the residual arithmetic).
+#
+# Note the error mode: these presets quantize with linear_mode = true and the
+# arms all share it, so the comparison is internally consistent. rel_range keeps
+# it comparable with the other two experiments in this round.
+#
+# Run:
+#   source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/fzgm_fsz.yaml
+
+name: fzgm_fsz
+description: >
+  AdaptiveLorenzo (FSZ) predictor evaluation on H100, ablated over
+  blocks_per_tile / order-2 / centering, against FZGM cuszp2 and cuszp3 as
+  same-coder different-predictor controls, with native cuSZp2/3 for absolute
+  context. Same field subset as fzgm_huffman_book.yaml.
+
+datasets:
+  - EXAALT
+  - CESM-2D
+  - HURR
+  - NYX
+  - CESMATM-3D
+  - HACC
+
+fields:
+  EXAALT:      [xx]
+  CESM-2D:     [CLDHGH, LHFLX]
+  HURR:        [CLOUD, QVAPOR]
+  NYX:         [baryon_density, temperature]
+  CESMATM-3D:  [CLOUD, T]     # `T` is the documented 1.95x centering case
+  HACC:        [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+# Distinct `variant` per arm -- see the note in fzgm_huffman_book.yaml.
+runs:
+  - {compressor: fzgm, variant: fzgm-fsz-bpt8,
+     pipeline: configs/pipelines/fsz.toml}
+  - {compressor: fzgm, variant: fzgm-fsz-bpt16,
+     pipeline: configs/pipelines/fsz_bpt16.toml}
+  - {compressor: fzgm, variant: fzgm-fsz-lz1,
+     pipeline: configs/pipelines/fsz_lz1.toml}
+  - {compressor: fzgm, variant: fzgm-fsz-nocenter,
+     pipeline: configs/pipelines/fsz_nocenter.toml}
+
+  # Same-coder controls: AdaptiveBitpack with a non-adaptive predictor.
+  - {compressor: fzgm, variant: fzgm-cuszp2,
+     pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: fzgm, variant: fzgm-cuszp3,
+     pipeline: configs/pipelines/cuszp3.toml}
+
+  # Absolute context only (fused single-kernel natives).
+  - {compressor: cuszp2, variant: cuszp2-native, pipeline: outlier}
+  - {compressor: cuszp3, variant: cuszp3-native, pipeline: outlier}

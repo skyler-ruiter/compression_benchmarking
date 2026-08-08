@@ -1,0 +1,35 @@
+[pipeline]
+# cusz.toml with HuffmanBookSource::Adaptive — sample once, reuse.
+#
+# Arm of configs/experiments/fzgm_huffman_book.yaml. The ONLY difference from
+# cusz.toml is `book_source`; every other key (encode_mode is Coarse here,
+# which falls back to Coarse on realistic data) is held constant so the measured
+# delta is attributable to the codebook source alone.
+#
+# Adaptive histograms the first block only, builds a codebook from it, and pins
+# it. That removes the per-call histogram -> D2H -> host tree build barrier
+# (HuffmanStage forward pass steps 1-4, docs/stages/huffman.md) from every call
+# after the first. `validate_symbol_range` stays at its default of true here, so
+# a device-side range check + one stream sync replaces that barrier -- the
+# _novalidate arm is what isolates the cost of that check.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 1024
+encode_mode = "Coarse"
+book_source = "Adaptive"
+inputs = [{from = "lrz", port = "codes"}]

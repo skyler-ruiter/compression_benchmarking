@@ -1,0 +1,64 @@
+# FZGM GPU-Zstd BACK END ONLY — GPULZ (split) -> {Huffman<uint16>, ANS x3}
+#
+# gpu_zstd.toml from the predictor down. Identical to that preset's coder half,
+# stage for stage and setting for setting; the only difference is that
+# LorenzoQuant is gone, because the input is already its output.
+#
+# Runs against the derived quant-codes datasets (CESM-2D-qcodes-*, produced by
+# scripts/extract_quant_codes.py) under `error.mode: lossless`. Both this and
+# `nvcomp:zstd` consume the identical uint16 codes, so the ratio and throughput
+# difference is attributable to the coders alone — not to FZGM's Lorenzo
+# predictor, which is what an end-to-end comparison would actually be measuring.
+#
+# Note this file differs from gpu_zstd_lossless.toml only in the literals coder:
+# uint16 with a 4096-entry book here (the codes ARE uint16 symbols and their
+# high/low bytes correlate), uint8/256 there (raw f32 mantissa bytes have no such
+# 16-bit structure). Same reason, opposite answer, because the input differs.
+#
+# Used by configs/experiments/nvcomp_vs_fzgm_backend.yaml. See docs/adapters/nvcomp.md.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lz"
+type = "GPULZ"
+split_mode = true
+chunk_size = 2048
+word_size = 4                       # matches gpu_zstd.toml; measured best on uint16 codes
+match_level = 1
+
+[[stage]]
+name = "huf_lit"
+type = "Huffman"
+input_type = "uint16"
+bklen = 4096                        # = 2 * quant_radius (2048) used to make the codes
+inputs = [{from = "lz", port = "literals"}]
+
+# ── Optional: Adaptive Huffman codebook ──────────────────────────────────────
+# Uncomment to trade a per-call histogram + host-side codebook build (with its
+# stream sync) for a book fitted once and reused. Measured on this preset,
+# H100, CESM-2D/CLDHGH (see docs/results/adaptive-huffman-gpu-zstd.md):
+#
+#     book_source = "Adaptive"
+#
+# compress 14.7 -> 16.6 GB/s (1.15x geomean over CLDHGH/PRECT/TS) for -0.05% CR.
+#
+# The gain shrinks with input size (the per-call cost is amortised): on
+# gpu_zstd_lossless, 1.09x at 25.9 MB, 1.03x at 100 MB, 1.02x at 536 MB.
+# Codebook drift across 5 genuinely different CESM-2D fields: 0.19% mean,
+# 0.35% worst, 0 refits. Do NOT use book_source = "Fixed" — it costs ~60% CR.
+
+
+[[stage]]
+name = "ans_len"
+type = "ANS"
+inputs = [{from = "lz", port = "lengths"}]
+
+[[stage]]
+name = "ans_off"
+type = "ANS"
+inputs = [{from = "lz", port = "offsets"}]
+
+[[stage]]
+name = "ans_meta"
+type = "ANS"
+inputs = [{from = "lz", port = "meta"}]

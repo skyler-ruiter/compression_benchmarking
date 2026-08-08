@@ -1,0 +1,91 @@
+# Huffman pre-built / adaptive codebook evaluation (H100).
+#
+# The question: HuffmanStage's default PerBlock mode histograms its input and
+# builds a fresh Huffman tree on EVERY forward call -- a full extra pass, a D2H,
+# a host stream sync and a serial tree build, per call. `Adaptive` samples the
+# first block and pins the book; `Fixed` skips the histogram entirely. How much
+# throughput does that actually buy on an H100, and what does it cost in ratio?
+#
+# The numbers currently in docs/stages/huffman.md are provisional and say so:
+# RTX 3080 Ti, single run per cell, +/-20% run-to-run spread. This experiment
+# replaces them with repeated device-event timings on the target GPU.
+#
+# Reading the results:
+#   fzgm-huf-perblock   baseline; also the compression-ratio CEILING (refits
+#                       every call, so it is what Adaptive/Fixed are losing to)
+#   fzgm-huf-adaptive   the recommended mode
+#   fzgm-huf-adaptive-nv  ^ minus the symbol-range guard -- isolates a sync that
+#                       Adaptive/Fixed reinstate and that is documented at ~16%
+#                       of Adaptive's throughput. Safe here only because
+#                       LorenzoQuant zigzag + bklen = 2*quant_radius guarantees
+#                       the range; see the preset's own comment.
+#   fzgm-huf-adaptive-refit  prices unconditional periodic refitting. Cannot
+#                       show a ratio GAIN here (see below) -- the cost is the
+#                       measurement.
+#   fzgm-huf-fixed      throughput ceiling, ratio floor (analytic Laplace book)
+#   cusz-native         external anchor: the implementation FZGM's PHF codec was
+#                       vendored from. Without it "1.4x faster than ourselves"
+#                       has no absolute meaning.
+#
+# WHAT THIS EXPERIMENT STRUCTURALLY CANNOT MEASURE: codebook drift. benchkit
+# reuses one pipeline across reps on IDENTICAL data, so Adaptive fits once and
+# every later rep is a steady-state hit on a perfectly-matched book. That is the
+# right throughput measurement and simultaneously the best case for ratio. Ratio
+# decay across genuinely different data is measured separately by
+# `fzgmod-profile-huffman-drift`.
+#
+# Run:
+#   source scripts/env-jetstream2.sh
+#   python -m benchkit run configs/experiments/fzgm_huffman_book.yaml
+
+name: fzgm_huffman_book
+description: >
+  HuffmanStage book_source evaluation on H100 -- PerBlock vs Adaptive (with and
+  without the symbol-range guard, and with periodic refit) vs a Fixed analytic
+  book, anchored against native cuSZ. Field subset spans 11 MB to 1.1 GB and
+  1-D/2-D/3-D, because the barrier Adaptive removes is per-call and so matters
+  most in relative terms on small inputs.
+
+datasets:
+  - EXAALT
+  - CESM-2D
+  - HURR
+  - NYX
+  - CESMATM-3D
+  - HACC
+
+fields:
+  EXAALT:      [xx]              # 11.5 MB, 1-D  -- latency-bound case
+  CESM-2D:     [CLDHGH, LHFLX]   # 25.9 MB, 2-D
+  HURR:        [CLOUD, QVAPOR]   # 100 MB,  3-D
+  NYX:         [baryon_density, temperature]   # 537 MB, 3-D
+  CESMATM-3D:  [CLOUD, T]        # 674 MB,  3-D
+  HACC:        [vx]              # 1.12 GB, 1-D
+
+error:
+  mode: rel_range              # = FZGM NOA; the cross-tool-comparable basis
+  bounds: [1.0e-2, 1.0e-4]     # loose / tight. The code distribution the book is
+                               # fitted to is much wider at 1e-4, so book_source
+                               # effects are bound-dependent and both are needed.
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false            # single persistent VM, no exclusive-node guarantee
+retain_decompressed: false
+retain_compressed: false      # D25: an earlier session left this unset and ate 16 GB
+
+# Every arm needs a DISTINCT `variant`: runner.py caches adapters by
+# f"{compressor}:{variant}" alone, so two entries sharing a variant name
+# silently reuse the first adapter while the rows still claim they differ.
+runs:
+  - {compressor: fzgm, variant: fzgm-huf-perblock,
+     pipeline: configs/pipelines/cusz.toml}
+  - {compressor: fzgm, variant: fzgm-huf-adaptive,
+     pipeline: configs/pipelines/cusz_hufbook_adaptive.toml}
+  - {compressor: fzgm, variant: fzgm-huf-adaptive-nv,
+     pipeline: configs/pipelines/cusz_hufbook_adaptive_novalidate.toml}
+  - {compressor: fzgm, variant: fzgm-huf-adaptive-refit,
+     pipeline: configs/pipelines/cusz_hufbook_adaptive_refit.toml}
+  - {compressor: fzgm, variant: fzgm-huf-fixed,
+     pipeline: configs/pipelines/cusz_hufbook_fixed.toml}
+  - {compressor: cusz, variant: cusz-native}

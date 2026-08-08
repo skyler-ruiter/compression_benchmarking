@@ -94,6 +94,22 @@ export LD_LIBRARY_PATH="${HOME}/compressors/MGARD/install-cuda-hopper/lib${LD_LI
 # CPU-only (OpenMP), Release. 2D/3D only (no 1D/4D — see benchkit/adapters/sperr.py).
 export SPERR_BIN_DIR="${HOME}/compressors/SPERR/build/bin"
 
+# ── nvCOMP ───────────────────────────────────────────────────────────────────
+# GPU LOSSLESS (zstd/lz4/deflate/gdeflate/ans) — no error bound, so it only runs
+# under error.mode: lossless. nvCOMP is a prebuilt SDK; nvcomp_cli is built from
+# THIS repo against it (nvCOMP ships no CLI that reports device time):
+#
+#   ./scripts/build-nvcomp-cli.sh
+#
+# Pinned to the latest redist: 5.3.0.16 (released 2026-07-14). Check for newer with
+#   curl -s https://developer.download.nvidia.com/compute/nvcomp/redist/ | grep redistrib_
+# ~/compressors/nvcomp is a symlink to the version in use; 5.2.0.10 is kept beside
+# it for A/B. 5.2 -> 5.3 is API-identical for everything nvcomp_cli uses and produces
+# byte-identical bitstreams, but ANS compress is +34% and Zstd compress -2.6%
+# (docs/adapters/nvcomp.md). Zstd needs >= 3.0.
+export NVCOMP_ROOT="${HOME}/compressors/nvcomp"
+export NVCOMP_CLI="${HOME}/compression_benchmarking/tools/nvcomp_cli/build/nvcomp_cli"
+
 # ── lsCOMP ───────────────────────────────────────────────────────────────────
 # NOTE: stub adapter — quantized-integer (uint32/16) compressor, no direct
 # float+error-bound CLI mode. See docs/adapters/lscomp.md.
