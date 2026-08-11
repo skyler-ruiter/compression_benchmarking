@@ -1,0 +1,43 @@
+# X2. cuSZ/FZ-GPU predictor -> PFPL back-end -> dietGPU ANS. [composed, not a port]
+#
+#   LorenzoQuant -> Bitshuffle(2B) -> RZE -> ANS
+#
+# X1 plus a rANS entropy pass over PFPL's RZE output. Three compressors' parts:
+# the predictor is cuSZ's, the middle is PFPL's, the terminal coder is the dietGPU
+# rANS that FZGM carries for its GPU-Zstd back end. PFPL is a fused single-kernel
+# design and structurally cannot append an entropy stage (scoping.md 1c); cuSZ-Hi
+# can, but reaches its entropy coder through Huffman + a four-stage LC chain.
+#
+# quant_radius is deliberately left at 512 and NOT retuned per error bound: 128 /
+# 512 / 1024 / 2048 give CR 45.4 / 46.1 / 46.1 / 46.1 on HURR/CLOUD at eb 1e-3, so
+# the result is radius-insensitive and no per-cell tuning is being hidden here.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "bshuf"
+type = "Bitshuffle"
+element_width = 2
+block_size = 16384
+inputs = [{from = "lrz", port = "codes"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1
+inputs = [{from = "bshuf", port = "output"}]
+
+[[stage]]
+name = "ans"
+type = "ANS"
+inputs = [{from = "rze", port = "output"}]

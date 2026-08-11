@@ -1,0 +1,38 @@
+# X1. cuSZ/FZ-GPU fused predictor  ->  PFPL back-end.        [composed, not a port]
+#
+#   LorenzoQuant (cuSZ / FZ-GPU fused Lorenzo+quantizer, zigzag codes)
+#     -> Bitshuffle(2B) -> RZE            (PFPL's coder chain)
+#
+# No monolithic compressor pairs these. cuSZ and FZ-GPU both use LorenzoQuant but
+# follow it with Huffman / BitplaneRZE respectively; PFPL owns Bitshuffle+RZE but
+# feeds it from a plain Quantizer + 1-D Difference, which does not use data locality.
+# The swap costs one pass (LorenzoQuant is 0.06 ms/100 MB, vs 0.36 ms for PFPL's
+# Quantizer+Difference) and buys the locality PFPL's Difference throws away.
+#
+# element_width = 2 matters: the codes are uint16, and bit-transposing at 4 B
+# (CR 43.4) or 1 B (CR 29.2) both lose to 2 B (CR 46.8) on HURR/CLOUD.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "bshuf"
+type = "Bitshuffle"
+element_width = 2
+block_size = 16384
+inputs = [{from = "lrz", port = "codes"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1
+inputs = [{from = "bshuf", port = "output"}]

@@ -1,0 +1,50 @@
+# X6. cuSZ-Hi front end -> dietGPU ANS tail.                 [composed, not a port]
+#
+#   GInterp -> Huffman -> Merge[vle|anchor|outlier_vals|outlier_idxs]
+#     -> RRE(4) -> ANS
+#
+# cusz_hi_cr.toml's chain with its LC tail (Zigzag/TCMS8 -> RZE_1) replaced by a
+# single rANS pass. cuSZ-Hi is monolithic: its back end is the LC framework, and
+# rANS is not in it. This is the "above the ceiling" arm (F0-bis target b) — it
+# gives up nothing on throughput relative to cusz_hi_cr and asks only whether the
+# entropy coder is a better terminal than two more LC transforms.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "gi"
+type = "GInterp"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 2048
+outlier_capacity = 0.2
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 4096
+inputs = [{from = "gi", port = "codes"}]
+
+[[stage]]
+name = "merge"
+type = "Merge"
+segments = ["vle", "anchor", "outlier_vals", "outlier_idxs"]
+inputs = [
+  {from = "huf", port = "output"},
+  {from = "gi",  port = "anchor"},
+  {from = "gi",  port = "outlier_vals"},
+  {from = "gi",  port = "outlier_idxs"},
+]
+
+[[stage]]
+name = "rre4"
+type = "RRE"
+word_size = 4
+inputs = [{from = "merge", port = "output"}]
+
+[[stage]]
+name = "ans"
+type = "ANS"
+inputs = [{from = "rre4", port = "output"}]

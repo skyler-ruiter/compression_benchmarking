@@ -1,0 +1,44 @@
+# X3. cuSZ predictor -> cuSZ-Hi LC chain -> ANS.             [composed, not a port]
+#
+#   LorenzoQuant -> Bitshuffle(2B) -> RRE(1) -> RZE(1) -> ANS
+#
+# X2 with cuSZ-Hi's RRE run-length pass inserted before RZE — i.e. cuSZ-Hi's
+# throughput-mode LC tail driven by cuSZ's Lorenzo predictor instead of cuSZ-Hi's
+# spline interpolation. Tests whether LC's extra RRE pass pays for itself on
+# Lorenzo residuals (it does not on cuSZ-Hi's spline codes at this speed point).
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "lrz"
+type = "LorenzoQuant"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 512
+outlier_capacity = 0.2
+zigzag_codes = true
+
+[[stage]]
+name = "bshuf"
+type = "Bitshuffle"
+element_width = 2
+block_size = 16384
+inputs = [{from = "lrz", port = "codes"}]
+
+[[stage]]
+name = "rre"
+type = "RRE"
+word_size = 1
+inputs = [{from = "bshuf", port = "output"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1
+inputs = [{from = "rre", port = "output"}]
+
+[[stage]]
+name = "ans"
+type = "ANS"
+inputs = [{from = "rze", port = "output"}]

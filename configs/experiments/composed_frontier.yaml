@@ -1,0 +1,51 @@
+# F1 candidate sweep — composed (non-port) pipelines on the three domains with
+# measured headroom. Companion to fzgm_vs_native_full.yaml: SAME error sweep
+# (rel_range, {1e-2,1e-3,1e-4}), SAME reps, SAME memory strategy, so every cell
+# here is directly comparable to a cell in session 20260808-fullcorpus-postfix.
+#
+# NO natives are re-run: their rows already exist in that session for all three
+# datasets and all three bounds. Only the seven new FZGM pipelines run here.
+#
+# Every pipeline below crosses stage families that no single monolithic
+# compressor combines — see the header comment of each configs/pipelines/x_*.toml.
+# TiledLorenzo pipelines are dimension-matched (2-D preset for CESM-2D, 3-D for
+# HURR/SCALE-LETKF) exactly as the cuszp3 rows in the full-corpus sweep are; a
+# mismatch silently benchmarks a different algorithm (D17).
+
+name: composed_frontier
+description: >
+  Seven composed FZGM pipelines (LorenzoQuant/TiledLorenzo/GInterp predictors
+  crossed with PFPL, cuSZ-Hi LC, Huffman, rANS and GPU-Zstd back ends) on
+  HURR, SCALE-LETKF and CESM-2D, eb in {1e-2, 1e-3, 1e-4}, rel_range.
+
+datasets:
+  - HURR          # 13 fields, 3-D, f32, 100.0 MB/field
+  - SCALE-LETKF   # 12 fields, 3-D, f32, 564.5 MB/field
+  - CESM-2D       # 79 fields, 2-D, f32,  25.9 MB/field
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: x_lq_pfpl,       pipeline: configs/pipelines/x_lorenzoquant_pfpl.toml}
+  - {compressor: fzgm, variant: x_lq_pfpl_ans,   pipeline: configs/pipelines/x_lorenzoquant_pfpl_ans.toml}
+  - {compressor: fzgm, variant: x_lq_lc_ans,     pipeline: configs/pipelines/x_lorenzoquant_lc_ans.toml}
+
+  - {compressor: fzgm, variant: x_tl_pfpl,       pipeline: configs/pipelines/x_tiledlorenzo_pfpl_3d.toml,
+     only_datasets: [HURR, SCALE-LETKF]}
+  - {compressor: fzgm, variant: x_tl_pfpl,       pipeline: configs/pipelines/x_tiledlorenzo_pfpl_2d.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm, variant: x_tl_pfpl_ans,   pipeline: configs/pipelines/x_tiledlorenzo_pfpl_ans_3d.toml,
+     only_datasets: [HURR, SCALE-LETKF]}
+  - {compressor: fzgm, variant: x_tl_pfpl_ans,   pipeline: configs/pipelines/x_tiledlorenzo_pfpl_ans_2d.toml,
+     only_datasets: [CESM-2D]}
+
+  - {compressor: fzgm, variant: x_gi_huff_ans,   pipeline: configs/pipelines/x_ginterp_huffman_ans.toml}
+  - {compressor: fzgm, variant: x_gi_huff_zstd,  pipeline: configs/pipelines/ginterp_huffman_gpu_zstd.toml}

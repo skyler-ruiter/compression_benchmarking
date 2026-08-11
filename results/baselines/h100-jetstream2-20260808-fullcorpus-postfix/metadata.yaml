@@ -1,0 +1,226 @@
+# Baseline: H100 / JetStream2 — FULL-CORPUS, POST-PRECISION-FIX
+# See results/baselines/README.md for the schema this file follows.
+#
+# This SUPERSEDES h100-jetstream2-20260729-fullcorpus as the reference H100
+# baseline. It is a like-for-like rerun of the same experiment_config on the same
+# host, after four f64->f32 narrowing bugs in the FZGM error-bound path and three
+# defects in the Huffman coder were fixed. Aggregates reproduce the old baseline
+# closely (see comparison_with_predecessor), which is the evidence that the fixes
+# changed correctness and not performance.
+#
+# It is ALSO the first baseline that carries compress-phase stage timing and
+# peak device memory for every FZGM cell — both absent from all four
+# 2026-07-29/30 full-corpus baselines. Stage attribution no longer needs a
+# separate 195-cell side run.
+
+baseline_id: h100-jetstream2-20260808-fullcorpus-postfix
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (GPU-passthrough cloud VM, single-tenant/exclusive, host skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9 (nvhpc/25.7)"
+date: "2026-08-08"   # started 18:35 UTC; finished 2026-08-09 14:16 UTC (~19.7 h)
+experiment_config: configs/experiments/fzgm_vs_native_full.yaml
+clocks_locked: true  # scripts/lock_clocks.sh, max boost 1980 MHz; sm_clock 1830 MHz throughout
+
+source:
+  kind: benchkit_native_output
+  original_session_id: 20260808-fullcorpus-postfix
+  fidelity: full  # runs.jsonl + provenance.json copied verbatim, no reconstruction
+  harness_git_sha: 55ae673
+  config_sha256: 0aadfff1bfe9988c555a230c0deaaca961e2ece14497339cd25f39305c418a0f
+
+scope:
+  datasets: 13
+  fields: 186
+  cells: 9684
+  # 132 fewer cells than the 20260729 baseline. NOT a coverage loss: the config now
+  # skips NATIVE cuSZ-Hi on the four f64 datasets (MIRANDA, S3D, NWCHEM, BROWN),
+  # because the cuSZ-Hi CLI is f32-only and exits 255 on -t f64. All 132 removed
+  # cells were `status: fail` in the predecessor — zero usable rows were dropped.
+  # This also makes the run cell-for-cell comparable with the A100 full-corpus
+  # baseline (a100-bigred200-fullcorpus-slurm7828800), which already used the skip.
+
+cells:
+  total: 9684
+  ok: 9401
+  failed: 283
+  known_failures: >
+    268 native-side, 15 FZGM-side.
+      - Native cuSZ-Hi 264 (cuszhi_cr 134, cuszhi_tp 130): illegal memory access
+        inside its own spline3.cu:541 on specific fields. Pre-existing and at the
+        same rate as the 20260729 baseline once the 132 deliberately-skipped f64
+        cells are accounted for. Root cause NOT established; it is field-specific,
+        not dataset-wide (CESMATM-3D 92, CESM-2D 55, HURR 48, SCALE-LETKF 36,
+        EXAALT 32, HACC 10, S3D 6 across both variants).
+      - Native cuSZ 4 (EXAALT, SIGSEGV).
+      - FZGM 15 (pfpl 7, cusz 4, fzgpu 4): ALL are the outlier-overflow guard added
+        with the precision fix, refusing to emit an archive it cannot decode within
+        the requested bound rather than silently violating it. pfpl/cuszp cannot
+        compress S3D/N2 and S3D/PRES; cusz/fzgpu refuse EXAALT at eb=1e-4. These are
+        deliberate refusals, not crashes, and MUST be disclosed in the paper's
+        coverage table — they are a real (small) coverage regression traded for a
+        correctness guarantee.
+    NOTE the predecessor baseline recorded ZERO FZGM failures. That is the trade:
+    those 15 cells previously "succeeded" while exceeding their error bound.
+
+headline_results: >
+  FZGM ERROR-BOUND CORRECTNESS — the reason this rerun exists:
+    Of the 242 cells the validity gate flags as severe error-bound violations
+    (> 1.01x over bound), FZGM accounts for ZERO. All 242 belong to native tools:
+    cuszp3_outlier 115, fzgpu 84, cuszp3_plain 29, cusz 12, cuszhi_tp 1, cuszhi_cr 1.
+    Of the 75 that miss by more than 10x, again ZERO are FZGM.
+    FZGM's 182 remaining bound misses are ALL marginal: min 1.0010, median 1.0016,
+    max 1.0093 — 182/182 inside the 1.01x boundary-round-off band. The predecessor
+    baseline had 24 severe FZGM cells and a 261-cell miss population.
+
+  FZGM ROBUSTNESS: of the 268 native failures, 234 have a directly comparable FZGM
+  cell, and FZGM succeeds on 234/234 (232 also eb-satisfied; CR median 53.9, range
+  3.85-1214.0). The modular port remains strictly more robust than the reference
+  implementations it reimplements.
+
+  FZGM vs native, geometric mean of per-cell ratios over 4,503 cells where BOTH
+  sides pass the validity gate — CR / compress-throughput / decompress-throughput:
+    cusz            n=550  CR 1.132  cT 0.754  dT 0.992
+    cuszhi_cr       n=341  CR 0.865  cT 0.462  dT 0.171
+    cuszhi_tp       n=341  CR 0.792  cT 0.445  dT 0.374
+    cuszp2_outlier  n=558  CR 0.864  cT 0.481  dT 0.812
+    cuszp2_plain    n=558  CR 1.024  cT 0.409  dT 0.708
+    cuszp3_outlier  n=558  CR 0.928  cT 0.724  dT 0.693
+    cuszp3_plain    n=558  CR 1.032  cT 0.633  dT 0.514
+    fzgpu           n=488  CR 1.029  cT 0.772  dT 0.755
+    pfpl            n=551  CR 0.996  cT 0.516  dT 0.526
+
+comparison_with_predecessor: >
+  CORRECTION (2026-08-10): an earlier version of this file claimed the fixes cost no
+  measurable performance. That is WRONG and was an artefact of reading only the
+  variant-level FZGM/native ratios, which average the effect away. See
+  huffman_compress_regression below: the Huffman coder lost ~5-7% compress throughput.
+  The aggregate ratios below are still correct as measurements; the no-cost conclusion
+  drawn from them was not.
+
+  Against h100-jetstream2-20260729-fullcorpus, same host, same config modulo the
+  native-cuSZ-Hi f64 skip. Every throughput ratio moves by <= 0.03x and most by
+  <= 0.01x:
+    variant          CR   old -> new     cT  old -> new     dT  old -> new
+    cusz             1.176 -> 1.132      0.776 -> 0.754     0.995 -> 0.992
+    cuszhi_cr        0.855 -> 0.865      0.463 -> 0.462     0.170 -> 0.171
+    cuszhi_tp        0.792 -> 0.792      0.452 -> 0.445     0.376 -> 0.374
+    cuszp2_outlier   0.864 -> 0.864      0.487 -> 0.481     0.820 -> 0.812
+    cuszp2_plain     1.024 -> 1.024      0.412 -> 0.409     0.714 -> 0.708
+    cuszp3_outlier   0.928 -> 0.928      0.735 -> 0.724     0.693 -> 0.693
+    cuszp3_plain     1.032 -> 1.032      0.642 -> 0.633     0.518 -> 0.514
+    fzgpu            1.024 -> 1.029      0.760 -> 0.772     0.754 -> 0.755
+    pfpl             0.977 -> 0.996      0.524 -> 0.516     0.532 -> 0.526
+  The two CR columns that DID move are the intended cost of the fix:
+    - cusz 1.176 -> 1.132. The quantizer no longer computes abs_eb in f32, so the
+      effective bound is tighter and fewer values quantise to the same code.
+    - pfpl 0.977 -> 0.996 is a denominator effect, not a codec change: the 7 cells
+      FZGM now refuses were low-CR cells dragging the geometric mean down.
+
+huffman_compress_regression: >
+  THE HUFFMAN FIXES COST ~5-7% OF HUFFMAN COMPRESS THROUGHPUT. Found 2026-08-10 by
+  comparing per-cell throughput against the predecessor on the 8,482 cells whose
+  compressed output is byte-identical across the two runs, per FZGM pipeline. Median
+  new/old compress ratio:
+
+    variant          Huffman? Huffman share   cmp p50   dcmp p50
+    cusz             YES          84.3%        0.9614    0.9993
+    cuszhi_cr        YES          37.7%        0.9759    0.9991
+    cuszhi_tp        no            0%          0.9941    0.9988
+    cuszp2_plain     no            0%          0.9937    0.9958
+    cuszp2_outlier   no            0%          0.9920    0.9960
+    cuszp3_plain     no            0%          0.9920    0.9967
+    cuszp3_outlier   no            0%          0.9887    0.9968
+    fzgpu            no            0%          0.9954    1.0000
+    pfpl             no            0%          0.9874    0.9983
+
+  This is a SHIFT OF THE WHOLE DISTRIBUTION, not a tail — which is why it is a
+  regression and not the contention noise documented in timing_quality. Three
+  independent reasons to believe it is the Huffman coder and not measurement error:
+    1. DOSE-RESPONSE. The two Huffman pipelines have very different Huffman shares of
+       compress time (84.3% vs 37.7%) and correspondingly different end-to-end shifts
+       (3.86% vs 2.41%). Both imply a similar Huffman-local slowdown: 4.8% and 6.6%.
+    2. CONTROLS ARE FLAT. All seven non-Huffman pipelines sit at 0.46-0.63% shift,
+       tightly clustered and consistent with each other.
+    3. NEAR-CONTROLLED PAIR. cuszhi_tp and cuszhi_cr share the GInterp front end and
+       differ mainly in the back end (Bitshuffle vs Huffman): 0.9941 vs 0.9759.
+  DECOMPRESS IS UNAFFECTED in all nine pipelines (0.9958-1.0000), including the Huffman
+  ones, which further rules out a whole-invocation timing artefact — contention would
+  have moved both phases of the same cell.
+
+  NOT confounded by run-spec scheduling. benchkit iterates run-spec outermost, so
+  fzgm:cusz ran 100% of its cells inside the 08-08T20 contended window. But fzgm:fzgpu
+  and fzgm:cuszp2_plain were ALSO 100% single-hour and show no shift, and fzgm:cusz's
+  decompress (same cells, same hour) is clean. Time-of-run does not explain it.
+
+  Likely mechanism, NOT yet confirmed by direct measurement: the `_bitstream4_len` fix
+  in phf/hf_buf.cc enlarged the encode bitstream allocation from `inlen / 2` to
+  `pardeg * ceil(sublen * 27 / 32)`. The old size was undersized and was the cause of the
+  compute-sanitizer errors; the new one is correct but larger, so there is more buffer to
+  allocate and touch per compress call. Confirm before quoting a cause.
+
+  THIS IS AN ACCEPTABLE TRADE, but it must be disclosed rather than described as free:
+  the old code was silently corrupting memory. Report it as ~2-4% end-to-end on Huffman
+  pipelines, nothing elsewhere, bought in exchange for correctness.
+
+new_data_in_this_baseline: >
+  1. STAGE TIMING, BOTH PHASES, FULL CORPUS. 4,845 FZGM cells carry `stages[]` with
+     18,124 compress-phase and 18,124 decompress-phase entries. The four 2026-07-29/30
+     full-corpus baselines have decompress-phase stages only (compress-phase timing was
+     dropped by setMemoryStrategy() replacing the DAG — fixed since). Any stage-attribution
+     figure should now be rebuilt from this baseline rather than from the 195-cell
+     h100-jetstream2-20260730-stageattr side run.
+  2. PEAK DEVICE MEMORY. `peak_device_mb` / `peak_device_bytes` on all 4,845 FZGM cells.
+     Peak as a multiple of input size, per pipeline (p50 / p90 / max):
+       cusz            4.45 / 4.52 / 4.94
+       fzgpu           4.47 / 4.56 / 4.98
+       cuszp3_plain    5.10 / 5.34 / 5.40
+       cuszp3_outlier  5.10 / 5.34 / 5.41
+       cuszp2_plain    5.16 / 5.16 / 5.16
+       cuszp2_outlier  5.17 / 5.17 / 5.17
+       pfpl            8.23 / 8.34 / 8.60
+       cuszhi_tp       8.65 / 8.73 / 8.90
+       cuszhi_cr      10.79 / 10.97 / 11.59
+     All under MemoryStrategy::PREALLOCATE. The spread is narrow within a pipeline and
+     wide across pipelines, i.e. peak memory is a property of the DAG, not of the data.
+  3. `huffman_adaptive_fallback` flag: 17 cells took the new PerBlock -> Adaptive
+     fallback (cusz/HACC 9, cuszhi_cr/CESMATM-3D 4, cuszhi_cr/EXAFEL 2, cusz/EXAFEL 1,
+     cuszhi_cr/SCALE-LETKF 1). All produced correct output; the flag exists so the
+     fallback is never silent.
+
+validity_gate: >
+  `status: ok` is NOT sufficient. Applying benchkit/validity.py:
+    9,684 rows -> 9,051 usable for CR/throughput, 9,051 usable for quality (PSNR).
+  Excluded:
+    - failed              283
+    - eb_violated_severe  242  (> 1.01x over bound; ZERO are FZGM — see headline_results)
+    - degenerate_field    108  (CESM-2D/SFCLDICE, CESM-2D/SFCLDLIQ — entirely zero)
+    - expansion            12  (cr <= 1; native cuSZ at eb=1e-4 on EXAALT/HACC, ~-23.6 dB)
+  RETAINED: 342 rows miss the bound by <= 1.01x and are kept as boundary round-off.
+  Quote that 342 alongside any eb-satisfaction claim.
+
+timing_quality: >
+  70 of 9,401 ok cells are timing_unreliable (0.74%), 42 compress_unstable (0.45%),
+  32 decompress_unstable (0.34%). Higher than the 0.21% of the July baselines. The host
+  showed intermittent slowness during the run (suspected JetStream2 backend, not the GPU:
+  sm_clock held at 1830 MHz and ECC/persistence stayed enabled throughout). CR, PSNR and
+  peak memory are deterministic and unaffected. The rate did NOT compound over the run
+  (0.72% at the 86% mark vs 0.74% final), so the flagged rows are scattered, not a
+  degrading tail. Re-measure the 70 flagged rows before quoting any per-cell throughput
+  number; dataset-level geometric means are unaffected at this rate.
+
+known_issues: >
+  1. The 15 FZGM refusals are a real coverage regression vs the predecessor and must
+     appear in the paper's coverage table, not be quietly dropped.
+  2. Native cuSZ-Hi's 264 failures mean many (field x pipeline) pairs still have no
+     native counterpart. Comparison artifacts must render these as "native crashed"
+     rather than silently omitting the cell, or FZGM's robustness result disappears
+     from the tables meant to show it.
+  3. The 108 non-finite-PSNR cells are the two all-zero CESM-2D fields. These are the
+     same fields that triggered the constant-input Huffman IMA fixed before this run.
+  4. cross-instance non-determinism in cusz_hi_tp (prewriting item 3c) is NOT resolved
+     by this run and remains open.
+  5. Peak-memory figures are PREALLOCATE-only. MINIMAL was not swept here; do not quote
+     these numbers as FZGM's minimum footprint.
+
+related_decisions: [D15, D20, D21, D22, D23, D24, D25, D26, D27, D30]

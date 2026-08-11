@@ -39,15 +39,27 @@ BASE = ROOT / 'results' / 'baselines'
 # baseline_id, peak HBM GB/s (vendor spec), whether clocks were pinned
 GPUS = {
     'A100':  dict(dir='a100-bigred200-fullcorpus-slurm7828800', peak=1555.0, locked=False,
-                  full='A100-SXM4-40GB', site='IU BigRed200', natives=True),
-    'H100':  dict(dir='h100-jetstream2-20260729-fullcorpus', peak=3350.0, locked=True,
-                  full='H100 80GB HBM3', site='JetStream2', natives=True),
+                  full='A100-SXM4-40GB', site='IU BigRed200', natives=True,
+                  date='2026-07-30', build='pre-fix'),
+    'H100':  dict(dir='h100-jetstream2-20260808-fullcorpus-postfix', peak=3350.0, locked=True,
+                  full='H100 80GB HBM3', site='JetStream2', natives=True,
+                  date='2026-08-08', build='post-fix'),
     'H200':  dict(dir='h200-delta-fullcorpus-20559887', peak=4800.0, locked=False,
-                  full='H200 SXM', site='NCSA Delta', natives=False),
+                  full='H200 SXM', site='NCSA Delta', natives=False,
+                  date='2026-07-29', build='pre-fix'),
     'MI100': dict(dir='mi100-delta-fullcorpus-20568712', peak=1229.0, locked=False,
-                  full='Instinct MI100 (gfx908)', site='NCSA Delta', natives=False),
+                  full='Instinct MI100 (gfx908)', site='NCSA Delta', natives=False,
+                  date='2026-07-29', build='pre-fix'),
 }
 REF = 'A100'   # the only GPU present in every generation of this corpus
+
+# The H100 baseline this one replaced. Kept wired in on purpose: it is the only
+# version-MATCHED counterpart to the other three GPUs, which still run pre-fix code.
+# Without it the page cannot distinguish "CR differs across architectures" (a
+# portability result) from "CR differs across FZGM versions" (a version-skew artifact),
+# and would report the second as the first. See `versionSkew` in the payload.
+PREV_H100 = dict(dir='h100-jetstream2-20260729-fullcorpus', date='2026-07-29')
+SKEW_GPU = 'H100'
 
 LABEL = {
     'cusz': 'cuSZ', 'cuszhi_tp': 'cuSZ-Hi (tp)', 'cuszhi_cr': 'cuSZ-Hi (cr)',
@@ -77,9 +89,29 @@ def gmean(xs):
     return math.exp(sum(map(math.log, xs)) / len(xs)) if xs else None
 
 
-def load(gpu):
-    p = BASE / GPUS[gpu]['dir'] / 'runs.jsonl'
+def load_dir(d):
+    p = BASE / d / 'runs.jsonl'
     return validity.annotate([json.loads(l) for l in p.read_text().splitlines() if l.strip()])
+
+
+def load(gpu):
+    return load_dir(GPUS[gpu]['dir'])
+
+
+def cr_agreement(F, gpus, keys):
+    """How many cells produce a bit-identical CR on every GPU in `gpus`."""
+    ident, byv, worst = 0, collections.Counter(), (0.0, None)
+    for k in keys:
+        crs = [F[g][k]['cr'] for g in gpus]
+        if len(set(crs)) == 1:
+            ident += 1
+        else:
+            byv[k.split('|')[1]] += 1
+            dev = (max(crs) - min(crs)) / min(crs)
+            if dev > worst[0]:
+                worst = (dev, k)
+    return {'n': len(keys), 'identical': ident, 'byVariant': dict(byv),
+            'worst': worst[0], 'worstCell': worst[1]}
 
 
 def pairkey(r):
@@ -223,19 +255,34 @@ def main() -> int:
         size.append(e)
 
     # ---- CR agreement across all four (the architecture-independence claim) --
-    okc = [k for k in common if all(F[g][k].get('status') == 'ok' for g in GPUS)]
-    ident, byv, worst = 0, collections.Counter(), (0.0, None)
-    for k in okc:
-        crs = [F[g][k]['cr'] for g in GPUS]
-        if len(set(crs)) == 1:
-            ident += 1
-        else:
-            byv[varof(k)] += 1
-            dev = (max(crs) - min(crs)) / min(crs)
-            if dev > worst[0]:
-                worst = (dev, k)
-    cragree = {'n': len(okc), 'identical': ident, 'byVariant': dict(byv),
-               'worst': worst[0], 'worstCell': worst[1]}
+    #
+    # This claim is only meaningful over VERSION-MATCHED baselines. Three of the four
+    # GPUs still run pre-fix FZGM; the H100 does not. So compute it twice -- once on the
+    # matched pre-fix set (the result that actually stands today) and once with the
+    # post-fix H100 swapped in (which measures version skew, not architecture) -- and
+    # hand the page both so it can say which is which instead of silently reporting the
+    # skew as a portability failure.
+    Fp = {r['cell_key']: r for r in load_dir(PREV_H100['dir']) if r['compressor'] == 'fzgm'}
+    Fm = dict(F, **{SKEW_GPU: Fp})            # version-matched: pre-fix everywhere
+    matched_common = common & set(Fp)
+    okc = [k for k in matched_common if all(F[g][k].get('status') == 'ok' for g in GPUS)
+           and Fp[k].get('status') == 'ok']
+
+    cragree = cr_agreement(Fm, list(GPUS), okc)          # the standing result
+    mixed = cr_agreement(F, list(GPUS), okc)             # same cells, post-fix H100
+
+    changed = [k for k in okc if Fp[k]['cr'] != F[SKEW_GPU][k]['cr']]
+    versionskew = {
+        'gpu': SKEW_GPU,
+        'prevDir': PREV_H100['dir'], 'prevDate': PREV_H100['date'],
+        'newDir': GPUS[SKEW_GPU]['dir'],
+        'stale': [g for g in GPUS if g != SKEW_GPU],
+        'n': len(okc),
+        'changed': len(changed),
+        'changedByVariant': dict(collections.Counter(varof(k) for k in changed).most_common()),
+        'matched': cragree,
+        'mixed': mixed,
+    }
 
     # ---- MI100 failures -----------------------------------------------------
     fails = [r for r in R['MI100'] if r.get('status') != 'ok']
@@ -251,6 +298,23 @@ def main() -> int:
         'msg': (fails[0].get('error_message') or '') if fails else '',
     }
 
+    # ---- peak device memory (new in the post-fix baseline) ------------------
+    # Reported as a multiple of the INPUT field size, because that is the number that
+    # decides whether a field fits: an absolute MB figure is unreadable across a corpus
+    # spanning 2.2 MB to 1.2 GB. PREALLOCATE only -- MINIMAL was not swept.
+    peak = []
+    for var in VARIANTS:
+        xs = sorted(r['peak_device_mb'] / (r['original_bytes'] / 1e6)
+                    for r in R[SKEW_GPU]
+                    if r['compressor'] == 'fzgm' and r.get('variant') == var
+                    and r.get('peak_device_mb') and r.get('original_bytes'))
+        if not xs:
+            continue
+        peak.append({'key': var, 'label': LABEL[var], 'n': len(xs),
+                     'p50': xs[len(xs) // 2], 'p90': xs[int(len(xs) * .9)],
+                     'min': xs[0], 'max': xs[-1]})
+    peak.sort(key=lambda e: e['p50'])
+
     out = {
         'gpus': {g: {k: v for k, v in m.items()} for g, m in GPUS.items()},
         'ref': REF,
@@ -263,6 +327,8 @@ def main() -> int:
         'xgpu': xgpu,
         'size': size,
         'crAgreement': cragree,
+        'versionSkew': versionskew,
+        'peak': peak,
         'mi100': mi,
     }
 

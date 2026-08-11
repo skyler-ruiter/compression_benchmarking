@@ -1,0 +1,57 @@
+# X5. cuSZp3 tiled predictor -> PFPL back-end -> ANS.        [composed, not a port]
+#
+#   Quantizer(u16) -> TiledLorenzo(int16, 8,1) -> Zigzag -> Bitshuffle(2B) -> RZE -> ANS
+#
+# cuSZp3 supplies the dimension-aware tiled Lorenzo; PFPL supplies the coder chain.
+# cuSZp3 itself always terminates in AdaptiveBitpack (a fixed-rate per-block packer,
+# no run exploitation); PFPL never uses a tiled predictor. Two deliberate departures
+# from the cuszp3 presets, both measured on HURR/CLOUD at eb 1e-3:
+#   - int16 codes rather than int32: halves every downstream stage's traffic
+#     (92 -> 131 GB/s compress) at no CR cost (46.5 -> 46.8).
+#   - the Zigzag is load-bearing, not cosmetic: dropping it and bit-transposing the
+#     signed residuals directly costs CR 46.8 -> 14.7.
+# Tile shape 4x4x4 beat 8x8x8 (44.7) and 16x16x4 (42.7); the stage default matched it.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int16"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "zz"
+type = "Zigzag"
+input_type = "int16"
+output_type = "uint16"
+inputs = [{from = "tl", port = "output"}]
+
+[[stage]]
+name = "bshuf"
+type = "Bitshuffle"
+element_width = 2
+block_size = 16384
+inputs = [{from = "zz", port = "output"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1
+inputs = [{from = "bshuf", port = "output"}]
+
+[[stage]]
+name = "ans"
+type = "ANS"
+inputs = [{from = "rze", port = "output"}]
