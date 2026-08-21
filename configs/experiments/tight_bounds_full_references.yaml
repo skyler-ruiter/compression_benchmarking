@@ -1,0 +1,55 @@
+# Standalone compressor references for the general tight-bound sweep.
+#
+# These tools are useful outside the FZGM paper even where no FZGM pipeline
+# exists. Their timing methods differ (CPU wall, CUDA process wall, or a
+# quantized-integer wrapper), so use them primarily for CR, quality, and failure
+# coverage. Do not put their throughput in one undifferentiated GPU ranking.
+
+name: tight_bounds_full_references
+description: >
+  Full-corpus standalone CR/quality references at rel_range 1e-6 and 1e-7:
+  SZ3, zfp, MGARD-X, SPERR, MANS, and lsCOMP.
+
+fields:
+  NWCHEM: [t631]
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - MIRANDA
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - S3D
+  - NWCHEM
+  - BROWN
+  - EXAFEL
+
+error:
+  mode: rel_range
+  bounds: [1.0e-6, 1.0e-7]
+
+repetitions: 3
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: sz3, variant: sz3-reference, pipeline: default}
+  - {compressor: zfp, variant: zfp-quality-reference, pipeline: default}
+  # HACC's 280M-element 1-D field OOMs MGARD-X on this H100; other fields stay.
+  - {compressor: mgard, variant: mgard-quality-reference, pipeline: default,
+     skip_datasets: [HACC]}
+  # SPERR has separate 2-D/3-D tools and no 1-D implementation.
+  - {compressor: sperr, variant: sperr-quality-reference, pipeline: default,
+     skip_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  # MANS and lsCOMP are lossless integer codecs behind the same documented
+  # conservative uniform float quantizer. Their wrapper/container overhead counts.
+  - {compressor: mans, variant: mans-quantized-reference, pipeline: default}
+  - {compressor: lscomp, variant: lscomp-quantized-reference, pipeline: default}
+
+# nvCOMP is intentionally absent: it is lossless and therefore has no error-
+# bound sweep. Use configs/experiments/lossless_backend_isolation.yaml instead.

@@ -1,0 +1,106 @@
+# General full-corpus tight-bound robustness sweep.
+#
+# 1e-6 and 1e-7 are *tighter/lower* error bounds, chosen to expose precision,
+# radius, outlier-capacity, and metadata failures. This is not combustion-
+# specific: it covers every field in the 13 usable SDRBench dataset families.
+#
+# Run/resume:
+#   source scripts/env-jetstream2.sh
+#   bash scripts/lock_clocks.sh
+#   python3 -m benchkit run configs/experiments/tight_bounds_full_gpu.yaml \
+#     --session-id tight-full-gpu-20260821
+# Re-running the same command resumes status:ok cells. For overnight slices use
+# --shard k/N, but never run multiple shards concurrently on this one GPU.
+
+name: tight_bounds_full_gpu
+description: >
+  Full-corpus rel_range robustness sweep at 1e-6 and 1e-7. Includes the
+  standard native/FZGM pairs plus native FSZ versus its FZGM reconstruction.
+
+fields:
+  NWCHEM: [t631]
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - MIRANDA
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - S3D
+  - NWCHEM
+  - BROWN
+  - EXAFEL
+
+error:
+  mode: rel_range
+  bounds: [1.0e-6, 1.0e-7]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: cusz, variant: cusz, pipeline: default}
+  - {compressor: fzgm, variant: cusz, pipeline: configs/pipelines/cusz.toml}
+
+  # cuSZ-Hi is f32-only on this machine; GInterp is also not defined for 1-D.
+  # Restrict both sides to their true common domain so every row is paired.
+  - {compressor: cuszhi, variant: cuszhi_tp, pipeline: tp,
+     only_datasets: [CESM-2D, CESMATM-3D, HURR, NYX, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+  - {compressor: fzgm, variant: cuszhi_tp, pipeline: configs/pipelines/cusz_hi_tp.toml,
+     only_datasets: [CESM-2D, CESMATM-3D, HURR, NYX, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+  - {compressor: cuszhi, variant: cuszhi_cr, pipeline: cr,
+     only_datasets: [CESM-2D, CESMATM-3D, HURR, NYX, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+  - {compressor: fzgm, variant: cuszhi_cr, pipeline: configs/pipelines/cusz_hi_cr.toml,
+     only_datasets: [CESM-2D, CESMATM-3D, HURR, NYX, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+
+  - {compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier}
+  - {compressor: fzgm, variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: cuszp2, variant: cuszp2_plain, pipeline: plain}
+  - {compressor: fzgm, variant: cuszp2_plain, pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  - {compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm, variant: cuszp3_plain, pipeline: configs/pipelines/cuszp3.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:3d",
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm, variant: cuszp3_plain, pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: cuszp3, variant: cuszp3_plain, pipeline: plain,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {compressor: fzgm, variant: cuszp3_plain, pipeline: configs/pipelines/cuszp3_1d.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:3d",
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: outlier,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_1d_outlier.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  # Native FZ-GPU is f32-only. Its FZGM reconstruction is restricted to the
+  # same domain here to keep this a real baseline pair.
+  - {compressor: fzgpu, variant: fzgpu, pipeline: default,
+     only_datasets: [CESM-2D, CESMATM-3D, HURR, NYX, HACC, EXAALT, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml,
+     only_datasets: [CESM-2D, CESMATM-3D, HURR, NYX, HACC, EXAALT, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+
+  - {compressor: pfpl, variant: pfpl, pipeline: default}
+  - {compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
+
+  # FSZ fairness: both device events and host wall bracket the same single
+  # fused call after three warmups, for f32 and f64. Container bytes define CR.
+  - {compressor: fsz, variant: fsz-native, pipeline: default}
+  - {compressor: fzgm, variant: fzgm-fsz-bpt8, pipeline: configs/pipelines/fsz.toml}

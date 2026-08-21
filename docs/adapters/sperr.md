@@ -58,6 +58,18 @@ same way as zfp/MGARD: `read_range_stats` computes range/maxabs from the
 input file, multiplied by the canonical `eb` to get the `--pwe` value passed
 to the tool.
 
+The CLI reconstructs internally and then casts to the requested f32/f64 output.
+That cast can add half an output-dtype ulp; without accounting for it, a real
+QMCPACK f32 smoke at `rel_range=1e-6` exceeded the requested bound by about
+1.5%. The adapter therefore passes
+`requested_abs_eb - 0.5*spacing(maxabs)` to native `--pwe`, while retaining the
+user-requested bound for benchkit's independent quality check. If the requested
+bound is no larger than this precision guard, the adapter raises instead of
+claiming it can guarantee the bound.
+
+`pipeline` must be `default`; SPERR exposes no alternate error-bounded adapter
+pipeline.
+
 ---
 
 ## Timing

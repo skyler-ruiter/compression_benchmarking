@@ -71,7 +71,14 @@ genuine single-shot measurement, so the cv across `repetitions` is a real
 variance estimate. The `fsz_hosttime` path preserves that shape (`-r 1` per
 subprocess) rather than collapsing the repetitions into one process.
 
-Both `device_ms` and `host_ms` are reported when `fsz_hosttime` is built.
+Both `device_ms` and `host_ms` are reported for **f32 and f64** when
+`fsz_hosttime` is built. The harness instantiates the matching `FSZ<float>` or
+`FSZ<double>` overload and places CUDA events inside a host-wall bracket around
+the same call and synchronization. Allocation, workspace construction, and H2D
+input transfer are outside both timings, matching the FZGM benchmark bracket.
+Without the helper the adapter falls back to the stock device-only CLI and
+records that fact in session provenance.
+
 Measured host/device is **1.003–1.08**, decaying with field size — launch
 overhead and nothing else, since compression is one fused kernel writing one
 contiguous device buffer with no host-side archive assembly. That is a
@@ -185,10 +192,11 @@ bracket FZGM's "Host elapsed" uses, with allocation, workspace and H2D hoisted
 out on both sides. Device events are recorded inside the *same* iteration, so
 host and device come from one launch.
 
-**The adapter now emits these into every row** (`compress_host_ms_all` /
-`decompress_host_ms_all`) whenever the harness is built, so `fsz_vs_native`
-sessions carry the host column without any out-of-band step. The numbers below
-were first collected out-of-band and then reproduced through the adapter.
+**The adapter now emits these into every f32 and f64 row**
+(`compress_host_ms_all` / `decompress_host_ms_all`) whenever the harness is
+built, so new sessions carry the host column without any out-of-band step. The
+numbers below were first collected out-of-band and then reproduced through the
+adapter.
 
 **FSZ's `device_ms` is honest: host/device is 1.003–1.08**, decaying with field
 size — it is launch overhead and nothing else. One fused kernel, one contiguous

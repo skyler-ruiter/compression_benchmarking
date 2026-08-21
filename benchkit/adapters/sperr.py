@@ -69,7 +69,7 @@ class SperrAdapter(Adapter):
 
     def is_available(self) -> bool:
         try:
-            return (self.bin_dir / "sperr3d").exists()
+            return all((self.bin_dir / exe).exists() for exe in ("sperr2d", "sperr3d"))
         except Exception:
             return False
 
@@ -84,20 +84,45 @@ class SperrAdapter(Adapter):
                 "startup) — not comparable to the GPU adapters' device_ms."
             ),
             "dims_supported": "2D, 3D only (no 1D/4D)",
+            "pwe_roundoff_guard": (
+                "native --pwe is reduced by half an output-dtype ulp at the "
+                "field maxabs so the final f32/f64 cast still honors benchkit's bound"
+            ),
         }
 
     def prepare(self, spec: RunSpec, workdir: Path) -> Prepared:
+        pipeline = (spec.pipeline or "default").strip().lower()
+        if pipeline != "default":
+            raise AdapterError("SPERR has one adapter pipeline: default")
+
         eb = float(spec.error_bound)
         if spec.error_mode == "abs":
+            _, vmaxabs = read_range_stats(spec.field)
             abs_eb, basis = eb, "abs"
         elif spec.error_mode == "rel_range":
-            vrange, _ = read_range_stats(spec.field)
+            vrange, vmaxabs = read_range_stats(spec.field)
             abs_eb, basis = eb * vrange, "range"
         elif spec.error_mode == "rel_maxabs":
             _, vmaxabs = read_range_stats(spec.field)
             abs_eb, basis = eb * vmaxabs, "maxabs"
         else:
             raise AdapterError(f"SPERR: unsupported error mode '{spec.error_mode}'.")
+
+        # SPERR controls its internal double reconstruction, then the CLI casts
+        # to the requested f32/f64 output. That final cast can add half an ulp:
+        # on QMCPACK f32 at rel_range=1e-6 it made a nominally valid --pwe row
+        # exceed benchkit's bound by 1.5%. Reserve exactly that dtype-dependent
+        # worst-case rounding allowance instead of applying an arbitrary factor.
+        import numpy as np
+
+        out_dtype = np.float32 if spec.field.dtype == "f32" else np.float64
+        roundoff_guard = float(np.spacing(out_dtype(vmaxabs))) / 2.0
+        native_abs_eb = abs_eb - roundoff_guard
+        if native_abs_eb <= 0:
+            raise AdapterError(
+                f"SPERR: effective absolute bound {abs_eb:g} is no larger than "
+                f"the {spec.field.dtype} output-rounding guard {roundoff_guard:g}; "
+                "cannot guarantee the requested pointwise bound.")
 
         exe, dim_args = _binary_and_dims(self.bin_dir, spec.field.dims)
         if not exe.exists():
@@ -106,9 +131,10 @@ class SperrAdapter(Adapter):
         workdir.mkdir(parents=True, exist_ok=True)
         return Prepared(
             config_args=["--ftype", _FTYPE_FLAG[spec.field.dtype], "--dims", *dim_args,
-                         "--pwe", repr(abs_eb)],
+                         "--pwe", repr(native_abs_eb)],
             eb=eb,
-            native_mode="pwe" if spec.error_mode == "abs" else f"pwe-emulated({spec.error_mode})",
+            native_mode=("pwe-guarded" if spec.error_mode == "abs" else
+                         f"pwe-guarded-emulated({spec.error_mode})"),
             basis=basis,
             pipeline_ref=f"sperr:{exe.name}",
             pipeline_path=None,

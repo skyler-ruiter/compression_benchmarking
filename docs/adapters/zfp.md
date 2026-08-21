@@ -74,6 +74,9 @@ numbers as informational, not a precise or GPU-comparable measurement.
 `benchmark()` makes N separate subprocess calls per phase (zfp has no
 in-process repeat flag).
 
+`pipeline:` must be `default`; other values raise rather than being silently
+ignored.
+
 ---
 
 ## Build

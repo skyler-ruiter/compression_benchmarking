@@ -1,111 +1,60 @@
-# MANS adapter contract
+# MANS adapter
 
-**Tool:** MANS (Multi-dimensional Adaptive Non-uniform Superposition)  
-**Adapter:** `benchkit/adapters/mans.py` · `MansAdapter`  
-**Compressor key in experiments:** `mans`  
-**Status:** ⚠️ Stub — all interface methods raise AdapterError. Integration design below.
+MANS is a lossless u16/u32 codec, so benchkit supplies the error-bounded float
+transform:
 
----
+```text
+q = round((x - min(x)) / (abs_eb / 4))
+x_hat = min(x) + q * (abs_eb / 4)
+```
 
-## Why MANS requires special handling
+For relative modes, `abs_eb` is resolved from the field range or maximum
+absolute value first. Ideal quantization error is at most one eighth of the
+requested bound; the remaining headroom covers floating-point reconstruction
+rounding at tight f32 settings. u16 is used when the realized code range fits,
+otherwise u32. MANS codes those values
+losslessly. A self-describing benchkit header stores dtype, dimensions, offset,
+step, and codec settings, and its bytes count toward CR.
 
-MANS is a **lossless integer compressor**, not a direct error-bounded float
-compressor. Its CLI:
+`pipeline: default` selects MANS mode `p`; `p` and `r` can also be requested
+explicitly. The wrapper currently flattens fields. The installed
+multidimensional MANS mapping segfaults on valid odd-shaped arrays, while the
+1-D path round-trips the same integer sequence bit-exactly.
+
+## Timing and installed backend
+
+Timing is external wall clock over the actually runnable pipeline:
+
+- compression: CPU quantization and q-file write + MANS CLI;
+- decompression: MANS CLI + CPU dequantization and output write.
+
+It includes process startup and intermediate I/O and is not comparable to a
+native float compressor's CUDA-event device time. Both the device and host
+columns carry this same end-to-end wall figure because the current result
+schema requires a primary timing series; provenance makes the meaning explicit.
+
+This machine intentionally uses `cpu_mans_compress`/`cpu_mans_decompress`.
+The installed NVIDIA backend works for u16 but reproducibly crashes on u32
+codes (`map_values_kernel_thrust ... illegal memory access`), exactly the code
+width needed at `1e-6` and `1e-7`. Do not silently mix GPU u16 rows and CPU u32
+rows in one sweep.
+
+The CPU source also shipped with a u32 ADM capacity bug: it reserved three
+signal bytes per uint32 even though the encoder can write four. Tight codes then
+reported `adm_buf overflow` after already corrupting the heap. This machine has
+the one-line capacity correction applied. Reproduce and rebuild it with:
 
 ```bash
-nv_mans_compress <-u2|-u4> <input_file> <output_file> [--mode p|r] [--dims x [y z]]
-nv_mans_decompress <-u2|-u4> <compressed_file> <output_file> [--dims x [y z]]
+bash scripts/build-mans-benchkit.sh
 ```
 
-- `-u2` = uint16, `-u4` = uint32 (not float32/float64)
-- No error bound parameter — MANS is lossless on its integer input
-- The compressed output is a MANS bitstream
-- The decompressed output is the reconstructed integers (identical to input)
+The source diff is archived at `patches/mans-u32-adm-capacity.patch`.
 
-To use MANS as an **error-bounded float compressor**, an external quantization
-wrapper is needed:
-
-```
-float array  →  [quantize at eb]  →  integer array  →  MANS compress  →  bitstream
-bitstream  →  MANS decompress  →  integer array  →  [dequantize]  →  float array
-```
-
----
-
-## Quantization wrapper design
-
-### Option A: Uniform midtread quantizer (simplest)
-
-For `abs` mode with error bound `eb`:
-```
-quant_int = round(float_value / (2 * eb))   # integer in range [~-32768, 32767]
-float_reconstructed = quant_int * (2 * eb)
-max_abs_err ≤ eb  (by construction)
-```
-
-This is how Lorenzo predictors work internally in cuSZ/FZGM. The quantized
-integers fit in u16 (uint16_t) for most scientific data with typical bounds.
-
-For `rel_range` mode: compute `eb_abs = eb * range`, then apply the abs quantizer.
-
-### Option B: Lorenzo delta quantization
-
-Apply 1D/2D/3D Lorenzo differencing before quantization (captures spatial
-correlation, improves MANS CR). This is how cuSZ uses MANS internally.
-
----
-
-## CLI
-
-Once the wrapper is implemented:
+Environment:
 
 ```bash
-nv_mans_compress -u2 <quant_int16_file> <compressed_file> --mode p [--dims x [y z]]
-nv_mans_decompress -u2 <compressed_file> <recon_int16_file> [--dims x [y z]]
+export MANS_CLI=$HOME/compressors/MANS/build/bin/cpu/cpu_mans_compress
+export MANS_DECOMPRESS_CLI=$HOME/compressors/MANS/build/bin/cpu/cpu_mans_decompress
 ```
 
-`--mode p` = prediction mode (better CR for structured data).
-`--mode r` = residual mode.
-
-### Timing
-
-MANS currently prints **no timing information**. The `mans_api.cpp` timing
-(via `std::chrono`) is only used internally by the autotune function, not
-exposed in the CLI. To time MANS:
-- Wrap the `nv_mans_compress` invocations with the harness wall-clock timer
-  (low precision) — OR —
-- Add CUDA event timing to `nv/nv_mans_compress.cpp` around the
-  `mans::compress(...)` call and print `mans comp device_ms X.XXX`.
-
----
-
-## Data type and dim convention
-
-MANS accepts `u2` (uint16) or `u4` (uint32). For scientific float data:
-- u16 quantization requires the dynamic range fits in ±32767 quant bins.
-  At `eb = 1e-3`, a field with range 1.0 has 500 bins on each side — well
-  within u16. At `eb = 1e-5`, that's 50000 — also fine.
-- If the data range / (2*eb) > 32767, use u32 or reduce the error bound.
-
-`--dims x [y z]` follows MANS's own convention: `x` is the first dimension
-(innermost in MANS's spatial processing). Check the MANS documentation for
-whether this is fast-to-slow or slow-to-fast.
-
----
-
-## Build
-
-```bash
-cd ~/research/compressors/MANS
-cmake -S . -B build \
-  -DTARGET_PLATFORM=cpu_nv \
-  -DCMAKE_CUDA_COMPILER="/N/soft/sles15sp6/cuda/gnu/12.6/bin/nvcc" \
-  -DBUILD_HDF5_PLUGIN=OFF \
-  -DCMAKE_CUDA_ARCHITECTURES=80 \
-  -DCMAKE_CXX_COMPILER=$(which g++) \
-  -DCMAKE_C_COMPILER=$(which gcc)
-cmake --build build -j8
-# binaries: build/bin/nv/nv_mans_compress, nv_mans_decompress
-```
-
-Set `MANS_CLI` to the `nv_mans_compress` binary path.
+The adapter is a standalone general baseline; no FZGM analogue is required.

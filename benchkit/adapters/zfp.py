@@ -90,6 +90,9 @@ class ZfpAdapter(Adapter):
         }
 
     def prepare(self, spec: RunSpec, workdir: Path) -> Prepared:
+        pipeline = (spec.pipeline or "default").strip().lower()
+        if pipeline != "default":
+            raise AdapterError("zfp has one error-bounded adapter pipeline: default")
         eb = float(spec.error_bound)
         if spec.error_mode == "abs":
             abs_eb, basis = eb, "abs"

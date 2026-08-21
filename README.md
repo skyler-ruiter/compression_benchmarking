@@ -1,8 +1,9 @@
 # compression_benchmarking
 
 Standardized benchmarking and analysis toolkit for **GPU-accelerated, error-bounded
-lossy compressors (EBLCs)** — cuSZ, cuSZ+, cuSZp, cuSZ-Hi, MANS, PFPL, and their
-modularized [FZGPUModules](https://github.com/szcompressor/FZGPUModules) (FZGM) ports.
+lossy compressors (EBLCs)** — cuSZ, cuSZ+, cuSZp, cuSZ-Hi, FSZ, FZ-GPU, PFPL,
+SZ3, zfp, MGARD-X, SPERR, MANS, lsCOMP, and modularized
+[FZGPUModules](https://github.com/szcompressor/FZGPUModules) (FZGM) pipelines.
 
 It exists to answer one question cheaply and repeatedly:
 
@@ -51,6 +52,29 @@ python -m benchkit merge "$BENCHKIT_RESULTS_ROOT/$SLURM_ARRAY_JOB_ID"   # after 
 FZGM adapter quirks (the `rel`-basis finding, huffman/zigzag, TOML-first) are in
 [docs/adapters/fzgm.md](docs/adapters/fzgm.md); the full design in
 [docs/DESIGN.md](docs/DESIGN.md).
+
+### General reference compressors
+
+SZ3, zfp, MGARD-X, and SPERR are first-class standalone adapters; they do not
+need a corresponding FZGM pipeline. A ready-to-run coverage check is:
+
+```bash
+source scripts/env-jetstream2.sh
+python3 -m benchkit run configs/experiments/smoke-cpu-refs.yaml \
+  --session-id general-refs-smoke
+```
+
+| Adapter | Execution and timing | Error-bound support | Dimensions |
+|---|---|---|---|
+| SZ3 | CPU, native self-reported wall time | native `abs`, native `rel_range` | 1–4D |
+| zfp | CPU serial, external process wall time | native `abs`; emulated `rel_range`/`rel_maxabs` | 1–4D |
+| MGARD-X | CUDA, self-reported low-level time | native `abs`; emulated `rel_range`/`rel_maxabs` | dataset-dependent; large 1-D HACC is excluded |
+| SPERR | CPU, external process wall time | guarded native `abs`; emulated `rel_range`/`rel_maxabs` | 2-D/3-D only |
+
+The CPU/external-wall figures are useful within an adapter, but are not a GPU
+device-throughput ranking. Benchkit still owns CR and reconstructed-quality
+measurement for every adapter. Detailed contracts live in
+[`docs/adapters/`](docs/adapters/).
 
 ### Lossless codecs (nvCOMP)
 

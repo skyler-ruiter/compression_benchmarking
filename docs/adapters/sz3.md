@@ -44,9 +44,10 @@ Raises `AdapterError`.
 
 ## Pipeline
 
-`pipeline:` is ignored beyond `"default"` — no config-file (`-c sz.config`)
-support is wired up; all behavior comes from the canonical error mode/bound
-and the field's own dtype/dims.
+`pipeline:` must be `default` (the legacy alias `sz3:default` is also accepted)
+— no config-file (`-c sz.config`) support is wired up; all behavior comes from
+the canonical error mode/bound and the field's own dtype/dims. Other values
+raise rather than being silently ignored.
 
 ---
 

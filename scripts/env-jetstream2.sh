@@ -64,8 +64,10 @@ export SZ3_CLI="${HOME}/compressors/SZ3/build/tools/sz3/sz3"
 export PATH="${HOME}/compressors/SZ3/build/tools/sz3${PATH:+:$PATH}"
 
 # ── MANS ─────────────────────────────────────────────────────────────────────
-# NOTE: stub adapter — lossless int compressor; quantization wrapper needed.
-export MANS_CLI="${HOME}/compressors/MANS/build/bin/nv/nv_mans_compress"
+# Float wrapper uses the CPU backend consistently: the installed NVIDIA backend
+# crashes on the u32 codes required by tight bounds. See docs/adapters/mans.md.
+export MANS_CLI="${HOME}/compressors/MANS/build/bin/cpu/cpu_mans_compress"
+export MANS_DECOMPRESS_CLI="${HOME}/compressors/MANS/build/bin/cpu/cpu_mans_decompress"
 
 # ── FZ-GPU ───────────────────────────────────────────────────────────────────
 # Built at ~/compressors/FZ-GPU/fz-gpu — src/fz.cu already carries the
@@ -110,11 +112,17 @@ export SPERR_BIN_DIR="${HOME}/compressors/SPERR/build/bin"
 export NVCOMP_ROOT="${HOME}/compressors/nvcomp"
 export NVCOMP_CLI="${HOME}/compression_benchmarking/tools/nvcomp_cli/build/nvcomp_cli"
 
-# ── lsCOMP ───────────────────────────────────────────────────────────────────
-# NOTE: stub adapter — quantized-integer (uint32/16) compressor, no direct
-# float+error-bound CLI mode. See docs/adapters/lscomp.md.
-export LSCOMP_CLI="${HOME}/compressors/lsCOMP/build/lsCOMP_uint32"
+# Native FSZ 1.0.0 plus the repo-owned host/device timing harness. FSZ is the
+# fused reference for FZGM's Quantizer -> AdaptiveLorenzo -> AdaptiveBitpack
+# reconstruction; see docs/adapters/fsz.md.
+export FSZ_CLI="${HOME}/compressors/FSZ/build/fsz"
+export FSZ_HOSTTIME_CLI="${HOME}/compression_benchmarking/tools/fsz_hosttime/fsz_hosttime"
 
+# ── lsCOMP ───────────────────────────────────────────────────────────────────
+# Float wrapper uses both integer CLIs and the repo-owned standalone decoder.
+export LSCOMP_CLI="${HOME}/compressors/lsCOMP/build/lsCOMP_uint32"
+export LSCOMP_UINT16_CLI="${HOME}/compressors/lsCOMP/build/lsCOMP_uint16"
+export LSCOMP_DECODE_CLI="${HOME}/compression_benchmarking/tools/lscomp_decode/lscomp_decode"
 
 # ── Python venv ──────────────────────────────────────────────────────────────
 # Resolve relative to this script's own location so it works regardless of cwd.

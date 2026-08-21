@@ -168,17 +168,18 @@ class FszAdapter(Adapter):
             "name": "fsz",
             "version": version,
             "hosttime_cli_path": self.hosttime_cli or "",
-            "timing_method": ("cuda_events_plus_host_wall" if self.hosttime_cli
-                              else "cuda_events_device_only"),
+            "timing_method": (
+                "cuda_events_plus_host_wall"
+                if self.hosttime_cli else "cuda_events_device_only"),
             "timing_note": (
                 "One timed launch per phase after 3 GPU warmup iterations, per "
                 "subprocess call. Single fused kernel writing one contiguous "
                 "device buffer, so no host-side assembly falls outside the "
                 "event bracket." +
-                (" Host wall time measured by tools/fsz_hosttime around "
+                (" Host wall time is measured by tools/fsz_hosttime around "
                  "fsz::compress + cudaStreamSynchronize, the same bracket "
                  "FZGM's 'Host elapsed' uses; device events recorded inside "
-                 "the same iteration."
+                 "the same iteration for both f32 and f64."
                  if self.hosttime_cli else
                  " NO HOST TIME: tools/fsz_hosttime not built, so the stock "
                  "CLI (device-only) was used — see docs/adapters/fsz.md.")
@@ -264,12 +265,11 @@ class FszAdapter(Adapter):
         No -z/-x and no -o: FSZ compresses and decompresses in memory, so no
         file I/O is inside the measurement.
 
-        Uses `tools/fsz_hosttime` when it is built, which reports host wall time
-        beside the device events (`-r 1`, so each subprocess still contributes
-        ONE launch and the cv across n_runs stays a genuine cross-process
-        variance estimate — same shape as the stock-CLI path). Falls back to the
-        stock CLI, device-only, when the harness is absent; provenance records
-        which was used.
+        Uses `tools/fsz_hosttime` when it is built, which reports host
+        wall time beside the device events (`-r 1`, so each subprocess still
+        contributes ONE launch and the cv across n_runs stays a genuine
+        cross-process variance estimate — same shape as the stock-CLI path).
+        Falls back to the stock CLI, device-only, when the harness is absent.
         """
         log = workdir / "benchmark.log"
         use_host = self.hosttime_cli is not None

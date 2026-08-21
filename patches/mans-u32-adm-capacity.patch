@@ -1,0 +1,8 @@
+diff --git a/cpu/adm/adm.h b/cpu/adm/adm.h
+--- a/cpu/adm/adm.h
++++ b/cpu/adm/adm.h
+@@ -36,7 +36,9 @@ inline constexpr int cmp_block_z = 16;
+-inline constexpr int max_bytes_signal_per_ele_32b = 3;
++// A uint32 signal can require four bytes. Three underallocates the ADM
++// intermediate buffer at tight quantization bounds and causes heap corruption.
++inline constexpr int max_bytes_signal_per_ele_32b = 4;

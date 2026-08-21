@@ -100,6 +100,9 @@ class Sz3Adapter(Adapter):
         }
 
     def prepare(self, spec: RunSpec, workdir: Path) -> Prepared:
+        pipeline = (spec.pipeline or "default").strip().lower()
+        if pipeline not in {"default", "sz3:default"}:
+            raise AdapterError("SZ3 has one adapter pipeline: default (alias: sz3:default)")
         if spec.error_mode not in _MODE_MAP:
             raise AdapterError(
                 f"SZ3 does not support error mode '{spec.error_mode}' "
