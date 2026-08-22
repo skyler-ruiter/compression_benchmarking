@@ -1,0 +1,41 @@
+[pipeline]
+# cuSZp2 plain-bitpack FUSED — Quantizer(linear) → Lorenzo(block=32) → AdaptiveBitpack
+#
+# Same stage chain as cuszp2.toml, but the fused warp kernel composes the
+# PlainBitpackCoder policy (fixed-rate, no per-block plain/outlier min-selection)
+# instead of AdaptiveBitpackCoder. This is the cheapest-compute warp coder, so
+# this is our fastest-possible warp fusion: Lorenzo-1D delta + quant (folded into
+# inv2eb) + fixed-rate bitpack, one kernel.
+#
+# outlier_selection stays true only to arm AdaptiveBitpack's fused op (getFusedOp
+# gate); the emitted archive is all-plain-mode and AdaptiveBitpack-decodable, so
+# the staged inverse round-trips it. It never beats the adaptive coder on size
+# (AB picks the per-block min) — this trades CR for throughput on purpose.
+#
+# Compare against cuszp2.toml (AdaptiveBitpackCoder) to isolate the coder's cost.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 32
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+outlier_selection = true
+fused_coder = "PlainBitpackCoder"
+inputs = [{from = "lrz"}]
