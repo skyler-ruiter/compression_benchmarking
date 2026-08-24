@@ -25,6 +25,10 @@ fine — it just needs to be unique and traceable back to its source.
 
 ## Getting a baseline here
 
+For new publication or AD/AE handoffs, first run `benchkit verify` and create an H5
+bundle with `benchkit artifact build`; a bare curated baseline remains useful for
+cross-machine comparisons but is not a self-verifying publication artifact.
+
 **From this machine, right after a real run** (preferred — full fidelity):
 ```bash
 mkdir -p results/baselines/<baseline_id>
@@ -76,6 +80,8 @@ See `scripts/build_comparison_artifact.py --help` for options (metric
 labels, output path). The script diffs CR/PSNR between the two baselines as
 a correctness sanity check before charting throughput — surfacing exactly
 this kind of disagreement is the point, not just a formality.
+Full-corpus inputs are keyed and displayed by `dataset/field`, so multiple fields
+within one dataset remain separate comparison cells.
 
 ## When there are many of these
 

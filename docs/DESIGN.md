@@ -150,12 +150,9 @@ compression_benchmarking/
 │       ├── cusz_hi.py
 │       ├── mans.py
 │       └── pfpl.py
-├── external/                      ← git submodules: reference compressor sources
-│   ├── cuSZ/  cuSZp/  cuSZ-Hi/  MANS/  PFPL/  …
-│   └── (FZGM consumed via its own install / PATH, not vendored here)
 ├── scripts/
-│   ├── build_all.sh               ← build each submodule, record commit+flags
-│   ├── fetch_datasets.sh          ← download SDRBench, verify checksums
+│   ├── build-*.sh                 ← selected helper/SDK build recipes
+│   ├── download-sdrbench.sh       ← download SDRBench; checksum lock is separate
 │   ├── lock_clocks.sh             ← pin GPU sm/mem clocks for stable timing
 │   └── unlock_clocks.sh
 ├── results/                       ← gitignored; per-session run output
@@ -170,11 +167,11 @@ compression_benchmarking/
 ```
 
 Notes:
-- **FZGM is not vendored as a submodule.** It is your library; the adapter calls an
-  installed `fzgmod-cli` (path configurable). Reference compressors *are* vendored as
-  pinned submodules so their exact source is reproducible.
-- `external/` build artifacts and `results/` are gitignored. Only sources/recipes,
-  configs, and the package are tracked.
+- **FZGM and reference compressors are not vendored.** Adapters call installed builds
+  selected by environment/per-run paths. Their source/build/patch identity is mandatory
+  publication provenance; `docs/reference-tools.md` records the acquisition gap.
+- `results/` is gitignored except curated legacy baselines. Sources/recipes, configs,
+  and the package are tracked; machine-specific helper ELF outputs are not.
 
 ---
 
@@ -278,11 +275,76 @@ reports — a self-contained, shippable bundle (D9).
 
 ## 6. Schemas
 
-### 6.1 Result row (one atomic measurement → one JSONL line)
+On-disk schemas are enforced by `benchkit/schema.py`. New native sessions use
+`session_schema_version: 1`; new rows use `result_schema_version: 1`. Unversioned
+historical baselines load as legacy v0 and are not modified. The v1 writer uses strict
+JSON (`allow_nan=False`): a non-finite float is stored as `null` plus a
+`nonfinite_values` JSON-pointer map, then restored to the corresponding Python float by
+the reader. `psnr_kind` separately records the scientific meaning as `finite`, `exact`,
+or `undefined`.
+
+Rows have an explicit `record_kind`: `measurement`, `failure`, or
+`reconstructed_measurement`. The last has a deliberately smaller required-field set so
+a stdout reconstruction cannot masquerade as a full-fidelity native result. Core
+identity/status/metric fields and their nullability are validated at every store/merge
+read and write boundary; additive adapter-specific nested fields remain allowed.
+
+### 6.1 Logical-cell and execution identity
+
+Identity payloads use sorted-key, compact, UTF-8 strict JSON and SHA-256. Each payload
+is stored beside its hash so merge and the later H4 verifier can reject collisions or a
+row whose inputs were edited without re-hashing.
+
+- `logical_cell_id = logical-v1-<sha256>` identifies the requested experimental arm:
+  compressor, variant, normalized requested pipeline label, dataset, field, canonical
+  error mode, and bound. It excludes binaries, resolved files, graph request, and
+  machine state. Those are different executions of the same named scientific cell. A
+  graph or other ablation arm therefore needs its own `variant`, as the existing graph
+  configs already do.
+- `execution_id = execution-v1-<sha256>` binds the logical ID to behavior-affecting
+  run-entry parameters (including `graph` and `cli_path`), repetitions/warmups/timing
+  policy, normalized pipeline source plus its SHA-256 and resolution inputs, the
+  SHA-256 of exactly the dataset bytes consumed, executable/tool identity,
+  harness/config identity, and GPU/host/software state. The row also retains the actual
+  `pipeline_sha256` produced by adapter preparation as an independent audit value; H3
+  archives and verifies that file and completes build provenance.
+- `run_id` identifies one attempt and is unique even when the same exact execution is
+  retried. It is not used for scientific matching.
+
+Resume skips only a successful matching `execution_id`. A legacy `cell_key` cannot
+prove that the dataset, binary, graph request, or harness still matches, so legacy rows
+remain readable but never suppress an H2 execution. `cell_key` is emitted temporarily
+as a compatibility alias for older scripts.
+
+Merge groups attempts by `logical_cell_id` (reconstructed from complete legacy fields
+when possible) and applies one supersession order: success beats failure; among equal
+statuses in one source file, the later appended attempt wins; across files, a raw shard
+beats the older `runs.jsonl` from a previous merge. One ID associated with two different
+canonical payloads is a hard error.
+Publication comparison first locates candidates by the shared display coordinates
+`(variant, dataset, field, bound)`, then requires each native/FZGM side's
+`logical_cell_id` to agree across baselines before comparing its metrics.
+
+### 6.2 Result row (one atomic measurement → one JSONL line)
 ```jsonc
 {
-  "run_id": "smoke-0007",                  // unique within session
+  "result_schema_version": 1,
+  "record_kind": "measurement",
+  "run_id": "smoke-0007-a81f09d42e1b",     // unique attempt
   "session_id": "20260617-141500-hostname",
+  "identity_schema_version": 1,
+  "logical_cell_id": "logical-v1-...",
+  "execution_id": "execution-v1-...",
+  "logical_cell": {"identity_schema_version": 1, "compressor": "cusz",
+                   "variant": "reference", "pipeline": "lorenzo+huffman",
+                   "dataset": "CESM-ATM", "field": "CLDHGH",
+                   "error_mode": "rel_range", "error_bound": 0.001},
+  "execution_context": {"identity_schema_version": 1,
+                        "logical_cell_id": "logical-v1-...",
+                        "run_parameters": {}, "resolved_config": {},
+                        "dataset": {"sha256": "...", "bytes": 673920000},
+                        "tool": {}, "harness": {}, "environment": {}},
+  "dataset_sha256": "...",
   "timestamp": "2026-06-17T14:15:03Z",
 
   "compressor": "cusz",                    // logical name
@@ -319,6 +381,7 @@ reports — a self-contained, shippable bundle (D9).
   "timing_method": "cuda_events_d2d",      // how the tool measured device time
 
   "psnr": 84.21,
+  "psnr_kind": "finite",
   "nrmse": 6.1e-5,
   "max_abs_err": 4.20e-4,
   "max_rel_err": 9.98e-4,
@@ -334,9 +397,18 @@ reports — a self-contained, shippable bundle (D9).
 }
 ```
 
-### 6.2 Provenance manifest (one per session → `provenance.json`)
+An exact reconstruction is strict JSON rather than a non-standard `Infinity` token:
+
+```json
+{"psnr": null, "psnr_kind": "exact",
+ "nonfinite_values": {"/psnr": "positive_infinity"}}
+```
+
+### 6.3 Provenance manifest (one per session → `provenance.json`)
 ```jsonc
 {
+  "session_schema_version": 1,
+  "session_kind": "native",
   "session_id": "20260617-141500-hostname",
   "gpu": {
     "name": "NVIDIA A100-SXM4-40GB", "uuid": "GPU-...", "driver": "550.xx",
@@ -358,7 +430,7 @@ reports — a self-contained, shippable bundle (D9).
 }
 ```
 
-### 6.3 Experiment config (`configs/experiments/*.yaml`)
+### 6.4 Experiment config (`configs/experiments/*.yaml`)
 ```yaml
 name: fzgm_vs_reference
 description: Validate FZGM ports against originals at matched bounds.
@@ -387,7 +459,7 @@ pairings:
   - {reference: cuszp, fzgm_pipeline: "lorenzo->bitshuffle->rze",    label: cuSZp}
 ```
 
-### 6.4 Dataset manifest (`configs/datasets.yaml`)
+### 6.5 Dataset manifest (`configs/datasets.yaml`)
 ```yaml
 CESM-ATM:
   source: https://sdrbench.github.io/   # download URL / instructions
@@ -472,24 +544,58 @@ speed" numerically so the standard is explicit and consistent across papers.
   completed resumability, clock locking, TOML-preset (huffman/cuSZ-equivalent) sweeps.
 - **M2 — Reproducibility & HPC execution.** ✅ **Done (2026-06-18).** Site config
   (de-hardcoded `fzgmod-cli`/results-root paths; `${ENV}` dataset roots); matrix
-  **sharding** (`--shard k/N` for SLURM job arrays); **resume** (skip completed cells by
-  `cell_key`); per-shard provenance capturing scheduler (SLURM/PBS) + software
+  **sharding** (`--shard k/N` for SLURM job arrays); **resume** (originally by
+  `cell_key`, upgraded by H2 to exact `execution_id`); per-shard provenance capturing
+  scheduler (SLURM/PBS) + software
   (modules/Spack/nvcc) + GPU; a `merge` command; `scripts/submit.slurm`. **Timing
   reliability** (since clocks can't be locked on shared nodes): per-cell coefficient of
   variation over the kept reps flags unstable throughput (`*_stable`, `timing_reliable`,
   default cv ≤ 0.15), plus a concurrent `GpuSampler` recording clocks + thermal/power
   throttle reasons during the benchmark. See [Execution on HPC](#12-execution-on-hpc).
   Optional clock-lock hook (where permitted) is the only deferred piece.
-- **M3 — Reference adapters (incremental).** Add submodules + build scripts + adapters
-  one at a time: cuSZ → cuSZp → cuSZ-Hi → MANS → PFPL. Each lands with a
-  `docs/adapters/<x>.md` and passes the smoke matrix before the next is added.
+- **M3 — Reference adapters (incremental).** ✅ Adapters exist for the functional
+  families documented under `docs/adapters/`; sources are external builds rather than
+  the originally planned submodules. MANS/lsCOMP remain deliberately limited coder
+  scaffolding. See `docs/reference-tools.md`.
 - **M4 — Analysis layer.** Tidy loader, rate–distortion curves, throughput bars, and
   the FZGM-vs-reference delta report (§8).
 - **M5 — Paper-support polish.** LaTeX table export, figure styling, run archiving,
   SDRBench fetch automation with checksum verification. Optionally: multi-GPU / cluster
   job-array submission.
+- **M6 — Publication and AD/AE hardening.** ✅ **Complete (2026-08-24).**
+  Turn the working research harness into a mechanically verifiable publication artifact.
+  The ordered work packages and their acceptance criteria are below. They are sequenced
+  so each package establishes the contract required by the next one; do not jump directly
+  to bundle generation while session identity and verification remain ambiguous.
 
 Each milestone is independently useful and leaves a working artifact.
+
+### M6 publication-hardening path
+
+| ID | Status | Work package | Required outcome / acceptance criteria |
+|---|---|---|---|
+| H0 | **DONE** | Canonical result loading and true comparison-cell keys | A merged session directory reads only its deduplicated `runs.jsonl`; an unmerged session reads its shards. Resume still scans all raw attempts. Comparison artifacts key by `(variant, dataset, field, error_bound)` and retain every field in a multi-field dataset. Regression tests cover both bugs. |
+| H1 | **DONE** | Versioned session/result schema and strict serialization | `benchkit/schema.py` defines and validates v1 native-session, measurement, failure, and reconstructed-measurement contracts. Store, merge, reporting, reconstruction, and publication scripts use compatibility readers. New writes are strict JSON with explicit non-finite metadata and PSNR meaning; malformed rows fail before a file is created or truncated. Legacy unversioned baselines load as v0, and v0 rows written into a new merge record `source_result_schema_version: 0`. Early reconstructed v0 rows without IDs receive deterministic content-derived IDs marked `legacy_identity_synthesized: true`. |
+| H2 | **DONE** | Separate logical-cell identity from execution identity | Canonical payloads and SHA-256 IDs live in `benchkit/identity.py` and beside every new native row. Resume matches exact `execution_id`; merge supersedes by `logical_cell_id` under the documented success/append/source rule and rejects payload collisions; cross-baseline publication pairing refuses unequal logical IDs. Execution identity covers graph/run parameters, normalized pipeline source and resolution inputs, consumed dataset bytes, tool executables, harness/config, and machine/software state. Legacy `cell_key` remains readable but cannot suppress an H2 run. Tests cover transition, sensitivity, collision, resume, supersession, and pairing. |
+| H3 | **DONE** | Complete provenance and dataset integrity | Content-addressed session inputs retain the exact experiment and dataset YAML, sanitized site settings, resolved dataset inventory, tracked harness patch, and every rendered pipeline. The manifest records the full harness commit, tracked patch and untracked-file identity, observed/declared consumed-byte dataset SHA-256, executable identity, and declared tool version/source/build/patch fields. Dataset verification is a pre-measurement gate; `--allow-unverified-datasets` is an explicit non-publication-grade escape hatch. Every new success/failure row joins an immutable, ID-addressed, shard-bound `provenance-v1` invocation manifest, so resumes on another node or at another time preserve rather than overwrite earlier provenance. The ID covers the complete persisted payload; H6's fake resume test guards against same-ID/different-byte collisions. Regression tests cover manifest retention, archive immutability, redaction, dirty identity, shard sensitivity, and provenance history. |
+| H4 | **DONE** | Mechanical session verification and completion contract | `benchkit verify` validates all raw/canonical schemas, immutable provenance and input checksums, unique IDs, row/provenance/dataset joins, expected matrix coverage, current merge state, H3 eligibility, failures, gating exclusions, and timing reliability. It atomically emits strict `verification.json` with complete failure details and returns nonzero unless every check passes. Accepted failures/exclusions/unreliable timing require archived experiment policy with a non-empty selector and written reason; blanket implicit success is impossible. Regression tests cover clean completion, missing cells, stale merge, corrupted inputs, failure/timing policy, and severe-quality exclusions. |
+| H5 | **DONE** | Reproducible publication/AD-AE bundle | `benchkit artifact build/verify` creates and offline-verifies a content-addressed bundle containing configs, manifests, canonical/raw rows, H4 report, table inputs, logs, build/environment recipes, notices/licenses, and a one-command checksum-locked smoke reproduction. Generated inputs and included outputs carry source/generator metadata. A final H100/FZGM bundle was verified offline and its generated smoke independently passed all 12 H4 checks on 2026-08-24. |
+| H6 | **DONE** | Test, CI, packaging, and documentation closure | CPU tests cover fake-CLI run/resume/shards/merge/failure, adapter parser fixtures, schemas/identity, dataset integrity, verification, and golden/tamper artifact cases. CI tests Python 3.10/3.12 from an exact development lock; the clean-install script passed all 55 tests in a fresh venv. Machine-built FSZ/lsCOMP ELF files were removed from tracking while their sources/build recipes remain. Reference-tool documentation now states the external-source limitation accurately. |
+
+#### M6 compatibility and release rules
+
+- Curated historical baselines are evidence and are never rewritten in place. Readers
+  accept legacy schema v0; new writers emit only the current version.
+- Schema changes are additive within a version. A semantic or representational change
+  increments the relevant schema version and ships a tested migration/read-compatibility
+  path.
+- A session is **publication-grade** only after H4 verification succeeds. `status: ok`,
+  a zero process exit code, or a complete-looking row count is not a substitute.
+- H1 through H4 are the minimum gate before using the new format for an authoritative
+  paper baseline. H5 and H6 are the minimum gate before handing it to artifact evaluators.
+- Each completed work package updates this table, `docs/RUN_LEDGER.md`, tests, and any
+  affected adapter contract. This section is the technical roadmap; the run ledger is
+  the operational status record, so no separate planning document is maintained.
 
 ---
 
@@ -498,7 +604,7 @@ Each milestone is independently useful and leaves a working artifact.
 | # | Decision | Rationale |
 |---|---|---|
 | D1 | **Python** orchestration + analysis; compressors driven as **subprocesses**. | pandas/matplotlib/pydantic ecosystem; subprocess isolation matches heterogeneous CLIs and keeps the harness language-agnostic about compressors. |
-| D2 | Reference compressors vendored as **git submodules + build scripts** (pinned commits). | Self-contained, no external package manager dependency; exact source reproducible. |
+| D2 | **Amended by H6:** reference compressors were planned as pinned submodules, but the implemented system uses external source/SDK builds. | The old text described a target that never landed. H3/H4 now require exact version/source/build/patch and executable identities; H5 ships recipes and notices, while `docs/reference-tools.md` states the remaining acquisition limitation. |
 | D3 | Datasets: **SDRBench standard set**, described by a checksummed manifest. | Field-standard, paper-comparable; checksums guard against silent data drift. |
 | D4 | **Harness owns all size/quality metrics**; only device time is trusted from tools. | Eliminates per-tool PSNR/CR/timing convention skew → fair comparison. |
 | D5 | Canonical error mode = **range-relative**, normalized into native flags per adapter. | "REL" is defined inconsistently across tools; one baseline makes bounds comparable. |
@@ -509,7 +615,7 @@ Each milestone is independently useful and leaves a working artifact.
 | D10 | **Canonical, tool-agnostic error modes** (`abs`/`rel_range`/`rel_maxabs`/`from_toml`); adapters translate to native flags + eb basis. | "REL"/"NOA" names collide across tools; one canonical vocabulary makes bounds comparable and the eb-check correct. |
 | D11 | **Decompressed output deleted after metrics by default** (`retain_decompressed: false`); its sha256 is recorded and `c.fzm` is kept. | Keeps the local repo under a ~20 GB budget — `d.bin` is ~original-sized and regenerable from `c.fzm`; at ~2–3 MB/run retained, ~7k runs fit. Toggle on per-experiment when the array itself is needed. |
 | D12 | **No hardcoded paths** — `fzgmod-cli` + results-root from a site config (env > `configs/site.local.yaml` > default); dataset roots via `${ENV}` expansion. | The same configs must run unchanged on the desktop and on HPC (scratch filesystems, module/Spack-provided binaries). |
-| D13 | **Sharding + resume** keyed by a deterministic `cell_key`; each shard writes its own `runs.shard-k-of-N.jsonl`; a `merge` step dedupes. | SLURM job arrays split a big matrix across tasks with no append contention; jobs that hit walltime resume idempotently. |
+| D13 | **Sharding + resume** originally used deterministic `cell_key`; H2 replaces resume with `execution_id` while preserving the old field as a read alias. Each shard writes its own `runs.shard-k-of-N.jsonl`; merge dedupes by logical cell. | SLURM job arrays split a big matrix across tasks with no append contention; jobs resume idempotently only when every execution-relevant input matches. |
 | D14 | **Per-shard provenance** (not one shared manifest). | Each array task may land on a different node/GPU — capturing GPU+scheduler+software per shard is correct, and avoids a write race. |
 | D15 | **Timing reliability = variance-primary, throttle-reasons-secondary.** `cv` over kept reps decides `timing_reliable`; concurrent GPU sampling is diagnostic. | Clocks can't be locked on shared nodes; cv catches sub-sample-rate clock bounce that a clock query misses, while throttle reasons explain *why* when something is detectably throttling. |
 | D16 | **Graph-mode plumbing**: a per-run-entry `graph: true` sets `RunSpec.graph` → adapter passes `--graph` → row records `graph_requested`/`graph_active`/`graph_reason` (parsed from report-json's `"graph"` object). **benchkit does not maintain a stage compatibility matrix** — the FZGM library validates a captured DAG stage-by-stage (`CompressionDAG::setCaptureMode`) and throws a descriptive error naming incompatible stages; the CLI's `--graph` (added 2026-07-03) catches that and falls back to normal execution, reporting the outcome in `report-json` schema 1.1. Confirmed live on BigRed200: `cusz.toml` (Huffman) falls back cleanly; `cuszp2.toml`/`cuszp3.toml` (linear ABS Quantizer → Lorenzo/TiledLorenzo → AdaptiveBitpack forward) capture and replay correctly. | benchkit's plumbing (2026-07-02) predated the CLI flag (2026-07-03) intentionally, so the contract could be specified up front; one mismatch surfaced on first real integration test — the adapter expected flat `graph_active`/`graph_incompatible_reason` keys but the shipped schema nests them under `"graph": {...}` — fixed in the adapter once seen against the real binary. NOA-mode Quantizer pipelines (pfpl, quantizer_lorenzo_bitpack) still need a precomputed value base (`setValueBase`) to avoid a D2H scan; not yet tested. See `docs/adapters/fzgm.md` "Graph mode". |
@@ -536,9 +642,15 @@ Each milestone is independently useful and leaves a working artifact.
 | D37 | **A reference tool's version is pinned, recorded in provenance, and checked against upstream — not assumed current.** | The nvCOMP work started on **5.2.0.10**, taken from an unrelated project's vendored submodule because it happened to be on disk. It was already a minor release behind: **5.3.0.16** shipped 2026-07-14. Checked properly (PyPI `nvidia-nvcomp-cu12` for the version list, then the redist JSON at `developer.download.nvidia.com/compute/nvcomp/redist/` for the C++ SDK tarball — the Python wheel has bindings only). Measured 5.2 vs 5.3 on CESM-2D/CLDHGH, 8 reps x 3 trials: **compression ratios bit-identical in all 8 configurations**, Zstd compress **-2.6%**, and **ANS compress +29-34%** (83.1 -> 111.2 GB/s at 16 KB, non-overlapping trials). So the exposure was real but landed on an algorithm outside the headline comparison, and the direction was favourable-to-nvCOMP, meaning no published FZGM-vs-Zstd conclusion was ever at risk. That is luck, not process. The process fix: `NvcompAdapter.provenance()` now reads the SDK version from `$NVCOMP_ROOT/lib/cmake/nvcomp/nvcomp-config-version.cmake` and records `nvcomp_version` in every session manifest, `~/compressors/nvcomp` is a symlink with 5.2.0.10 retained beside it for A/B, and docs/adapters/nvcomp.md carries the two commands that check for a newer redist. Generalizes: every reference compressor here is a hand-built tree or hand-unpacked tarball with nothing forcing it current, and a 'we benchmarked against X' claim is only as good as the recorded version. |
 | D38 | **A type-aware reference coder must be told its element type; nvCOMP's default (`uchar`) is not a neutral choice but a wrong one.** `nvcomp:bitcomp`/`nvcomp:cascaded` REQUIRE `dtype=` and the adapter refuses to guess. | Adding Bitcomp and Cascaded to `tools/nvcomp_cli` exposed the sharpest instance yet of D34. Unlike the seven byte coders, both model the input as an array of a declared element type — Cascaded's delta and bitpack passes operate on elements, Bitcomp's whole scheme is type-directed — and nvCOMP defaults that type to `NVCOMP_TYPE_UCHAR`. Measured on CESM-2D/CLDHGH raw f32: at the default, **Bitcomp 0.996x and Cascaded 0.998x**; at the correct 4-byte width, **1.437x and 1.515x**. Defaulted, both would have been written up as 'compresses nothing'; correctly typed, **Cascaded at 1.539x (its best scheme) beats every byte-oriented coder in either library on raw f32** — nvCOMP Zstd 1.184, Deflate 1.183, FZGM GPU-Zstd 1.131 — because it is the only nvCOMP entry that does any *prediction*. That is FZGM's own thesis arriving from the other direction, so it is the last place a silent bad default could be afforded. Two corollaries. (a) **nvCOMP 5.3 has no f32 element type** — `NVCOMP_TYPE_FLOAT` (enum 8) was removed and only FLOAT16 survives, so f32 can only be described as 4-byte *integer* width; that is a modelling limit of the comparison and must be stated wherever a raw-f32 Bitcomp/Cascaded row is quoted, not hidden behind an alias (hence no `float`/`f32` spelling is accepted). (b) **Cascaded's documented default scheme is also not its best**: sweeping `{rles, deltas, bp}` on raw f32, `bp=0` yields 0.998x in *every* configuration (bitpack is the only pass that actually compresses), one delta pass is worth 1.300 -> 1.539, and RLE hurts monotonically (1.539 / 1.531 / 1.515 / 1.508 for 0/1/2/3 passes) so the default `rles=2` costs 1.6%. Both the default and the swept-best are therefore run, per D34. **Amended after the broadened sweep (`parity-raw-broad`/`parity-codes-broad`, 885 cells): the 'RLE hurts' half of this is WRONG as a general claim and was an artefact of sweeping a single smooth field.** Across 15 raw cells `rles=0` is a geomean **0.917x** of the default, and across 45 codes cells **0.847x** — RLE is load-bearing wherever the data has runs, which CESM-2D/CLDHGH does not: HURR/CLOUD raw drops 5.81 -> 1.30 (4.5x) without it, and NYX-qcodes-1e-4/baryon_density drops 56.75 -> 10.04. The distribution is bimodal, not centred — `rles=0` is within 0.1% on run-free fields and catastrophic on the rest — so a geomean alone understates it. The `bp=0` finding and the dtype finding both DID generalise. Lesson: a knob sweep on one field establishes that a knob matters, never which setting to standardise on; sweep it on a field chosen for the property the knob exploits. Cascaded is also the one nvCOMP entry with a *composable* FZGM counterpart rather than a single-coder pairing — `{num_RLEs, num_deltas, use_bp}` maps onto rle/rre/rze/rare/raze, Lorenzo, and bitpack/adaptive_bitpack — so it is mirrored by a DAG, not paired. |
 | D39 | **Bitcomp's `algorithm` must be passed on the DECOMPRESS side too; the NVCOMP_NATIVE header does not carry it.** `prep_algo_args()` re-emits `--level` for bitcomp only. | Deflate and Gdeflate's `algorithm` is an encoder-side choice the bitstream header describes, so decompression needs only `-a`. Bitcomp is not like that: a stream written with `algorithm=1` (sparse) and decoded by a manager constructed with the default `algorithm=0` **decodes to wrong bytes at exit 0**. Measured on EXAALT-qcodes-noa0.001/xx: `status: ok`, a plausible CR of 1.89, and **PSNR 20.85 dB on a codec that is lossless by construction** — the giveaway was only that a lossless row must report `inf`. Nothing in nvCOMP errors, and re-running the same stream with `--level 1` on both sides is bit-exact, so the failure is entirely in what the caller forgets to repeat. This is the D23/D29/D31/E23 family again — silent wrong data behind a successful exit — and it was caught by the harness's own bit-exactness check, which is the third time that check has been the only thing standing between a plausible number and a wrong one. Generalizes: **an option that only affects the encoder in one algorithm may be structural in another**, so 'the header carries it' has to be verified per algorithm rather than assumed from the family. |
+| D40 | **Publication hardening uses versioned schemas and separates logical-cell identity from execution identity. Historical baselines are immutable legacy-v0 evidence.** | One `cell_key` cannot safely mean both “the scientific cell to compare/supersede” and “the exact execution safe to resume”: graph mode, resolved configs, datasets, binaries, and harness state affect the latter without necessarily changing the former. H1 introduces explicit schema versions and strict JSON; H2 introduces `logical_cell_id` for comparison/merge and `execution_id` for resume/provenance. Readers retain tested legacy-v0 support, and any migration writes a provenance-linked copy rather than rewriting curated evidence. See M6. |
 ---
 
-## 11. Open questions (to resolve before/within M1)
+## 11. Status of the original M1 open questions
+
+This list is retained as design history. It is no longer a current M1 checklist:
+questions 1, 2, 4, 5, and 6 are resolved; question 3 remains an infrastructure gap;
+question 7 remains a scientific/correctness investigation. Current campaign actions
+belong in `docs/RUN_LEDGER.md`.
 
 1. **~~`fzgmod-cli` machine-readable output.~~ RESOLVED (2026-06-18).** FZGM now ships
    `--report-json <path>` (schema_version 1.0): a standalone JSON file with `tool`,
@@ -561,28 +673,33 @@ Each milestone is independently useful and leaves a working artifact.
    `Profiling.SurvivesMemoryStrategyChange`. **Baselines captured before 2026-07-29
    still have decompress-only `stages[]`** — fine for decompress-side invalidation,
    but compress-side attribution needs a re-run.
-2. **Decompressed-output retention.** Harness-owned quality metrics require each tool to
-   write the decompressed array to disk. Confirm every reference tool can emit raw
-   decompressed output (most can); note any that only self-report PSNR.
-3. **Peak-memory method.** Decide NVML-poll vs `nsys` as the default; NVML-poll is
-   lighter and per-process-attributable, `nsys` is more precise but heavier. Default
-   proposal: NVML-poll, nullable, method recorded.
-4. **Clock policy.** Confirm we can `nvidia-smi -lgc`/`-lmc` on the target GPUs (needs
-   permissions); if not, record clocks-as-observed and flag throughput as unlocked.
-5. **Dim-order convention.** Lock fast-to-slow vs slow-to-fast across the manifest and
-   all adapters (FZGM uses `-l fast x mid x slow`); mismatches silently wreck quality
-   metrics, so this must be asserted, not assumed.
-6. **Stage-level result invalidation ("results as a database").** When one FZGM stage
-   changes, only the cells whose pipeline contains that stage are invalid — re-running
-   all 9,816 is wasteful. Scoped in
-   [`docs/stage-level-invalidation.md`](stage-level-invalidation.md). Two prerequisites
-   are missing, both in FZGM: compress-phase `stages[]` (see open question 1) and a
-   per-stage version fingerprint, since `pipeline_sha256` covers config changes but not
-   a kernel edit. FZGM already has the master list to expose — `kStageRegistry` in
-   `src/pipeline/config.cpp`, 25 entries, with an "add a stage" procedure documented
-   above it.
-7. **Error-bound violations under NOA / `rel_range` (deferred 2026-07-29, not a blocker).**
-   The full-corpus sweep found 678 of 9,416 ok cells missing their bound, *all* in
+2. **~~Decompressed-output retention.~~ RESOLVED.** Every executable benchmark adapter
+   used for quality comparisons emits a raw decompressed array, and the harness computes
+   quality from it. The runner deletes it after measurement by default
+   (`retain_decompressed: false`) while retaining its checksum and metrics. A tool that
+   cannot provide raw reconstruction is not eligible for a publication-quality lossy
+   comparison; MANS/lsCOMP limitations are documented separately.
+3. **OPEN — uniform peak-memory method.** Decide NVML-poll vs `nsys` as the default;
+   NVML-poll is lighter and per-process-attributable, `nsys` is more precise but heavier. Default
+   proposal: NVML-poll, nullable, method recorded. The existing GPU sampler records
+   clocks, temperature, and throttle state, not process peak allocation, so this is not
+   closed by H0-H6.
+4. **~~Clock policy.~~ RESOLVED (D15).** Clock locking is optional and recorded. Where
+   permissions do not allow it, Benchkit records observed clocks/throttle reasons and
+   uses repetition variance as the primary `timing_reliable` gate.
+5. **~~Dim-order convention.~~ RESOLVED.** `FieldSpec.dims` and dataset manifests use
+   fast-to-slow order. Adapters explicitly translate when a native CLI expects another
+   order, resolved inventories retain `dim_order`, and H4 verifies the dataset join.
+6. **~~Stage-level result invalidation ("results as a database").~~ RESOLVED
+   (2026-07-29).** FZGM reports compress/decompress stages and transitive source
+   fingerprints; Benchkit records `stage_versions`, supports `stale --stage` and
+   `stale --against-build`, re-runs with `--only-stale`, and append-preserving merge
+   supersession. Rows predating fingerprints are explicitly excluded from automatic
+   drift claims. See [`docs/stage-level-invalidation.md`](stage-level-invalidation.md).
+7. **OPEN — error-bound violations under NOA / `rel_range` (not an infrastructure
+   blocker).** The counts below are the original 2026-07-29 full-corpus snapshot; the
+   newer tight-bound disposition is maintained in `docs/RUN_LEDGER.md`. That sweep
+   found 678 of 9,416 ok cells missing their bound, *all* in
    `rel_range` (FZGM `NOA`), none in `abs`. Two distinct populations, both understood
    well enough to defer but not to dismiss:
    - **Marginal (388 cells, ≤1.0093x).** 374 sit at the tightest bound (eb=1e-4) and it
@@ -602,8 +719,6 @@ Each milestone is independently useful and leaves a working artifact.
    `pfpl` violates the bound in 0 of 558 cells while `fzgm:pfpl` violates in 34, which is
    exactly the asymmetry that hypothesis predicts. Confirming it and porting the pass is
    future work.
-```
-
 ---
 
 ## 12. Execution on HPC
@@ -623,10 +738,18 @@ one session dir (`--session-id $SLURM_ARRAY_JOB_ID`) and each task writes its ow
 per-task provenance because each task may be a different node/GPU. `benchkit merge
 <session>` dedupes the shard files into `runs.jsonl`. Template: `scripts/submit.slurm`.
 
-**Resume.** Each row carries a deterministic `cell_key`
-(`compressor|variant|pipeline|dataset|field|mode|eb`). On start the runner scans all run
-files in the session dir and skips cells already `status: ok`, so a task that hits
-walltime resumes idempotently on resubmit.
+**Resume.** New rows carry both identities defined in §6.1. On start the runner scans
+all run files in the session and skips only `status: ok` rows whose `execution_id`
+matches the currently resolved execution. A changed dataset, pipeline source, graph
+request, binary/tool declaration, harness/config, timing policy, or machine/software
+state reruns rather than silently inheriting a stale result. Legacy `cell_key` rows are
+readable and mergeable but cannot suppress a new execution.
+
+**Canonical reads after merge.** Before merge, loading a session directory reads all
+`runs.shard-*.jsonl` files. After `merge` creates the deduplicated `runs.jsonl`, reports
+read that canonical file only; the retained shards are raw history and must not be read
+alongside it or every merged row would be counted twice. Resume scanning remains
+separate and intentionally examines every run file.
 
 **Timing without clock-lock privileges.** `nvidia-smi -lgc/-lmc` is usually admin-only on
 shared clusters, so the harness does not assume it. Two complementary signals make

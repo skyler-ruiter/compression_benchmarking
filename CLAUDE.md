@@ -23,6 +23,9 @@ with it; the host's Claude `memory/` does not, so trust the docs):
 python -m benchkit run    configs/experiments/smoke.yaml      # run a matrix
 python -m benchkit report results/<session>/                  # re-print the table
 python -m benchkit merge  results/<session>/                  # combine shard files
+python -m benchkit verify results/<session>/                  # publication completion gate
+python -m benchkit artifact build results/<session>/ artifacts/<name>
+python -m benchkit artifact verify artifacts/<name>           # offline bundle gate
 
 # HPC: a SLURM job array (template: scripts/submit.slurm)
 python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_ARRAY_TASK_ID/$N"
@@ -94,6 +97,15 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
   counted. `report --aggregate` gates by default and prints the audit; `--exclusions`
   prints the audit alone. Never quote an aggregate without it — on the full corpus the
   gate drops 798 of 9,416 `ok` rows.
+- **A session is publication-grade only when `benchkit verify` exits 0.** The H4 gate
+  validates raw and canonical schemas, provenance/input hashes and joins, exact matrix
+  coverage, current merge state, dataset metadata, failures/exclusions, and timing.
+  Exceptions must be explicit selectors with written reasons in the experiment YAML;
+  see `docs/session-verification.md`.
+- **Hand-off an H5 bundle, not a bare results directory.** `benchkit artifact build`
+  archives the verified rows, provenance, inputs, report, recipes/notices, table input,
+  and a one-cell reproduction; `artifact verify` is offline. See
+  `docs/artifact-bundles.md`.
 - **Disk:** both `retain_decompressed` and `retain_compressed` default to `false` —
   `d.bin` and `c.fzm`/`c.cuszp`/etc. are deleted after each cell's row is written;
   sizes and checksums are recorded regardless. A single full `fzgm_vs_native.yaml`
@@ -129,14 +141,19 @@ python -m benchkit merge $BENCHKIT_RESULTS_ROOT/<S>/     # newest row per cell w
 ```
 
 Re-runs **append**; the superseded row stays in the raw file so throughput changes
-stay traceable. `merge` keeps the last row per `cell_key` within a file, and shard
-files still beat `runs.jsonl`.
+stay traceable. `merge` supersedes attempts by `logical_cell_id` (successful first,
+then later within one file), and shard files still beat `runs.jsonl`. Resume skips only
+an exact successful `execution_id`; legacy `cell_key` rows remain readable but do not
+suppress an H2 execution.
 
 Backed by `configs/pipeline_stages.json` (regenerate with
 `scripts/probe_pipeline_stages.py` whenever a preset changes; `--check` fails on
 drift). Design + limits: `docs/stage-level-invalidation.md`.
 
 ## Status
+
+M6 publication/AD-AE hardening H0-H6 is complete: schema/identity, provenance and
+dataset locks, the mechanical H4 gate, offline bundles, CPU CI, and clean-install tests.
 
 M1 (core loop) + M2 (HPC execution + timing reliability) complete. M3 (reference
 adapters) well underway: cuSZ, cuSZ-Hi, cuSZp2/3, FZ-GPU, PFPL (GPU) and now SZ3, zfp,

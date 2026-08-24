@@ -107,8 +107,10 @@ cd ~/compression_benchmarking
 bash scripts/lock_clocks.sh                     # needs sudo; JetStream2 has it
 source scripts/env-jetstream2.sh
 source .venv/bin/activate
+mkdir -p "$BENCHKIT_RESULTS_ROOT/_run_logs"
 nohup python -m benchkit run configs/experiments/fzgm_vs_native_full.yaml \
-      --session-id 20260728-fullcorpus-skyler-h100 > ~/fullcorpus.log 2>&1 &
+      --session-id 20260728-fullcorpus-skyler-h100 \
+      > "$BENCHKIT_RESULTS_ROOT/_run_logs/fullcorpus.log" 2>&1 &
 ```
 
 ~27 h. **Do not shard this across concurrent processes on the one GPU.** The GPU idles

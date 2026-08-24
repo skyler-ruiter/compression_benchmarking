@@ -96,11 +96,13 @@ but it keeps one CR convention across tools.
 
 ## Exit status
 
-`0` pass, `1` **error bound violated**, `2` usage/file error. The adapter raises
-only on `>= 2`: a reference tool failing its own contract is a result to record,
-not a harness error. The verdict is surfaced in `native_quality.native_status`
-alongside the tool's self-reported CR and max error, for cross-checking against
-the harness's own metrics.
+`0` pass, `1` **error bound violated**, `2` usage/file error. Both the artifact
+compression path and the timed round-trip path raise only on `>= 2`: FSZ still
+writes a decompressible `.fsz` artifact on exit 1, so a native quality miss is a
+result to measure and invalidate, not a harness error. Artifact compression
+records `native_exit_code`; the timed path also surfaces
+`native_quality.native_status` with FSZ's self-reported CR and max error for
+cross-checking against the harness's own metrics.
 
 ## Measured against FZGM — session `20260807-183830-skyler-h100`
 

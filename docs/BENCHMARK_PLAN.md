@@ -1,5 +1,14 @@
 # Benchmark Plan
 
+> **Current run status is tracked in [`RUN_LEDGER.md`](RUN_LEDGER.md).** This
+> document remains the historical plan and rationale; update the ledger for new
+> sessions, machine coverage, and campaign progress.
+
+> **Historical checklist warning:** unchecked items and “next step” language below
+> describe the 2026-07 planning state and are not active TODOs. Several were completed,
+> superseded, or reclassified by later full-corpus campaigns. Use the ledger's master
+> dashboard and active-session sections for current decisions.
+
 Living document tracking what benchmark work has been done, what's in flight, and
 where we're taking it next. Complements `docs/DESIGN.md` (architecture/roadmap) and
 `docs/experiments/*.md` (dated result write-ups) — this doc is the higher-level map

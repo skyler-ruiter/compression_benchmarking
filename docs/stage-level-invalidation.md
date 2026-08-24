@@ -19,7 +19,8 @@ Every result row already carries the makings of this:
 
 | field | what it gives us |
 |---|---|
-| `cell_key` | content-keyed cell identity; already drives resume + `merge` dedupe |
+| `logical_cell_id` | scientific cell identity; drives stale selection + merge supersession |
+| `execution_id` | exact dataset/config/tool/harness execution; drives safe resume |
 | `pipeline_ref` | which preset TOML produced the cell |
 | `pipeline_sha256` | content hash of the **rendered** TOML — catches config drift |
 | `stages[]` | the stage names that actually executed, with per-stage device_ms |
@@ -66,7 +67,7 @@ They are still valid for invalidation on the decompress side; compress-side
 attribution requires a re-run (or simply accepting that any cell whose pipeline
 contains the stage is stale, which is the conservative rule anyway).
 
-### Gap 2 — no per-stage version fingerprint
+### Historical gap 2 — no per-stage version fingerprint (resolved 2026-07-29)
 
 `pipeline_sha256` hashes the rendered TOML. Editing a CUDA kernel changes **no
 TOML**, so the hash is identical and the stale cell looks current. This is exactly
@@ -128,11 +129,11 @@ python -m benchkit run <exp> --only-stale <session>/
 - `stale --stage X` — every cell whose `stages[]` contains X.
 - `stale --against-build` — compare recorded `stage_versions` to the current
   build's; report drift without being told what changed. This is the real target.
-- `run --only-stale` — filter the matrix to those `cell_key`s. Resume already
+- `run --only-stale` — filter the matrix to those `logical_cell_id`s. Resume
   handles the rest.
 
 A stale cell should be **superseded, not overwritten**: append the new row and let
-`merge` prefer the newest per `cell_key`. That keeps "this stage got 1.8x faster"
+`merge` prefer the newest successful attempt per logical cell. That keeps "this stage got 1.8x faster"
 answerable from the file, which is most of the value of treating results as a
 database.
 
@@ -141,7 +142,8 @@ database.
 Baselines are already partitioned by provenance and never pooled (D15/D24).
 Invalidation must respect that: a stage change invalidates cells **per machine**,
 and a re-run on the H100 says nothing about the A100's rows. The index key is
-therefore `(baseline_id, cell_key)`.
+therefore `(baseline_id, logical_cell_id)` (with legacy fields reconstructed during
+the H2 transition).
 
 ## Order of work
 

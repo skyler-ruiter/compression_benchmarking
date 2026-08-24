@@ -6,10 +6,11 @@ memory for every compressor and FZGM modular composition we have, across the ful
 SDRBench corpus. This is the "real" run that `docs/BENCHMARK_PLAN.md` §B has been
 gating on the FZGM-vs-native validation work.
 
-**Status:** planning only. Not ready to submit — the open-decision list below needs
-answers (some from the user, some from a dry run) before an experiment YAML gets
-written. Gated on finishing the in-flight bugfix confirmations (E17, E16, E4) tracked
-in `docs/BENCHMARK_PLAN.md`.
+**Status:** **SUPERSEDED historical plan.** Full H100/A100 FZGM-vs-native baselines now
+exist and are tracked under `EBLC-BASE` in `docs/RUN_LEDGER.md`. The open-decision list
+below preserves the reasoning used before those campaigns; it is not a current run
+gate or TODO list. New baseline extensions should be registered in the ledger rather
+than reviving this checklist.
 
 This doc is scoped to *this* run's decisions. Architecture stays in `docs/DESIGN.md`
 (§12 covers HPC execution mechanics already built); this doc is about what matrix to
@@ -36,7 +37,7 @@ point that machinery at.
   the `fzgm_vs_native.yaml` / `smoke-m3-refs.yaml` runs already done (2026-07-02/03)
   to extrapolate total walltime = (cells per shard) × (reps + warmup) × (avg per-rep
   time), then pick `N` and per-task `--time`.
-- Resume is already idempotent via `cell_key` (DESIGN §12) — conservative walltime +
+- Resume is idempotent via exact `execution_id` (DESIGN §6.1/§12) — conservative walltime +
   resubmit-on-timeout is an acceptable fallback, don't need to over-provision `N`.
 - `lock_clocks: true` given `--exclusive`, matching `sdrbench.yaml` convention.
 
