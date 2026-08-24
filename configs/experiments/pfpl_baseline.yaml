@@ -1,0 +1,30 @@
+# PFPL baseline firm-up: native vs FZGM, higher warmup + reps so the native PFPL
+# per-call cold first iteration (its 9 internal reps start with one ~6-13 ms cold
+# launch) does not pollute the median. The fusion_gain run flagged native PFPL
+# CLDHGH eb=1e-3/1e-4 as unstable (cv 0.4-1.1) — this re-measures cleanly.
+#   FZ_FUSION=auto python -m benchkit run configs/experiments/pfpl_baseline.yaml --session-id pfpl_base
+
+name: pfpl_baseline
+description: PFPL native vs FZGM (fused), 4 fields, eb {1e-2,1e-3,1e-4}, high warmup/reps.
+
+datasets: [CESM-2D, HURR, NYX, HACC]
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 10
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: pfpl, variant: pfpl, pipeline: default,
+     cli_path: /home/exouser/compressors/PFPL/bin}
+  - {compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}

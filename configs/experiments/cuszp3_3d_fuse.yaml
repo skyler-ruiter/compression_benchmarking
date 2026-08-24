@@ -1,0 +1,12 @@
+name: cuszp3_3d_fuse
+description: FZGM cuSZp3 3-D fused vs unfused (TiledLorenzo3DPredictor prototype), HURR+NYX.
+datasets: [HURR, NYX]
+fields: {HURR: [TC], NYX: [temperature]}
+error: {mode: rel_range, bounds: [1.0e-2, 1.0e-3, 1.0e-4]}
+repetitions: 7
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+runs:
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml}

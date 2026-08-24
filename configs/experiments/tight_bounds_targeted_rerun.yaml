@@ -1,0 +1,61 @@
+# Targeted repair rerun for the 2026-08-22 H100 tight-bound session.
+#
+# Run this with the ORIGINAL session ID. Benchkit's cell-key resume logic skips
+# the already-successful rows, leaving only:
+#   - native FSZ rows previously misclassified because exit 1 was treated as a
+#     harness failure; and
+#   - FZGM cuSZp-family linear-quantizer rows that previously failed.
+#
+# The matrix contains the exact original run entries and bounds so its cell keys
+# match tight_bounds_full_gpu.yaml. It intentionally excludes native cuSZp and
+# unrelated FZGM/native families.
+
+name: tight_bounds_targeted_rerun
+description: Repair rerun for FSZ exit-1 handling and FZGM linear overflow detection.
+
+fields:
+  NWCHEM: [t631]
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - MIRANDA
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - S3D
+  - NWCHEM
+  - BROWN
+  - EXAFEL
+
+error:
+  mode: rel_range
+  bounds: [1.0e-6, 1.0e-7]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fsz, variant: fsz-native, pipeline: default}
+
+  - {compressor: fzgm, variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: fzgm, variant: cuszp2_plain, pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  - {compressor: fzgm, variant: cuszp3_plain, pipeline: configs/pipelines/cuszp3.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm, variant: cuszp3_plain, pipeline: configs/pipelines/cuszp3_3d.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm, variant: cuszp3_plain, pipeline: configs/pipelines/cuszp3_1d.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm, variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_1d_outlier.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}

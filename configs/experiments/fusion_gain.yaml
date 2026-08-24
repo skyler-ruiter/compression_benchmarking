@@ -1,0 +1,67 @@
+# Fusion-gain sweep: FZGM (fused vs unfused) vs native, for cuSZp2, cuSZp3, and PFPL.
+#
+# Run this file TWICE against the same fzgmod-cli, distinguished only by environment:
+#   FZ_FUSION=auto python -m benchkit run configs/experiments/fusion_gain.yaml --session-id fusion_gain_auto
+#   FZ_FUSION=off  python -m benchkit run configs/experiments/fusion_gain.yaml --session-id fusion_gain_off
+# FZ_FUSION overrides the pipeline's fusion policy (compressor.cpp planAndInstallFusion),
+# so `auto` = FZGM fused, `off` = FZGM staged. The native rows are separate binaries and
+# are unaffected by FZ_FUSION (they re-measure consistently in both sessions — a sanity check).
+#
+# Goal: show FZGM fused ≈ 2x FZGM unfused for cuSZp2/3 (closing the gap to native) and
+# FZGM fused close to native PFPL. Throughput is device kernel time; CR is harness-computed.
+# cuSZp3 is dimension-matched (D17): CESM-2D→8x8 2-D, HURR/NYX→4x4x4 3-D, HACC→1-D Lorenzo.
+
+name: fusion_gain
+description: >
+  FZGM fused-vs-unfused vs native for cuSZp2 (outlier), cuSZp3 (outlier, dim-matched),
+  and PFPL — 4 shape-class fields, eb in {1e-2, 1e-3, 1e-4}, rel_range.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: false        # single-tenant VM; rely on reps + exclusivity for this first read
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  # ── cuSZp2 (Lorenzo block=32 + outlier) ────────────────────────────────────
+  - {compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier,
+     cli_path: /home/exouser/compressors/cuSZp-V2.0.1/build_sm90/examples/bin/cuSZp}
+  - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
+
+  # ── cuSZp3 (dimension-matched, outlier) ────────────────────────────────────
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:2d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_outlier.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:3d",
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [HURR, NYX]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_3d_outlier.toml,
+     only_datasets: [HURR, NYX]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: outlier,
+     cli_path: /home/exouser/compressors/cuSZp-V3.0.0/build_sm90/examples/bin/cuSZp,
+     only_datasets: [HACC]}
+  - {compressor: fzgm,   variant: cuszp3_outlier, pipeline: configs/pipelines/cuszp3_1d_outlier.toml,
+     only_datasets: [HACC]}
+
+  # ── PFPL (Quant → Difference → Bitshuffle → coder) ─────────────────────────
+  - {compressor: pfpl,   variant: pfpl, pipeline: default,
+     cli_path: /home/exouser/compressors/PFPL/bin}
+  - {compressor: fzgm,   variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
