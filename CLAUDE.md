@@ -171,7 +171,8 @@ See the roadmap in `docs/DESIGN.md` §9.
 
 ## Conventions
 
-- No new Python deps beyond numpy + pyyaml (stdlib `tomllib` for TOML read). No pydantic.
+- No new Python deps beyond numpy + pyyaml and the Python 3.10-only `tomli` fallback
+  for stdlib `tomllib`. No pydantic.
 - New experiment = a YAML in `configs/experiments/`; new pipeline = a `.toml`. Config over
   code. When you change behavior, update `docs/DESIGN.md` (and the decision log if it's a
   design choice) and the relevant `docs/adapters/*.md`.
