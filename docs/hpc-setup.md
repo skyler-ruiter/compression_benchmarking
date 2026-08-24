@@ -3,6 +3,10 @@
 Step-by-step instructions for setting up this benchmarking repo on a new HPC cluster.
 BigRed200 (IU) is the reference machine; adapt paths and module names for other sites.
 
+Machine-specific access, storage, scheduler, and policy notes live in `docs/machines/`:
+
+- [LAIR (IU Luddy)](machines/lair.md)
+
 ---
 
 ## Prerequisites
