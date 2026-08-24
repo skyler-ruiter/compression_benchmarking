@@ -60,10 +60,10 @@ REASONS: dict[str, tuple[str, str]] = {
         "CR. Reported separately rather than silently averaged.",
     ),
     "expansion": (
-        "output larger than input",
-        "cr <= 1: the compressor expanded the data. Always paired with catastrophic "
-        "quality in practice (observed at PSNR -23.6 dB). A 'compression ratio' below "
-        "1 is not a compression result.",
+        "lossy output larger than input",
+        "cr <= 1: the compressor expanded the data. This is a legitimate negative "
+        "result, especially at tight error bounds, and is retained so aggregate CR "
+        "is not biased upward. Any accompanying quality failure is gated separately.",
     ),
     "eb_violated_severe": (
         f"error bound missed by > {MARGINAL_EB_RATIO}x",
@@ -99,7 +99,8 @@ REASONS: dict[str, tuple[str, str]] = {
 # Reasons that disqualify a row from EVERY aggregate. `psnr_nonfinite` and
 # `lossless_exact` are deliberately absent: they gate quality only (see
 # quality_valid()).
-_HARD_REASONS = ("failed", "degenerate_field", "expansion", "eb_violated_severe")
+_HARD_REASONS = ("failed", "degenerate_field", "eb_violated_severe")
+_QUALITY_ONLY_REASONS = ("psnr_nonfinite", "lossless_exact")
 
 
 def _finite(x) -> bool:
@@ -150,14 +151,9 @@ def row_reasons(row: dict, degenerate: set[tuple]) -> list[str]:
 
     cr = row.get("cr")
     if _finite(cr) and float(cr) <= 1.0:
-        # For a LOSSY codec, cr <= 1 is a corruption signal: it has never been seen
-        # without catastrophic quality beside it (PSNR -23.6 dB), so the row is
-        # describing a failure, not a ratio. For a LOSSLESS codec it is an ordinary
-        # measurement -- nvCOMP LZ4 compresses CESM-2D/CLDHGH to 0.996x, because raw
-        # f32 mantissas are close to incompressible byte-wise and the framing
-        # overhead is real. Dropping those rows would bias every lossless CR mean
-        # upward by silently deleting exactly the cases where the codec lost.
-        # Counted and reported separately, but RETAINED.
+        # Expansion is an ordinary measured outcome for either lossy or lossless
+        # codecs. Tight error bounds make it common. Count it explicitly, but do
+        # not delete exactly the cases where the compressor loses.
         out.append("lossless_expansion" if is_lossless(row) else "expansion")
 
     if row.get("eb_satisfied") is False:
@@ -195,7 +191,9 @@ def is_valid(row: dict) -> bool:
 
 def quality_valid(row: dict) -> bool:
     """Usable in PSNR / quality aggregates (stricter than is_valid)."""
-    return not row.get("_exclusions")
+    reasons = row.get("_exclusions", [])
+    return not any(c in _HARD_REASONS or c in _QUALITY_ONLY_REASONS
+                   for c in reasons)
 
 
 def marginal_eb_count(rows: list[dict]) -> int:
@@ -233,8 +231,13 @@ def exclusion_report(rows: list[dict]) -> str:
         if not n:
             continue
         label, why = REASONS[code]
-        gates = "all aggregates" if code in _HARD_REASONS else "quality aggregates only"
-        lines.append(f"  {code}  n={n}  [{label}] -- excluded from {gates}")
+        if code in _HARD_REASONS:
+            disposition = "excluded from all aggregates"
+        elif code in _QUALITY_ONLY_REASONS:
+            disposition = "excluded from quality aggregates only"
+        else:
+            disposition = "reported and retained"
+        lines.append(f"  {code}  n={n}  [{label}] -- {disposition}")
         for chunk in _wrap(why, 88):
             lines.append(f"      {chunk}")
         lines.append("")

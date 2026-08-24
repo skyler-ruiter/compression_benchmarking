@@ -19,7 +19,12 @@ in a browser.
 """
 import argparse
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from benchkit.identity import logical_cell_id_from_row  # noqa: E402
+from benchkit.schema import load_result_file, load_session_text  # noqa: E402
 
 try:
     import yaml
@@ -32,7 +37,7 @@ def load_baseline(path: Path):
     runs_path = path / "runs.jsonl"
     if not runs_path.exists():
         raise SystemExit(f"no runs.jsonl in {path}")
-    rows = [json.loads(l) for l in runs_path.read_text().splitlines() if l.strip()]
+    rows = load_result_file(runs_path)
 
     meta = {}
     meta_path = path / "metadata.yaml"
@@ -42,7 +47,7 @@ def load_baseline(path: Path):
     prov = {}
     prov_path = path / "provenance.json"
     if prov_path.exists():
-        prov = json.loads(prov_path.read_text())
+        prov = load_session_text(prov_path.read_text())
 
     gpu_name = meta.get("gpu") or (prov.get("gpu") or {}).get("name") or path.name
     label = f"{gpu_name}"
@@ -50,19 +55,25 @@ def load_baseline(path: Path):
 
 
 def index_rows(rows):
-    """key -> {side: row}. key = (variant, dataset, str(eb)); side = native|fzgm."""
+    """Index true benchmark cells as key -> {native|fzgm: row}.
+
+    ``field`` is part of the key.  Without it, fields after the first in a
+    multi-field dataset overwrite their predecessors.
+    """
     idx = {}
     for r in rows:
         if r.get("status") != "ok":
             continue
         variant = r.get("variant")
         dataset = r.get("dataset")
+        field = r.get("field")
         eb = r.get("error_bound")
         if variant is None or dataset is None or eb is None:
             continue
         side = "fzgm" if r.get("compressor") == "fzgm" else "native"
-        key = (variant, dataset, str(eb))
+        key = (variant, dataset, field, str(eb))
         idx.setdefault(key, {})[side] = {
+            "logical_cell_id": logical_cell_id_from_row(r),
             "status": "ok",
             "cr": r.get("cr"),
             "psnr": r.get("psnr"),
@@ -88,8 +99,14 @@ def build_data(base_a, base_b, anomaly_psnr_db=5.0, anomaly_cr_pct=0.2):
     all_keys = set(idx_a) | set(idx_b)
 
     variants = sorted({k[0] for k in all_keys})
-    datasets = sorted({k[1] for k in all_keys})
-    ebs = sorted({float(k[2]) for k in all_keys}, reverse=True)
+    cells = sorted({(k[1], k[2]) for k in all_keys},
+                   key=lambda cell: (str(cell[0]), str(cell[1] or "")))
+    ebs = sorted({float(k[3]) for k in all_keys}, reverse=True)
+
+    def cell_label(dataset, field):
+        return f"{dataset}/{field}" if field else str(dataset)
+
+    cell_labels = [cell_label(dataset, field) for dataset, field in cells]
 
     data = {}
     anomalies = []
@@ -97,10 +114,10 @@ def build_data(base_a, base_b, anomaly_psnr_db=5.0, anomaly_cr_pct=0.2):
     max_psnr_absdiff = 0.0
     for variant in variants:
         data[variant] = {}
-        for ds in datasets:
-            data[variant][ds] = {}
+        for (dataset, field), label in zip(cells, cell_labels):
+            data[variant][label] = {}
             for eb in ebs:
-                key = (variant, ds, str(eb))
+                key = (variant, dataset, field, str(eb))
                 ra = idx_a.get(key, {})
                 rb = idx_b.get(key, {})
                 entry = {}
@@ -108,6 +125,13 @@ def build_data(base_a, base_b, anomaly_psnr_db=5.0, anomaly_cr_pct=0.2):
                     a_rec, b_rec = ra.get(side), rb.get(side)
                     if not a_rec and not b_rec:
                         continue
+                    if (a_rec and b_rec and a_rec.get("logical_cell_id") and
+                            b_rec.get("logical_cell_id") and
+                            a_rec["logical_cell_id"] != b_rec["logical_cell_id"]):
+                        raise ValueError(
+                            "refusing to pair different logical cells at "
+                            f"{variant}/{side}/{label}/eb={eb}: "
+                            f"{a_rec['logical_cell_id']} != {b_rec['logical_cell_id']}")
                     combo = {"a": a_rec, "b": b_rec}
                     if a_rec and b_rec and a_rec["psnr"] is not None and b_rec["psnr"] is not None:
                         pd = abs(a_rec["psnr"] - b_rec["psnr"])
@@ -117,19 +141,21 @@ def build_data(base_a, base_b, anomaly_psnr_db=5.0, anomaly_cr_pct=0.2):
                             crd = 0.0
                         if pd > anomaly_psnr_db or crd > anomaly_cr_pct:
                             combo["anomaly"] = True
-                            anomalies.append((variant, side, ds, eb, pd, crd))
+                            anomalies.append((variant, side, label, eb, pd, crd))
                         else:
                             max_psnr_absdiff = max(max_psnr_absdiff, pd)
                             max_cr_reldiff = max(max_cr_reldiff, crd)
                     entry[side] = combo
-                data[variant][ds][str(eb)] = entry
+                data[variant][label][str(eb)] = entry
 
     pairings = [{"key": v, "label": DEFAULT_LABELS.get(v, v)} for v in variants]
 
     meta = {
         "a": {"label": base_a["label"], "dir": base_a["dir"], "meta": base_a["meta"]},
         "b": {"label": base_b["label"], "dir": base_b["dir"], "meta": base_b["meta"]},
-        "datasets": datasets,
+        # Retain the historical metadata name used by the embedded HTML. Values are
+        # now true cell labels, so fields within one dataset remain distinct.
+        "datasets": cell_labels,
         "ebs": ebs,
         "pairings": pairings,
         "matched_cells": len(all_keys),

@@ -13,6 +13,8 @@ from typing import Any
 
 import yaml
 
+from .dataset_checksums import load_checksum_lock, valid_sha256
+
 # ---- dataset manifest -------------------------------------------------------
 
 # Element width in bytes per dtype token. Anything unlisted falls back to 4.
@@ -28,6 +30,7 @@ class FieldSpec:
     dim_order: str        # "fast-to-slow"
     dims: list[int]
     path: Path            # absolute path to the raw binary
+    expected_sha256: str | None = None
 
     @property
     def num_elements(self) -> int:
@@ -57,16 +60,38 @@ class FieldSpec:
 class DatasetCatalog:
     """Resolves (dataset, field) -> FieldSpec from configs/datasets.yaml."""
 
-    def __init__(self, datasets: dict[str, Any]):
+    def __init__(self, datasets: dict[str, Any], *, source_path: Path | None = None,
+                 source_text: str | None = None,
+                 checksum_path: Path | None = None,
+                 checksum_text: str | None = None,
+                 checksums: dict[str, dict[str, str]] | None = None):
         self._raw = datasets
+        self.source_path = source_path
+        self.source_text = source_text
+        self.checksum_path = checksum_path
+        self.checksum_text = checksum_text
+        self._checksums = checksums or {}
 
     @classmethod
     def load(cls, path: str | Path) -> "DatasetCatalog":
-        with open(path) as fh:
-            raw = yaml.safe_load(fh) or {}
+        source_path = Path(path).resolve()
+        source_text = source_path.read_text()
+        raw = yaml.safe_load(source_text) or {}
         if not isinstance(raw, dict):
             raise ValueError(f"{path}: dataset manifest must be a mapping of dataset->spec")
-        return cls(raw)
+        checksum_path = source_path.with_name(source_path.stem + ".checksums.yaml")
+        checksums, checksum_text = load_checksum_lock(checksum_path)
+        unknown = sorted(set(checksums) - set(raw))
+        if unknown:
+            raise ValueError(f"{checksum_path}: unknown datasets: {unknown}")
+        for dataset, fields in checksums.items():
+            unknown_fields = sorted(set(fields) - set(raw[dataset].get("fields", {})))
+            if unknown_fields:
+                raise ValueError(
+                    f"{checksum_path}: unknown fields for {dataset}: {unknown_fields}")
+        return cls(raw, source_path=source_path, source_text=source_text,
+                   checksum_path=checksum_path, checksum_text=checksum_text,
+                   checksums=checksums)
 
     def fields(self, dataset: str) -> list[str]:
         self._require(dataset)
@@ -88,6 +113,11 @@ class DatasetCatalog:
         dims = list(fspec["dims"])
         if not dims or any(int(d) <= 0 for d in dims):
             raise ValueError(f"{dataset}/{field_name}: dims must be positive ints, got {dims}")
+        inline_digest = fspec.get("sha256")
+        locked_digest = self._checksums.get(dataset, {}).get(field_name)
+        if (inline_digest is not None and locked_digest is not None and
+                inline_digest != locked_digest):
+            raise ValueError(f"{dataset}/{field_name}: inline and checksum-lock SHA-256 differ")
         spec = FieldSpec(
             dataset=dataset,
             field=field_name,
@@ -95,7 +125,10 @@ class DatasetCatalog:
             dim_order=ds.get("dim_order", "fast-to-slow"),
             dims=[int(d) for d in dims],
             path=path.resolve(),
+            expected_sha256=(inline_digest if inline_digest is not None else locked_digest),
         )
+        if spec.expected_sha256 is not None and not valid_sha256(spec.expected_sha256):
+            raise ValueError(f"{dataset}/{field_name}: sha256 must be 64 lowercase hex digits")
         if not spec.path.exists():
             raise FileNotFoundError(f"{dataset}/{field_name}: data file not found: {spec.path}")
         actual = spec.path.stat().st_size
@@ -149,6 +182,10 @@ class RunEntry:
     # doesn't apply to a 1-D dataset like HACC) — at most one of the two may be set.
     only_datasets: list[str] | None = None
     skip_datasets: list[str] | None = None
+    tool_version: str | None = None
+    tool_source_commit: str | None = None
+    tool_build_flags: str | None = None
+    tool_patch_sha256: str | None = None
 
     @property
     def is_toml(self) -> bool:
@@ -178,11 +215,14 @@ class ExperimentConfig:
     runs: list[RunEntry]
     pairings: list[dict[str, Any]] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
+    source_path: Path | None = None
+    source_text: str | None = None
 
     @classmethod
     def load(cls, path: str | Path) -> "ExperimentConfig":
-        with open(path) as fh:
-            raw = yaml.safe_load(fh) or {}
+        source_path = Path(path).resolve()
+        source_text = source_path.read_text()
+        raw = yaml.safe_load(source_text) or {}
         try:
             err = raw["error"]
             runs = [RunEntry(compressor=r["compressor"],
@@ -191,7 +231,11 @@ class ExperimentConfig:
                              cli_path=r.get("cli_path"),
                              graph=bool(r.get("graph", False)),
                              only_datasets=list(r["only_datasets"]) if "only_datasets" in r else None,
-                             skip_datasets=list(r["skip_datasets"]) if "skip_datasets" in r else None)
+                             skip_datasets=list(r["skip_datasets"]) if "skip_datasets" in r else None,
+                             tool_version=r.get("tool_version"),
+                             tool_source_commit=r.get("tool_source_commit"),
+                             tool_build_flags=r.get("tool_build_flags"),
+                             tool_patch_sha256=r.get("tool_patch_sha256"))
                     for r in raw["runs"]]
         except KeyError as e:
             raise ValueError(f"{path}: missing required key {e}") from e
@@ -204,6 +248,11 @@ class ExperimentConfig:
                 raise ValueError(
                     f"{path}: run entry {r.compressor}:{r.variant} sets both "
                     f"only_datasets and skip_datasets — use at most one")
+            if r.tool_patch_sha256 not in (None, "clean") and (
+                    len(r.tool_patch_sha256) != 64 or
+                    any(c not in "0123456789abcdef" for c in r.tool_patch_sha256)):
+                raise ValueError(
+                    f"{path}: tool_patch_sha256 must be 'clean' or 64 lowercase hex digits")
         mode = err.get("mode", "rel_range")
         if mode not in CANONICAL_MODES:
             raise ValueError(f"{path}: error.mode '{mode}' not in {sorted(CANONICAL_MODES)}")
@@ -236,6 +285,8 @@ class ExperimentConfig:
             runs=runs,
             pairings=list(raw.get("pairings", [])),
             raw=raw,
+            source_path=source_path,
+            source_text=source_text,
         )
         if not cfg.datasets:
             raise ValueError(f"{path}: 'datasets' is empty")

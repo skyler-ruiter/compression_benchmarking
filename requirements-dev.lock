@@ -1,0 +1,6 @@
+# CPU-only test and editable-install environment used by CI and clean-install checks.
+# Exact pins make H6 failures attributable; runtime lower bounds remain in pyproject.toml.
+numpy==1.26.4
+PyYAML==6.0.2
+setuptools==75.8.0
+wheel==0.45.1

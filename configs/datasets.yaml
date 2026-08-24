@@ -7,6 +7,9 @@
 # Set this in your job script, ~/.bashrc, or site.local.yaml before running.
 # scripts/download-sdrbench.sh (or `benchkit download`) creates the directory layout below.
 # See docs/hpc-setup.md for full machine setup instructions.
+# SHA-256 values live in the adjacent versioned `datasets.checksums.yaml` lock so this
+# descriptive manifest remains readable. Inline `sha256` is also accepted; if both are
+# present they must agree. See docs/dataset-integrity.md before adding or changing data.
 
 # ----- local desktop (non-HPC) -----------------------------------------------
 

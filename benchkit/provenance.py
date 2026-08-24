@@ -17,6 +17,10 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .schema import SESSION_SCHEMA_VERSION
+
+PROVENANCE_SCHEMA_VERSION = 1
+
 
 def _sh(argv: list[str]) -> str | None:
     try:
@@ -113,7 +117,42 @@ def _gpu_info() -> dict:
 
 
 def _git_sha(repo: Path) -> str | None:
-    return _sh(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"])
+    return _sh(["git", "-C", str(repo), "rev-parse", "HEAD"])
+
+
+def capture_git_state(repo: Path) -> tuple[dict, bytes]:
+    """Return a reproducible dirty-tree identity and the tracked binary patch."""
+    commit = _git_sha(repo)
+    try:
+        patch = subprocess.run(
+            ["git", "-C", str(repo), "diff", "--binary", "HEAD", "--"],
+            capture_output=True, timeout=30, check=True).stdout
+        raw = subprocess.run(
+            ["git", "-C", str(repo), "ls-files", "--others", "--exclude-standard", "-z"],
+            capture_output=True, timeout=30, check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ({"commit": commit, "dirty": None, "patch_sha256": None,
+                 "untracked": []}, b"")
+    untracked = []
+    for name in sorted(x for x in raw.decode(errors="surrogateescape").split("\0") if x):
+        path = repo / name
+        if path.is_file():
+            untracked.append({"path": name,
+                              "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+    material = patch + json.dumps(untracked, sort_keys=True,
+                                  separators=(",", ":")).encode()
+    return ({"commit": commit, "dirty": bool(patch or untracked),
+             "patch_sha256": hashlib.sha256(patch).hexdigest(),
+             "untracked": untracked,
+             "dirty_identity_sha256": hashlib.sha256(material).hexdigest()}, patch)
+
+
+def assign_provenance_id(manifest: dict) -> str:
+    payload = {k: v for k, v in manifest.items()
+               if k != "provenance_id"}
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                         allow_nan=False).encode()
+    return "provenance-v1-" + hashlib.sha256(encoded).hexdigest()
 
 
 # Scheduler / environment vars worth recording on HPC (job, node, GPU pinning, array).
@@ -149,13 +188,18 @@ def _software_env() -> dict:
 def capture_session(config_raw: dict, repo_root: Path,
                     adapter_provenance: dict | None = None,
                     session_id: str | None = None,
-                    shard: tuple[int, int] | None = None) -> dict:
+                    shard: tuple[int, int] | None = None,
+                    input_artifacts: dict | None = None,
+                    dataset_integrity: dict | None = None) -> dict:
     now = datetime.now(timezone.utc)
     cfg_hash = hashlib.sha256(
         json.dumps(config_raw, sort_keys=True, default=str).encode()).hexdigest()
     host = platform.uname()
     sid = session_id or (now.strftime("%Y%m%d-%H%M%S") + "-" + host.node)
-    return {
+    git_state, _ = capture_git_state(repo_root)
+    manifest = {
+        "session_schema_version": SESSION_SCHEMA_VERSION,
+        "session_kind": "native",
         "session_id": sid,
         "timestamp": now.isoformat(),
         "shard": list(shard) if shard else None,
@@ -164,8 +208,14 @@ def capture_session(config_raw: dict, repo_root: Path,
                  "machine": host.machine, "processor": platform.processor()},
         "scheduler": _scheduler_env(),
         "software": _software_env(),
-        "harness": {"git_sha": _git_sha(repo_root), "config_sha256": cfg_hash,
+        "harness": {"git_sha": git_state["commit"], "git": git_state,
+                    "config_sha256": cfg_hash,
                     "python": platform.python_version()},
         "compressors": adapter_provenance or {},
+        "provenance_schema_version": PROVENANCE_SCHEMA_VERSION,
+        "input_artifacts": input_artifacts or {},
+        "dataset_integrity": dataset_integrity or {},
         "nvidia_smi": _sh(["nvidia-smi"]),
     }
+    manifest["provenance_id"] = assign_provenance_id(manifest)
+    return manifest

@@ -23,6 +23,7 @@ _SITE_LOCAL = REPO_ROOT / "configs" / "site.local.yaml"
 class Site:
     fzgmod_cli: str | None
     results_root: Path
+    local_settings: dict | None = None
 
     @classmethod
     def load(cls, results_root: str | None = None) -> "Site":
@@ -39,7 +40,26 @@ class Site:
                 or str(REPO_ROOT / "results"))
 
         return cls(fzgmod_cli=cli,
-                   results_root=Path(os.path.expandvars(root)).expanduser())
+                   results_root=Path(os.path.expandvars(root)).expanduser(),
+                   local_settings=local)
+
+    def sanitized_manifest(self) -> dict:
+        """Resolved, secret-redacted site settings suitable for an artifact."""
+        sensitive = ("token", "password", "secret", "credential", "auth", "api_key",
+                     "apikey", "access_key", "private_key")
+
+        def clean(value, key=""):
+            if any(word in key.lower() for word in sensitive):
+                return "<redacted>"
+            if isinstance(value, dict):
+                return {str(k): clean(v, str(k)) for k, v in value.items()}
+            if isinstance(value, list):
+                return [clean(v, key) for v in value]
+            return value
+
+        return {"resolved": {"fzgmod_cli": self.fzgmod_cli,
+                              "results_root": str(self.results_root)},
+                "site_local": clean(self.local_settings or {})}
 
     def export_env(self) -> None:
         """Publish resolved values to the environment so adapters pick them up."""

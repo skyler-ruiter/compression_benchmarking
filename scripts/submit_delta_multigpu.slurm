@@ -18,7 +18,7 @@
 # device kernel time regardless.
 #
 # Each shard writes its own runs.shard-k-of-8.jsonl, so they never contend on a file.
-# RESUME is content-keyed on cell_key: if the job hits the wall limit, resubmit with the
+# RESUME is exact-execution-keyed: if the job hits the wall limit, resubmit with the
 # SAME SESSION_ID and finished cells are skipped.
 #
 # ---------------------------------------------------------------------------

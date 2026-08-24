@@ -82,8 +82,9 @@ def aggregate_cr(rows: list[dict], group_keys: tuple[str, ...] = _AGG_GROUP_KEYS
     reps disagree. Recomputes CR from raw original/compressed bytes per D4 (harness owns
     size metrics), never averages the per-row `cr` field directly for ratio_of_sums.
 
-    `gate=True` (the default) applies benchkit.validity: constant/degenerate fields,
-    expansions, and severe error-bound misses are kept out of the mean. `status == ok`
+    `gate=True` (the default) applies benchkit.validity: constant/degenerate fields
+    and severe error-bound misses are kept out of the mean. Expansions remain as
+    legitimate CR values so tight-bound aggregates are not biased upward. `status == ok`
     alone admits cells that are numerically unusable — see benchkit/validity.py for the
     full rationale and `exclusion_report()` for an audit of what was dropped. Pass
     gate=False only to reproduce an ungated legacy number.

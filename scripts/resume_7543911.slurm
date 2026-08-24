@@ -1,7 +1,7 @@
 #!/bin/bash
 # One-off resume of session 7543911 (fzgm_vs_native) if the interactive
 # allocation it started under is walltime-killed mid-run. Resume is idempotent
-# (cell_key scan, DESIGN.md D13) so this only runs the remaining cells.
+# (execution_id scan, DESIGN.md D13) so this only runs exact remaining executions.
 #SBATCH --job-name=bkit-fzgm-resume
 #SBATCH --gpus=1
 #SBATCH --time=01:30:00

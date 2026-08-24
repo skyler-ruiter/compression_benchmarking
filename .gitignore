@@ -13,6 +13,9 @@ external/**/install/
 
 # nvcomp_cli is source in this repo, but its build tree is not
 tools/**/build/
+# Machine-specific helper outputs; sources and reproducible build scripts are tracked.
+tools/fsz_hosttime/fsz_hosttime
+tools/lscomp_decode/lscomp_decode
 
 # Downloaded datasets
 data/

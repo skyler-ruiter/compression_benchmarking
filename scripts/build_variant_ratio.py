@@ -27,12 +27,9 @@ of per-cell ratios is not.
 Gating
 ------
 Rows go through `benchkit.validity` exactly as `report --aggregate` does, and
-the exclusion audit prints alongside. Two deliberate departures:
-
-- `--metric cr` gates rows (an `expansion` row's CR is meaningless).
-- `--metric ctp/dtp` does NOT gate on `expansion`: a coder that expanded still
-  has a valid *throughput* measurement, and for the chunked-RLE experiment those
-  are the rows under test. `failed` rows are always dropped.
+the exclusion audit prints alongside. Expansion rows are retained for every
+metric: CR below one and the throughput that produced it are legitimate
+negative results. Failed and severe quality-violation rows remain gated.
 
 `timing_reliable is False` cells are counted and flagged (`!` suffix) rather
 than dropped — a wide-variance cell is a caveat on that cell, not grounds to
@@ -60,6 +57,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from benchkit import validity  # noqa: E402
+from benchkit.schema import load_result_file  # noqa: E402
 
 
 METRICS = {
@@ -75,7 +73,7 @@ def load_rows(target: str) -> list[dict]:
         p = p / "runs.jsonl"
     if not p.exists():
         raise SystemExit(f"no runs.jsonl at {p}")
-    return [json.loads(l) for l in p.read_text().splitlines() if l.strip()]
+    return load_result_file(p)
 
 
 def stage_ms(row: dict, stage: str, phase: str) -> float | None:
@@ -116,15 +114,11 @@ def main() -> int:
 
     rows = validity.annotate(load_rows(args.target))
 
-    # Throughput survives an `expansion` row; CR does not. See module docstring.
     def usable(r: dict) -> bool:
         if r.get("status") != "ok":
             return False
         if args.no_gate:
             return True
-        if args.stage or args.metric in ("ctp", "dtp"):
-            reasons = set(r.get("_exclusions") or [])
-            return not (reasons - {"expansion", "psnr_nonfinite"})
         return validity.is_valid(r)
 
     if args.stage:

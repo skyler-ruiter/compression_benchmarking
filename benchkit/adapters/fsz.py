@@ -231,7 +231,12 @@ class FszAdapter(Adapter):
 
         argv = [self.cli, "-z", *prep.config_args, "-o", str(compressed)]
         proc = run_cli(argv, log)
-        if proc.returncode != 0:
+        # FSZ uses exit 1 for a completed compression whose native quality
+        # check misses the requested bound.  The artifact is still valid and
+        # must reach decompression so benchkit can record the measured error
+        # as an invalid result rather than misclassifying it as a harness
+        # failure.  Exit >= 2 denotes an actual CLI/file error.
+        if proc.returncode >= 2:
             raise AdapterError(f"compress failed (exit {proc.returncode}); see {log}")
         if not compressed.exists():
             raise AdapterError(f"compress produced no output at {compressed}; see {log}")
@@ -240,7 +245,7 @@ class FszAdapter(Adapter):
             compressed_path=compressed,
             compressed_bytes=compressed.stat().st_size,
             original_bytes=spec.field.original_bytes,
-            raw_json={},
+            raw_json={"native_exit_code": proc.returncode},
             log_path=log,
         )
 

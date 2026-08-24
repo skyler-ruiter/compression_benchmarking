@@ -22,9 +22,15 @@ from pathlib import Path
 from . import invalidate, validity
 from .analysis import _AGG_GROUP_KEYS, print_aggregate_table, print_table
 from .config import DatasetCatalog, ExperimentConfig
+from .dataset_checksums import checksum_prefix, dump_checksum_lock
+from .identity import (assert_no_id_collisions, logical_cell_id_from_row,
+                       logical_merge_key)
 from .runner import run_experiment
+from .schema import dumps_result, load_result_file
 from .site import Site
 from .store import ResultStore
+from .verification import verify_session
+from .artifact import build_artifact, verify_artifact
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -42,7 +48,7 @@ def _parse_shard(s: str | None) -> tuple[int, int] | None:
 
 
 def _stale_keys(args: argparse.Namespace, site: Site) -> set[str]:
-    """cell_keys to re-measure, from an existing session's rows."""
+    """Logical cell IDs to re-measure, including IDs reconstructed from legacy rows."""
     if not args.session_id:
         raise SystemExit("--only-stale needs --session-id: it re-measures cells in an "
                          "existing session, so there must be one to read rows from.")
@@ -67,7 +73,7 @@ def _stale_keys(args: argparse.Namespace, site: Site) -> set[str]:
         return set()
 
     hits = invalidate.stale_cells(rows, stages, index)
-    keys = {r["cell_key"] for r in hits if r.get("cell_key")}
+    keys = {key for r in hits if (key := logical_cell_id_from_row(r))}
     print(f"[stale] stage(s) {', '.join(sorted(set(stages)))} -> {len(keys)} cells "
           f"to re-measure")
     return keys
@@ -84,15 +90,17 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 0
     store = run_experiment(cfg, catalog, site.results_root, REPO_ROOT,
                            session_id=args.session_id, shard=_parse_shard(args.shard),
-                           only_stale=only_stale)
+                           only_stale=only_stale,
+                           allow_unverified_datasets=args.allow_unverified_datasets,
+                           site_manifest=site.sanitized_manifest())
     print()
-    print_table(store.load_rows())
+    print_table(store.load_rows(canonical=False))
     print(f"\n[done] rows -> {store.runs_path}")
     return 0
 
 
 def cmd_merge(args: argparse.Namespace) -> int:
-    """Combine shard files into runs.jsonl, one row per cell_key.
+    """Combine shard files into runs.jsonl, one row per logical scientific cell.
 
     Three precedence rules, in order. They were arrived at by two different
     investigations and all three are load-bearing:
@@ -118,15 +126,14 @@ def cmd_merge(args: argparse.Namespace) -> int:
     """
     session = Path(args.session_dir)
     files = sorted(session.glob("runs.shard-*.jsonl")) + sorted(session.glob("runs.jsonl"))
-    best: dict[str, tuple[int, dict]] = {}      # cell_key -> (file rank, row)
+    best: dict[str, tuple[int, dict]] = {}      # logical key -> (file rank, row)
     order: list[str] = []
     superseded = recovered = 0
+    all_rows = []
     for rank, f in enumerate(files):
-        for line in f.read_text().splitlines():
-            if not line.strip():
-                continue
-            row = json.loads(line)
-            k = row.get("cell_key") or row.get("run_id")
+        for row in load_result_file(f):
+            all_rows.append(row)
+            k = logical_merge_key(row)
             cur = best.get(k)
             if cur is None:
                 best[k] = (rank, row)
@@ -145,11 +152,13 @@ def cmd_merge(args: argparse.Namespace) -> int:
                 superseded += 1
             # else: rule 3 — keep the earlier file's row
 
+    assert_no_id_collisions(all_rows)
     rows = [best[k][1] for k in order]
     out = session / "runs.jsonl"
+    encoded_rows = [dumps_result(row) for row in rows]
     with open(out, "w") as fh:
-        for row in rows:
-            fh.write(json.dumps(row, default=str) + "\n")
+        for encoded in encoded_rows:
+            fh.write(encoded + "\n")
     notes = []
     if recovered:
         notes.append(f"{recovered} failed row(s) replaced by a successful retry")
@@ -165,7 +174,7 @@ def _load_rows(target_str: str) -> list[dict]:
     target = Path(target_str)
     if target.is_dir():
         return ResultStore(target.parent, target.name).load_rows()
-    return [json.loads(l) for l in target.read_text().splitlines() if l.strip()]
+    return load_result_file(target)
 
 
 def cmd_stale(args: argparse.Namespace) -> int:
@@ -249,6 +258,99 @@ def cmd_download(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dataset_checksums(args: argparse.Namespace) -> int:
+    """Generate or verify the checksum lock without silently blessing changed data."""
+    if args.accept_changed and not args.write:
+        raise SystemExit("--accept-changed is only valid with --write")
+    if args.data_root:
+        os.environ["BENCHKIT_DATA_ROOT"] = args.data_root
+    catalog = DatasetCatalog.load(args.datasets)
+    selected = args.dataset or list(catalog._raw)
+    unknown = sorted(set(selected) - set(catalog._raw))
+    if unknown:
+        raise SystemExit(f"unknown dataset(s): {', '.join(unknown)}")
+    locked = {dataset: dict(fields) for dataset, fields in catalog._checksums.items()}
+    observed: dict[str, dict[str, str]] = {}
+    unavailable: list[str] = []
+    mismatches: list[tuple[str, str, str]] = []
+    missing_declarations: list[str] = []
+    for dataset in selected:
+        for field in catalog.fields(dataset):
+            try:
+                spec = catalog.resolve(dataset, field)
+            except FileNotFoundError:
+                unavailable.append(f"{dataset}/{field}")
+                continue
+            digest = checksum_prefix(spec.path, spec.original_bytes)
+            observed.setdefault(dataset, {})[field] = digest
+            prior = locked.get(dataset, {}).get(field)
+            if prior is None:
+                missing_declarations.append(f"{dataset}/{field}")
+            elif prior != digest:
+                mismatches.append((f"{dataset}/{field}", prior, digest))
+            print(f"{dataset}/{field}  {digest}", flush=True)
+
+    if mismatches and not (args.write and args.accept_changed):
+        for name, expected, actual in mismatches:
+            print(f"MISMATCH {name}: expected {expected}, observed {actual}")
+        print("Refusing to rewrite changed checksums. Investigate the data, or rerun "
+              "with --write --accept-changed after validating its provenance.")
+        return 2
+    if args.write:
+        for dataset, fields in observed.items():
+            locked.setdefault(dataset, {}).update(fields)
+        output = catalog.checksum_path
+        assert output is not None
+        temporary = output.with_suffix(output.suffix + ".tmp")
+        temporary.write_text(dump_checksum_lock(locked))
+        temporary.replace(output)
+        print(f"[written] {output}")
+    if unavailable:
+        print(f"[unavailable] {len(unavailable)} field(s): {', '.join(unavailable)}")
+    if missing_declarations and not args.write:
+        print(f"[missing] {len(missing_declarations)} checksum declaration(s)")
+    if mismatches:
+        print(f"[accepted] {len(mismatches)} changed checksum(s)")
+    return 1 if (not args.write and (unavailable or missing_declarations)) else 0
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    if not Path(args.session_dir).is_dir():
+        raise SystemExit(f"verify: no such session directory: {args.session_dir}")
+    report = verify_session(args.session_dir)
+    for check in report["checks"]:
+        marker = "PASS" if check["status"] == "pass" else "FAIL"
+        print(f"[{marker}] {check['name']}: {check['summary']}")
+        if check["status"] == "fail":
+            for detail in check.get("details", [])[:10]:
+                print(f"       {detail}")
+    print(f"[report] {Path(args.session_dir).resolve() / 'verification.json'}")
+    print("[result] publication-grade" if report["publication_grade"] else
+          "[result] incomplete / not publication-grade")
+    return 0 if report["publication_grade"] else 1
+
+
+def cmd_artifact_build(args: argparse.Namespace) -> int:
+    try:
+        manifest = build_artifact(args.session_dir, args.output, args.include or [])
+    except ValueError as exc:
+        print(f"[artifact] build failed: {exc}")
+        return 1
+    print(f"[artifact] {manifest['artifact_id']}")
+    print(f"[written] {Path(args.output).resolve()}")
+    return 0
+
+
+def cmd_artifact_verify(args: argparse.Namespace) -> int:
+    try:
+        manifest = verify_artifact(args.bundle_dir)
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        print(f"[artifact] verification failed: {exc}")
+        return 1
+    print(f"[artifact] verified {manifest['artifact_id']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="benchkit")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -261,6 +363,9 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--session-id", default=None,
                    help="reuse/resume a session (e.g. $SLURM_JOB_ID for array jobs)")
     r.add_argument("--shard", default=None, help="k/N — run only cells where index %% N == k")
+    r.add_argument("--allow-unverified-datasets", action="store_true",
+                   help="explicitly run fields lacking declared SHA-256 values; marks "
+                        "the session non-publication-grade")
     r.add_argument("--only-stale", action="store_true",
                    help="re-measure ONLY the cells invalidated by a changed FZGM stage, "
                         "instead of the whole matrix. Requires --session-id and either "
@@ -294,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
                           "why (see benchkit/validity.py)")
     rep.add_argument("--no-gate", action="store_true",
                      help="with --aggregate, DISABLE the validity gate and average every "
-                          "ok row, including constant fields, expansions and severe "
+                          "ok row, including constant fields and severe "
                           "error-bound misses. For reproducing pre-gate numbers only — "
                           "the resulting means are not defensible")
     rep.set_defaults(func=cmd_report)
@@ -310,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
                          "build and report which stages changed (needs an FZGM build "
                          "with --list-stages=json)")
     st.add_argument("--show", type=int, default=20,
-                    help="how many stale cell keys to print (default 20)")
+                    help="how many stale logical cell IDs to print (default 20)")
     st.add_argument("--index", default=None,
                     help="pipeline->stages index (default configs/pipeline_stages.json; "
                          "regenerate with scripts/probe_pipeline_stages.py)")
@@ -328,6 +433,35 @@ def main(argv: list[str] | None = None) -> int:
     dl.add_argument("--list", action="store_true",
                     help="list available dataset keys and exit")
     dl.set_defaults(func=cmd_download)
+
+    ds = sub.add_parser("dataset-checksums",
+                        help="verify or safely update the dataset checksum lock")
+    ds.add_argument("--datasets", default=str(REPO_ROOT / "configs" / "datasets.yaml"))
+    ds.add_argument("--data-root", default=None,
+                    help="set BENCHKIT_DATA_ROOT for this invocation")
+    ds.add_argument("--dataset", action="append",
+                    help="limit to a dataset key (repeatable; default: entire manifest)")
+    ds.add_argument("--write", action="store_true",
+                    help="add checksums for available fields to the adjacent lock file")
+    ds.add_argument("--accept-changed", action="store_true",
+                    help="with --write, explicitly replace mismatched existing hashes")
+    ds.set_defaults(func=cmd_dataset_checksums)
+
+    verify = sub.add_parser("verify", help="mechanically verify session completeness")
+    verify.add_argument("session_dir")
+    verify.set_defaults(func=cmd_verify)
+
+    artifact = sub.add_parser("artifact", help="build or verify an offline AD/AE bundle")
+    artifact_sub = artifact.add_subparsers(dest="artifact_cmd", required=True)
+    artifact_build = artifact_sub.add_parser("build", help="build from an H4-passing session")
+    artifact_build.add_argument("session_dir")
+    artifact_build.add_argument("output")
+    artifact_build.add_argument("--include", action="append",
+                                help="publication figure/table to include with metadata")
+    artifact_build.set_defaults(func=cmd_artifact_build)
+    artifact_verify = artifact_sub.add_parser("verify", help="offline-verify a bundle")
+    artifact_verify.add_argument("bundle_dir")
+    artifact_verify.set_defaults(func=cmd_artifact_verify)
 
     args = p.parse_args(argv)
     return args.func(args)

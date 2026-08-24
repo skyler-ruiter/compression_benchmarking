@@ -43,6 +43,8 @@ import json
 import os
 from pathlib import Path
 
+from .identity import logical_cell_id_from_row
+
 _DEFAULT_INDEX = Path(__file__).resolve().parent.parent / "configs" / "pipeline_stages.json"
 
 
@@ -185,11 +187,11 @@ def print_stale(rows: list[dict], stages: list[str], index: dict[str, list[str]]
     for p, n in sorted(by_pipe.items(), key=lambda kv: -kv[1]):
         print(f"  {p:28s} {n:6d} cells")
 
-    print(f"\nfirst {min(show, len(hits))} stale cell keys:")
+    print(f"\nfirst {min(show, len(hits))} stale logical cell IDs:")
     for r in hits[:show]:
-        print(f"  {r.get('cell_key')}")
+        print(f"  {logical_cell_id_from_row(r) or r.get('cell_key')}")
     if len(hits) > show:
         print(f"  ... and {len(hits) - show} more")
     print("\nRe-run them by re-submitting the same experiment with the SAME "
           "--session-id after deleting these rows,\nor keep both and let `merge` "
-          "prefer the newest per cell_key.")
+          "apply the documented logical-cell supersession rule.")

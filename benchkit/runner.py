@@ -9,22 +9,45 @@ For each cell (run-entry x dataset-field x error-bound):
 """
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
+import yaml
 
 from . import metrics
 from .adapters import build_adapter
 from .adapters.base import RunSpec
 from .config import DatasetCatalog, ExperimentConfig
 from .gpu import GpuSampler
-from .provenance import capture_session
+from .identity import (execution_id, logical_cell_id, make_execution_context,
+                       make_logical_cell, normalize_pipeline_ref, sha256_prefix,
+                       tool_identity)
+from .pipelines import PipelineToml
+from .provenance import assign_provenance_id, capture_git_state, capture_session
 from .store import ResultStore, sha256_file
 
 
 def cell_key(entry, dataset: str, field: str, mode: str, eb) -> str:
-    """Deterministic identity of one cell — used for shard assignment and resume-skip."""
+    """Legacy transition alias; new resume/merge logic uses H2 identities."""
     ebtxt = "toml" if eb is None else f"{eb:g}"
     return f"{entry.compressor}|{entry.variant}|{entry.pipeline}|{dataset}|{field}|{mode}|{ebtxt}"
+
+
+def _adapter_key(entry) -> tuple:
+    # Build declarations are part of the executable provenance. Two otherwise equal
+    # entries must not accidentally share the first entry's declaration.
+    return (entry.compressor, entry.variant, entry.cli_path, entry.tool_version,
+            entry.tool_source_commit, entry.tool_build_flags, entry.tool_patch_sha256)
+
+
+def _pipeline_resolution_inputs(entry, repo_root: Path) -> dict:
+    requested = normalize_pipeline_ref(entry.pipeline, repo_root)
+    candidate = Path(entry.pipeline)
+    if not candidate.is_absolute():
+        candidate = repo_root / candidate
+    source_sha = sha256_file(candidate) if candidate.is_file() else None
+    return {"requested": requested, "source_sha256": source_sha}
 
 
 def _iter_cells(cfg: ExperimentConfig, catalog: DatasetCatalog):
@@ -39,34 +62,168 @@ def _iter_cells(cfg: ExperimentConfig, catalog: DatasetCatalog):
                     yield entry, fspec, eb
 
 
+def verify_dataset_inputs(cells, allow_unverified: bool = False):
+    """Hash all distinct selected inputs and enforce their manifest declarations."""
+    dataset_digests: dict[tuple[Path, int], str] = {}
+    dataset_records: dict[tuple[str, str], dict] = {}
+    for _, (_, fspec, _) in cells:
+        digest_key = (fspec.path, fspec.original_bytes)
+        observed = dataset_digests.setdefault(digest_key, sha256_prefix(*digest_key))
+        if fspec.expected_sha256 is not None and observed != fspec.expected_sha256:
+            raise RuntimeError(f"dataset checksum mismatch for {fspec.dataset}/{fspec.field}: "
+                               f"expected {fspec.expected_sha256}, observed {observed}")
+        if fspec.expected_sha256 is None and not allow_unverified:
+            raise RuntimeError(
+                f"dataset {fspec.dataset}/{fspec.field} has no declared sha256; add it "
+                "to the dataset manifest or explicitly use --allow-unverified-datasets "
+                "(the session will be marked non-publication-grade)")
+        dataset_records[(fspec.dataset, fspec.field)] = {
+            "dataset": fspec.dataset, "field": fspec.field,
+            "path": str(fspec.path), "bytes_consumed": fspec.original_bytes,
+            "expected_sha256": fspec.expected_sha256, "observed_sha256": observed,
+            "verified": fspec.expected_sha256 == observed,
+        }
+    return dataset_digests, dataset_records
+
+
 def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                    results_root: Path, repo_root: Path,
                    session_id: str | None = None,
                    shard: tuple[int, int] | None = None,
-                   only_stale: set[str] | None = None) -> ResultStore:
+                   only_stale: set[str] | None = None,
+                   allow_unverified_datasets: bool = False,
+                   site_manifest: dict | None = None) -> ResultStore:
+    cells = list(enumerate(_iter_cells(cfg, catalog)))
+    if shard is not None:
+        k, n = shard
+        cells = [(i, c) for (i, c) in cells if i % n == k]
+
+    # Integrity is a preflight gate: no compressor is invoked until every input this
+    # shard may consume has an observed digest and, normally, a matching declared one.
+    dataset_digests, dataset_records = verify_dataset_inputs(
+        cells, allow_unverified_datasets)
     # Build adapters once; collect their provenance for the session manifest.
     adapters = {}
     adapter_prov = {}
+    adapter_tools = {}
     for entry in cfg.runs:
-        key = f"{entry.compressor}:{entry.variant}"
+        key = _adapter_key(entry)
         if key not in adapters:
             ad = build_adapter(entry)
             if not ad.is_available():
                 raise RuntimeError(f"adapter '{key}' not available: {ad.provenance()}")
             adapters[key] = ad
-            adapter_prov[key] = ad.provenance()
+            provenance = ad.provenance()
+            declared = {
+                "version": entry.tool_version or provenance.get("version"),
+                "source_commit": (entry.tool_source_commit or
+                                  provenance.get("source_commit") or
+                                  provenance.get("commit")),
+                "build_flags": entry.tool_build_flags or provenance.get("build_flags"),
+                "local_patch_sha256": (entry.tool_patch_sha256 or
+                                       provenance.get("local_patch_sha256")),
+            }
+            provenance = {**provenance,
+                          "declared_build_provenance": declared,
+                          "build_provenance_complete": all(declared.values())}
+            adapter_tools[key] = tool_identity(provenance)
+            label = f"{entry.compressor}:{entry.variant}"
+            if label in adapter_prov and adapter_prov[label] != provenance:
+                label += f"@{len(adapter_prov)}"
+            adapter_prov[label] = provenance
 
-    manifest = capture_session(cfg.raw, repo_root, adapter_prov,
-                               session_id=session_id, shard=shard)
+    integrity = {
+        "policy": "explicit_opt_out" if allow_unverified_datasets else "required",
+        "all_verified": all(r["verified"] for r in dataset_records.values()),
+        "publication_grade": (not allow_unverified_datasets and
+                              all(r["verified"] for r in dataset_records.values()) and
+                              all(p["build_provenance_complete"]
+                                  for p in adapter_prov.values())),
+        "datasets": list(dataset_records.values()),
+    }
+    manifest = capture_session(cfg.raw, repo_root, adapter_prov, session_id=session_id,
+                               shard=shard, dataset_integrity=integrity)
     store = ResultStore(results_root, manifest["session_id"], shard=shard)
+    experiment_text = cfg.source_text or yaml.safe_dump(cfg.raw, sort_keys=False)
+    datasets_text = catalog.source_text or yaml.safe_dump(catalog._raw, sort_keys=False)
+    artifacts = {
+        "experiment": store.archive_bytes("experiment", experiment_text.encode(), ".yaml"),
+        "datasets": store.archive_bytes("datasets", datasets_text.encode(), ".yaml"),
+        "site": store.archive_json("site", site_manifest or {}),
+        "resolved_datasets": store.archive_json("resolved-datasets", integrity),
+    }
+    if catalog.checksum_text is not None:
+        artifacts["dataset_checksums"] = store.archive_bytes(
+            "dataset-checksums", catalog.checksum_text.encode(), ".yaml")
+    git_state, patch = capture_git_state(repo_root)
+    artifacts["harness_patch"] = store.archive_bytes("harness", patch, ".patch")
+    manifest["input_artifacts"] = artifacts
+    manifest["harness"]["git"] = git_state
+    manifest["provenance_id"] = assign_provenance_id(manifest)
     store.write_provenance(manifest)
 
-    # Resume: cells already completed OK in this session dir (any shard) are skipped.
-    done = store.completed_keys()
-    cells = list(enumerate(_iter_cells(cfg, catalog)))
-    if shard is not None:
-        k, n = shard
-        cells = [(i, c) for (i, c) in cells if i % n == k]
+    # Resume is exact-execution keyed. A legacy cell_key cannot prove that the dataset,
+    # rendered config, binary, graph request, or harness state still matches.
+    done = store.completed_execution_ids()
+    declared_bounds: dict[str, float] = {}
+
+    harness_identity = dict(manifest["harness"])
+    # Current clocks are volatile observations on unlocked HPC GPUs. Binding resume to
+    # them would rerun an otherwise identical session whenever DVFS sampled a different
+    # instant. Model/driver/memory/ECC/max-clock and the software stack are stable
+    # execution inputs; per-cell clock/throttle observations remain result diagnostics.
+    stable_gpu = {k: v for k, v in manifest["gpu"].items()
+                  if k not in {"sm_clock", "mem_clock"}}
+    environment_identity = {
+        "gpu": stable_gpu,
+        "host": {k: v for k, v in manifest["host"].items() if k != "node"},
+        "software": manifest["software"],
+    }
+
+    def identities(entry, fspec, eb):
+        pipeline = normalize_pipeline_ref(entry.pipeline, repo_root)
+        logical_eb = eb
+        if cfg.error_mode == "from_toml":
+            if pipeline not in declared_bounds:
+                declared_bounds[pipeline] = PipelineToml.load(entry.pipeline).declared_eb_mode()[0]
+            logical_eb = declared_bounds[pipeline]
+        logical = make_logical_cell(
+            compressor=entry.compressor, variant=entry.variant, pipeline=pipeline,
+            dataset=fspec.dataset, field=fspec.field, error_mode=cfg.error_mode,
+            error_bound=logical_eb)
+        logical_id = logical_cell_id(logical)
+        digest_key = (fspec.path, fspec.original_bytes)
+        if digest_key not in dataset_digests:
+            dataset_digests[digest_key] = sha256_prefix(*digest_key)
+        run_entry = asdict(entry)
+        # Dataset scoping controls matrix membership, not the behavior of this cell.
+        run_entry.pop("only_datasets", None)
+        run_entry.pop("skip_datasets", None)
+        run_entry["pipeline"] = pipeline
+        context = make_execution_context(
+            logical_id=logical_id,
+            run_parameters={
+                "run_entry": run_entry,
+                "repetitions": cfg.repetitions,
+                "warmup_reps": cfg.warmup_reps,
+                "timing_cv_threshold": cfg.timing_cv_threshold,
+                "lock_clocks": cfg.lock_clocks,
+            },
+            resolved_config={
+                **_pipeline_resolution_inputs(entry, repo_root),
+                "error_mode": cfg.error_mode,
+                "error_bound": None if logical_eb is None else float(logical_eb),
+                "dtype": fspec.dtype,
+                "dims": list(fspec.dims),
+                "dim_order": fspec.dim_order,
+            },
+            dataset={
+                "sha256": dataset_digests[digest_key],
+                "bytes": fspec.original_bytes,
+            },
+            tool=adapter_tools[_adapter_key(entry)], harness=harness_identity,
+            environment=environment_identity)
+        return logical, logical_id, context, execution_id(context)
 
     if only_stale is not None:
         # Re-measure a named subset. Two things have to happen together: keep only the
@@ -77,9 +234,11 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
         # faster" answerable from the file instead of destroying the evidence.
         before = len(cells)
         cells = [(i, c) for (i, c) in cells
-                 if cell_key(c[0], c[1].dataset, c[1].field, cfg.error_mode, c[2])
-                 in only_stale]
-        done = done - only_stale
+                 if identities(c[0], c[1], c[2])[1] in only_stale]
+        # Explicit invalidation is authority to append another attempt even when the
+        # exact execution inputs have not changed (for example, a noise re-measurement
+        # selected with --stage rather than --against-build).
+        done -= {identities(c[0], c[1], c[2])[3] for _, c in cells}
         print(f"[stale] {len(cells)} of {before} cells selected for re-measurement",
               flush=True)
         if not cells:
@@ -88,28 +247,31 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
 
     shard_txt = "" if shard is None else f" shard {shard[0]}/{shard[1]}"
     n_skip = sum(1 for _, (e, f, eb) in cells
-                 if cell_key(e, f.dataset, f.field, cfg.error_mode, eb) in done)
+                 if identities(e, f, eb)[3] in done)
     print(f"[session] {store.session_id}{shard_txt}  ->  {store.dir}", flush=True)
     print(f"[plan] {len(cells)} cells this task, {n_skip} already done (skipped)", flush=True)
 
     n_runs = cfg.warmup_reps + cfg.repetitions
     for idx, (entry, fspec, eb) in cells:
-        run_id = f"{cfg.name}-{idx:04d}"
         key = cell_key(entry, fspec.dataset, fspec.field, cfg.error_mode, eb)
-        if key in done:
+        logical, logical_id, execution_context, exec_id = identities(entry, fspec, eb)
+        if exec_id in done:
             continue
-        adapter = adapters[f"{entry.compressor}:{entry.variant}"]
+        run_id = f"{cfg.name}-{idx:04d}-{uuid4().hex[:12]}"
+        adapter = adapters[_adapter_key(entry)]
         spec = RunSpec(field=fspec, error_mode=cfg.error_mode, error_bound=eb,
                        pipeline=entry.pipeline, variant=entry.variant, graph=entry.graph)
         wd = store.workdir(run_id)
-        # Display only — cell_key() keeps its own "toml" spelling for eb=None so
-        # resume/merge still match rows written before `lossless` existed.
+        rendered_pipeline = None
+        # Display only. The legacy alias retains its historical "toml" spelling;
+        # H2 resume and merge use the canonical identities above.
         ebtxt = f"{eb:g}" if eb is not None else (
             "lossless" if cfg.error_mode == "lossless" else "toml")
         label = (f"{entry.compressor}:{entry.variant} [{Path(entry.pipeline).name}] "
                  f"{fspec.dataset}/{fspec.field} eb={ebtxt}")
         try:
             prep = adapter.prepare(spec, wd)
+            rendered_pipeline = store.archive_rendered_pipeline(prep.pipeline_path)
             comp = adapter.compress(spec, prep, wd)
             dec = adapter.decompress(spec, comp.compressed_path, wd)
             # Sample GPU clocks/throttle reasons concurrently with the timed benchmark.
@@ -152,6 +314,16 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             row = _row(run_id, store.session_id, entry, fspec, cfg, prep,
                        size, qual, ct, dt, bench, cht, dht)
             row["cell_key"] = key
+            row.update({
+                "identity_schema_version": 1,
+                "logical_cell_id": logical_id,
+                "execution_id": exec_id,
+                "logical_cell": logical,
+                "execution_context": execution_context,
+                "dataset_sha256": execution_context["dataset"]["sha256"],
+                "provenance_id": manifest["provenance_id"],
+                "rendered_pipeline_artifact": rendered_pipeline,
+            })
             row["decompressed_sha256"] = dsha
             row["decompressed_retained"] = cfg.retain_decompressed
             row["compressed_sha256"] = csha
@@ -189,15 +361,26 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                         leftover.unlink(missing_ok=True)
             store.append({"run_id": run_id, "session_id": store.session_id,
                           "cell_key": key,
+                          "identity_schema_version": 1,
+                          "logical_cell_id": logical_id,
+                          "execution_id": exec_id,
+                          "logical_cell": logical,
+                          "execution_context": execution_context,
+                          "dataset_sha256": execution_context["dataset"]["sha256"],
+                          "provenance_id": manifest["provenance_id"],
+                          "rendered_pipeline_artifact": rendered_pipeline,
                           "compressor": entry.compressor, "variant": entry.variant,
                           "pipeline": entry.pipeline, "dataset": fspec.dataset,
-                          "field": fspec.field, "error_bound": eb,
+                          "field": fspec.field, "error_mode": cfg.error_mode,
+                          "error_bound": logical["error_bound"],
                           "status": "fail", "fail_phase": phase,
                           "error_type": type(e).__name__,
                           "error_message": msg})
             print(f"  [{idx}] FAIL {label}  -> {e}", flush=True)
 
-    rows = store.load_rows()
+    # A previous merged result may coexist with newly appended shard rows during a
+    # repair run.  Summarize this task's file, not that older canonical merge.
+    rows = store.load_rows(canonical=False)
     unreliable = [r for r in rows if r.get("status") == "ok"
                   and r.get("timing_reliable") is False]
     if unreliable:
@@ -227,7 +410,7 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench,
         "num_elements": f.num_elements,
         "original_bytes": size.original_bytes,
         "error_mode": cfg.error_mode,
-        "error_bound": prep.eb,
+        "error_bound": None if cfg.error_mode == "lossless" else prep.eb,
         "rel_basis": qual.rel_basis,
         "eb_abs_effective": qual.eb_abs_effective,
         "err_over_bound": qual.err_over_bound,

@@ -7,7 +7,7 @@
 # never contend on a single file), and captures its own provenance (array tasks may
 # land on different nodes).
 #
-# RESUME is content-keyed on cell_key, so a task killed by the wall limit loses only
+# RESUME is exact-execution-keyed, so a task killed by the wall limit loses only
 # the cell in flight: resubmit the SAME --session-id and completed cells are skipped.
 # That is what makes a short queue limit workable — requeue until `merge` reports the
 # expected total. You may even change N between submissions.

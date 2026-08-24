@@ -17,10 +17,12 @@ Usage:
 Writes <output_dir>/runs.jsonl and <output_dir>/provenance.json (skeleton —
 fill in anything the log didn't have, e.g. exact date, host name).
 """
-import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from benchkit.schema import dumps_result, dumps_session  # noqa: E402
 
 
 def parse_table(lines):
@@ -110,17 +112,22 @@ def main():
         print("No summary table found in this log — nothing to reconstruct.")
         sys.exit(1)
 
-    for r in rows:
+    session_id = header.get("session_id") or f"reconstructed-{log_path.stem}"
+    for i, r in enumerate(rows):
+        r["run_id"] = f"reconstructed-{i:04d}"
+        r["session_id"] = session_id
         r["reconstructed"] = True
         r["reconstruction_source"] = str(log_path.name)
 
     runs_path = out_dir / "runs.jsonl"
+    encoded_rows = [dumps_result(r) for r in rows]
     with open(runs_path, "w") as f:
-        for r in rows:
-            f.write(json.dumps(r) + "\n")
+        for encoded in encoded_rows:
+            f.write(encoded + "\n")
 
     provenance = {
         "reconstructed": True,
+        "session_kind": "reconstructed",
         "reconstruction_source": str(log_path.name),
         "reconstruction_note": (
             "This provenance.json was reconstructed from a stdout log, not "
@@ -135,14 +142,15 @@ def main():
             "memory_total": header.get("gpu_memory"),
             "driver": header.get("gpu_driver"),
         },
-        "session_id": header.get("session_id"),
+        "session_id": session_id,
         "experiment_config": header.get("experiment_config"),
         "original_results_path": header.get("original_results_path"),
         "node_job_label": header.get("node_job_label"),
     }
     prov_path = out_dir / "provenance.json"
+    encoded_provenance = dumps_session(provenance, indent=2)
     with open(prov_path, "w") as f:
-        json.dump(provenance, f, indent=2)
+        f.write(encoded_provenance + "\n")
 
     ok = len(rows)
     print(f"Reconstructed {ok} ok rows -> {runs_path}")

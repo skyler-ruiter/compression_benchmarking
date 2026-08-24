@@ -33,6 +33,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from benchkit import validity  # noqa: E402
+from benchkit.identity import logical_merge_key  # noqa: E402
+from benchkit.schema import load_result_file  # noqa: E402
 
 BASE = ROOT / 'results' / 'baselines'
 
@@ -91,7 +93,7 @@ def gmean(xs):
 
 def load_dir(d):
     p = BASE / d / 'runs.jsonl'
-    return validity.annotate([json.loads(l) for l in p.read_text().splitlines() if l.strip()])
+    return validity.annotate(load_result_file(p))
 
 
 def load(gpu):
@@ -206,7 +208,8 @@ def main() -> int:
                 for k, v in sorted(seen.items())]
 
     # ---- FZGM common-cell universe -----------------------------------------
-    F = {g: {r['cell_key']: r for r in R[g] if r['compressor'] == 'fzgm'} for g in GPUS}
+    F = {g: {logical_merge_key(r): r for r in R[g]
+             if r['compressor'] == 'fzgm'} for g in GPUS}
     common = set.intersection(*[set(F[g]) for g in GPUS])
     # Gate on ALL four so the denominator is one fixed cell set, not a per-GPU one.
     vc = sorted(k for k in common if all(validity.is_valid(F[g][k]) for g in GPUS))
@@ -262,7 +265,8 @@ def main() -> int:
     # post-fix H100 swapped in (which measures version skew, not architecture) -- and
     # hand the page both so it can say which is which instead of silently reporting the
     # skew as a portability failure.
-    Fp = {r['cell_key']: r for r in load_dir(PREV_H100['dir']) if r['compressor'] == 'fzgm'}
+    Fp = {logical_merge_key(r): r for r in load_dir(PREV_H100['dir'])
+          if r['compressor'] == 'fzgm'}
     Fm = dict(F, **{SKEW_GPU: Fp})            # version-matched: pre-fix everywhere
     matched_common = common & set(Fp)
     okc = [k for k in matched_common if all(F[g][k].get('status') == 'ok' for g in GPUS)
@@ -286,7 +290,7 @@ def main() -> int:
 
     # ---- MI100 failures -----------------------------------------------------
     fails = [r for r in R['MI100'] if r.get('status') != 'ok']
-    mi_keys = {r['cell_key'] for r in fails}
+    mi_keys = {logical_merge_key(r) for r in fails}
     mi = {
         'n': len(fails),
         'byVariant': dict(collections.Counter(r.get('variant') for r in fails).most_common()),

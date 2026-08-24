@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from benchkit import validity  # noqa: E402
+from benchkit.schema import load_result_file  # noqa: E402
 
 LABEL = {
     'cusz': 'cuSZ', 'cuszhi_tp': 'cuSZ-Hi (tp)', 'cuszhi_cr': 'cuSZ-Hi (cr)',
@@ -41,7 +42,7 @@ def main() -> int:
 
     p = Path(args.session)
     runs = p / 'runs.jsonl' if p.is_dir() else p
-    rows = [json.loads(l) for l in runs.read_text().splitlines() if l.strip()]
+    rows = load_result_file(runs)
     rows = [r for r in validity.annotate(rows) if validity.is_valid(r)]
     rows = [r for r in rows if r.get('compressor') == 'fzgm' and r.get('stages')]
     if not rows:
