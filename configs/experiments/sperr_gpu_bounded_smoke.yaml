@@ -1,0 +1,40 @@
+# Smoke matrix for FZGM's bound-GUARANTEED GPU SPERR pipeline
+# (Tee -> CDF97 -> Quantizer -> Cdf97OutlierCorrect -> SPECK2D,
+# configs/pipelines/sperr_gpu.toml).
+#
+# Uses `abs` mode deliberately, NOT `rel_range`: this pipeline's error_bound is
+# a literal absolute pointwise bound (Cdf97OutlierCorrectStage has no NOA/
+# rel_range rescaling concept -- it must match Quantizer's bound EXACTLY, and
+# Quantizer's own NOA mode internally rescales by a coefficient-domain value_base
+# that Cdf97OutlierCorrectStage has no way to replicate). This mirrors how
+# native SPERR's own adapter is already handled here (native pointwise
+# absolute; rel_range/rel_maxabs are emulated by CONVERTING to absolute
+# externally, never asking the tool to rescale internally) -- see
+# docs/adapters/sperr.md. sperr_gpu_smoke.yaml (rel_range) is kept for the
+# cross-tool CR/PSNR/throughput comparison table, but its `fzgm_sperr_gpu`
+# rows' eb_ok must NOT be trusted -- this file is the one that actually tests
+# the guarantee.
+#
+#   source scripts/env-jetstream2.sh
+#   FZGMOD_CLI=/home/exouser/fzgm-pin-aa63482/build/release/bin/fzgmod-cli \
+#     python -m benchkit run configs/experiments/sperr_gpu_bounded_smoke.yaml
+
+name: sperr_gpu_bounded_smoke
+description: Verify FZGM's GPU SPERR pipeline actually guarantees its absolute pointwise error bound.
+
+datasets: [CESM-2D]
+fields:
+  CESM-2D: [CLDHGH, CLDLOW, FLDSC, TS]
+
+error:
+  mode: abs
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5]
+
+repetitions: 3
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: fzgm_sperr_gpu_bounded, pipeline: configs/pipelines/sperr_gpu.toml}

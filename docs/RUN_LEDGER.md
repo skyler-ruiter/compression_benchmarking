@@ -1,6 +1,6 @@
 # Benchmark Run Ledger
 
-Last updated: 2026-08-24
+Last updated: 2026-08-28
 
 This is the canonical operational record for benchmark work: what we intend to
 run, what has actually run, on which machine, and what evidence is still
@@ -61,17 +61,18 @@ the short ID is only a human-readable join key.
 | ID | Campaign | Status | Machines with useful results | Next action |
 |---|---|---|---|---|
 | `EBLC-BASE` | FZGM vs matching native GPU EBLC, standard bounds | `COMPLETE` | H100, A100; FZGM-only H200/MI100 | Preserve as reference; rerun only for a material code/toolchain change |
-| `EBLC-TIGHT` | GPU pairs plus FSZ at `1e-6` and `1e-7` | `PARTIAL` | H100 diagnostic sweep | Rerun after the FSZ exit-1 and FZGM linear-overflow fixes; quarantine native cuSZ/cuSZ-Hi defects |
+| `EBLC-TIGHT` | GPU pairs plus FSZ at `1e-6` and `1e-7` | `COMPLETE-DIAGNOSTIC` | H100 | Preserve the 55 explicit refusals as failure evidence; accept four f64 `PRES` ratios of `1.000000080109` as marginal relative-mode boundary noise and continue to `EBLC-MODES` |
 | `EBLC-MODES` | `abs`, range-relative, max-absolute-relative comparisons | `IDEA` | Range-relative baseline only | Build a capability/semantics matrix before authoring configs |
 | `EBLC-LOG` | Positive-domain log transform plus EBLC | `BLOCKED` | None | Specify transform, zero/negative policy, inverse, and original-domain quality gates |
-| `EBLC-FSZ` | Native FSZ vs matching FZGM pipeline | `PARTIAL` | H100 subset | Tight full-corpus pair is configured; add standard-bound full-corpus coverage |
+| `EBLC-FSZ` | Native FSZ vs matching FZGM pipeline | `COMPLETE-DIAGNOSTIC` | H100 full corpus | Curate the 544 reliable pairs; preserve six native constant-field failures and target only eight timing-unreliable cells if publication requires them |
 | `EBLC-SZX` | Native SZx/SZp family comparison | `BLOCKED` | cuSZp2/cuSZp3 pairs already covered | Name the exact repository/version and distinguish it from existing cuSZp2/3 |
 | `NVC-PARITY` | FZGM lossless stages vs closest nvCOMP counterparts | `COMPLETE` | H100 scientific subset | Keep bit-exact stage gate with future backend changes |
 | `NVC-CORPUS` | Broader general-lossless corpus | `PARTIAL` | H100 scientific subset only | Select, license, checksum, and register raw log/genomic/general-byte datasets |
 | `NVC-PROP` | Unpaired nvCOMP Bitcomp/Cascaded and other native codecs | `COMPLETE` for current subset | H100 | Extend with `NVC-CORPUS`; do not imply an FZGM pair |
+| `EBLC-SPERR-GPU` | FZGM's new GPU SPERR pipeline (CDF97->Quantizer->Cdf97OutlierCorrect->SPECK2D, no Tee since 2026-08-29) as a comparable GPU EBLC | `COMPLETE` for `abs`-mode bound verification (16/16 `eb_ok=True`); `PARTIAL` for the `rel_range` cross-tool CR/PSNR/throughput table | H100: bound-guarantee smoke 16/16 `eb_ok=True` (`sperr_gpu_bounded_smoke.yaml`, re-verified post-redesign in `sperr-gpu-generic-outliercorrect-fixed-20260829`); cross-tool table 60/60 ran but `rel_range` `eb_ok` is not meaningful for this pipeline (see sec.3.5) | Fold the DAG-integrated pipeline into the main cross-tool comparison using `abs`-only bounds (or add rel_range->abs conversion at the harness level, matching SPERR's own adapter pattern) so `EBLC-SPERR-GPU` closes fully |
 | `3P-ADAPTERS` | FSZ, SZ3, zfp, MGARD-X, SPERR, MANS, lsCOMP execution support | `COMPLETE` for H100 smoke | H100 | Re-smoke on other CUDA machines as needed |
-| `3P-CORPUS` | Standalone third-party EBLC on the general scientific corpus | `PARTIAL` | Small H100 tests only | Write standard-bound full-corpus config distinct from the tight stress run |
-| `FEAT-HUFF` | Adaptive Huffman feature highlight | `PARTIAL` | H100 subset | Add controlled full-corpus cuSZ/cuSZ-Hi CR-mode preset |
+| `3P-CORPUS` | Standalone third-party EBLC on the general scientific corpus | `RUNNING` | H100 gate complete; full corpus active | Complete the 3,282-cell standard-bound session; keep CPU, GPU, and mixed-wrapper timing strata separate |
+| `FEAT-HUFF` | Adaptive Huffman feature highlight | `COMPLETE-DIAGNOSTIC` | H100 full f32 corpus | Curate the 483 cuSZ and 432 cuSZ-Hi reliable pairs; distribution-drift/refit behavior is a separate future study |
 | `FEAT-BITPACK` | Adaptive bitpack/outlier-selection ablation | `PARTIAL` | H100 baseline modes | Name one knob at a time and avoid relabeling existing TP/CR pairs |
 | `FEAT-GINTERP` | GInterp adaptivity ablation | `IDEA` | No clean adaptive-only comparison | Identify an actual independent adaptive switch before scheduling |
 | `FEAT-PRED` | Adaptive vs fixed predictor/coder behavior | `PARTIAL` | H100 FSZ subset | Fold a controlled full-corpus comparison into the FSZ campaign |
@@ -104,6 +105,20 @@ rerun only when its scientific result or required provenance cannot be recovered
 |---|---|---|---|---:|---|
 | `EBLC-TIGHT` | `tight-full-gpu-20260822-skyler-h100` | `js2-h100` | 2026-08-22 16:43 UTC | 7,080 | `COMPLETE-DIAGNOSTIC`: 4,790 ok / 2,290 failed; results: `/home/exouser/benchkit-results/tight-full-gpu-20260822-skyler-h100`; log: `/home/exouser/benchkit-results/_run_logs/tight-full-gpu-20260822-skyler-h100.log` |
 | `EBLC-TIGHT` repair | `tight-full-gpu-20260822-skyler-h100`, shard `0/1` | `js2-h100` | 2026-08-23 15:50 UTC | 807 retried | `COMPLETE-DIAGNOSTIC`: 319 ok / 488 failed. FSZ: 319 measured bound misses + 4 constant-field exit-2 failures; FZGM: 484 representable-spacing refusals. Config: `configs/experiments/tight_bounds_targeted_rerun.yaml`; log: `/home/exouser/benchkit-results/_run_logs/tight-full-gpu-20260822-targeted-repair.log` |
+| `EBLC-TIGHT` linear postfix | `tight-fzgm-linear-postfix-20260826-skyler-h100` | `js2-h100` | 2026-08-26 19:46 UTC | 1,488 | `COMPLETE-DIAGNOSTIC`: 992 ok / 496 explicit refusals; 12 signed-code overflows caught, 484 representable-spacing refusals, 784 severe bound misses, 28 marginal misses, 192 validity-usable rows. H3 eligible and complete coverage, but H4 correctly fails until failures/exclusions are resolved or explicitly accepted. Config: `configs/experiments/tight_bounds_fzgm_linear_postfix.yaml`; log: `/home/exouser/benchkit-results/_run_logs/tight-fzgm-linear-postfix-20260826-skyler-h100.log` |
+| `EBLC-TIGHT` strict arithmetic smoke | `tight-quantizer-precision-smoke-v2-20260827` | `js2-h100` | 2026-08-27 15:55 UTC | 18 | `COMPLETE-GATE`: 18/18 status ok and 18/18 requested bounds satisfied across captured CESM FLNTC, HURR V, and NYX velocity_z failures at `1e-6`/`1e-7`; includes strict-double cuSZp2/cuSZp3 and strict-double+power2 cuSZp2. Results: `/home/exouser/benchkit-results/tight-quantizer-precision-smoke-v2-20260827` |
+| `EBLC-TIGHT` strict full diagnostic | `tight-quantizer-precision-full-20260827` | `js2-h100` | 2026-08-27 16:06 UTC | 1,860 | `COMPLETE-DIAGNOSTIC`, superseded: 1,805 ok / 55 explicit failures; all successful rows pass Benchkit's bound gate. Exact auditing found an at-most `1.000000080109` ratio on a few f64 rows because the runtime requested bound was stored as f32 metadata. Preserve for diagnosis, but use the final rerun below for comparisons. Results: `/home/exouser/benchkit-results/tight-quantizer-precision-full-20260827`; log: `/home/exouser/benchkit-results/_run_logs/tight-quantizer-precision-full-20260827.log` |
+| `EBLC-TIGHT` strict final rerun | `tight-quantizer-precision-final-20260827` | `js2-h100` | 2026-08-27 18:45 UTC | 1,860 | `COMPLETE-DIAGNOSTIC`: 1,805 ok / 55 explicit failures (40 reconstruction-spacing refusals and 15 signed-code overflows); 1,799 timing-reliable rows. Benchkit's bound gate passes every successful row. A stricter audit finds four f64 S3D `PRES` rows at ratio `1.000000080109`; accepted for relative-mode interpretation as immaterial boundary noise, with no rerun. Power2 completes 369/372 and avoids every spacing refusal. Config: `configs/experiments/tight_bounds_quantizer_precision_full.yaml`; results: `/home/exouser/benchkit-results/tight-quantizer-precision-final-20260827`; log: `/home/exouser/benchkit-results/_run_logs/tight-quantizer-precision-final-20260827.log` |
+| `FEAT-HUFF` smoke | `feature-huffman-smoke-20260828` | `js2-h100` | 2026-08-28 01:06 UTC | 8 | `COMPLETE-GATE`: 8/8 ok with matched quality in every PerBlock/Adaptive pair. Adaptive compression throughput improved on all four smoke comparisons; cuSZ CR was unchanged and cuSZ-Hi CR moved slightly. Results: `/home/exouser/benchkit-results/feature-huffman-smoke-20260828` |
+| `FEAT-HUFF` full f32 | `feature-huffman-full-f32-20260828` | `js2-h100` | 2026-08-28 01:07 UTC | 1,896 | `COMPLETE-DIAGNOSTIC`: 1,888 ok / 8 known LorenzoQuant overflow failures; 29 timing-unreliable rows. Adaptive versus PerBlock compression geomean: cuSZ 1.181x over 483 reliable pairs, cuSZ-Hi CR 1.131x over 432; quality identical within every valid pair. Assumption: subsequent data has a sufficiently similar distribution. Results: `/home/exouser/benchkit-results/feature-huffman-full-f32-20260828` |
+| `EBLC-FSZ` chained gate/full | `fsz-standard-smoke-20260828` then `fsz-standard-full-20260828` | `js2-h100` | 2026-08-28 03:30 UTC | 4 gate + 1,116 full | `COMPLETE-DIAGNOSTIC`: gate 4/4; full 1,110 ok / 6 native constant-field failures, with 8 timing-unreliable rows and 544 reliable native/FZGM pairs. FZGM device compression is 0.456x native while CR and quality match closely; this FZGM AdaptiveLorenzo pipeline is staged, not fused. Results: `/home/exouser/benchkit-results/fsz-standard-full-20260828` |
+| `3P-CORPUS` repaired gate | `third-party-eblc-standard-smoke-v2-20260828` | `js2-h100` | 2026-08-28 18:51 UTC | 17 | `COMPLETE-GATE`: 17/17 ok and every requested bound satisfied across f32/2-D, f64/3-D, and f32/1-D paths. The superseded first gate exposed non-bit-exact MANS u16 output and lsCOMP partial-grid/skinny-1D failures; MANS now uses its verified u32 path and lsCOMP uses padded complete codec tiles. Results: `/home/exouser/benchkit-results/third-party-eblc-standard-smoke-v2-20260828` |
+| `3P-CORPUS` full standard | `third-party-eblc-full-standard-20260828` | `js2-h100` | 2026-08-28 18:55 UTC; resumed 21:50 UTC | 3,282 | `RUNNING-RESUMED`: SZ3, zfp, MGARD-X, SPERR, MANS, and lsCOMP over 186 fields at `rel_range` `1e-2`, `1e-3`, `1e-4`. The first process stopped after 367 valid cells because adapter-owned `d_bench.bin` timing scratch accumulated to 48.98 GiB and filled `/`; 196 subsequent failure rows are retained as disk-exhaustion evidence and will be superseded by successful retries. The scratch was removed, the malformed crash-tail fragment was archived under the session logs, and resume confirmed all 367 successes were skipped. The resumed process has a scratch reaper, and the runner now centrally enforces the no-retention contract for future processes. MGARD excludes known HACC 1-D OOM; SPERR excludes unsupported 1-D families. Config: `configs/experiments/third_party_eblc_full_standard.yaml`; tmux: `thirdparty-eblc-20260828`; log: `/home/exouser/benchkit-results/_run_logs/third-party-eblc-full-standard-20260828.log` |
+| `EBLC-SPERR-GPU` smoke (pre-fix) | `sperr-gpu-smoke-20260828` | `js2-h100` | 2026-08-28 02:4x UTC | 60 | `SUPERSEDED` (pre-fix diagnostic, kept for provenance): 60/60 cells ran — `fzgm:fzgm_sperr_gpu` (3-stage, no bound guarantee) alongside `fzgm:fzgm_cusz`, native `cusz`, native `cuszp2_outlier`, native `sperr`, 4 CESM-2D fields x 3 `rel_range` bounds. All 12 `fzgm_sperr_gpu` cells `eb_ok=False`, severely. This is what motivated the `Cdf97OutlierCorrectStage` fix — see sec.3.5. Results: `/home/exouser/benchkit-results/sperr-gpu-smoke-20260828`. |
+| `EBLC-SPERR-GPU` smoke (post-fix, rel_range table) | `sperr-gpu-bounded-smoke-20260828` | `js2-h100` | 2026-08-28 | 60 | `PARTIAL`: 60/60 ran, `fzgm_sperr_gpu` re-pointed at the DAG-integrated bound-guaranteed pipeline (5-stage: Tee/CDF97/Quantizer/Cdf97OutlierCorrect/SPECK2D). 8/12 `eb_ok=True` (up from 0/12), but 4/12 still `False` and CR collapsed to ~0.5x everywhere — diagnosed as the `rel_range` mode itself being invalid for this pipeline (Quantizer's NOA mode rescales its bound by a coefficient-domain `value_base` internally; `Cdf97OutlierCorrectStage` has no such rescaling and always treats its `error_bound` as literal absolute, so the two stages' bounds silently diverge under `rel_range`). Kept as the CR/PSNR/throughput cross-tool table; its `fzgm_sperr_gpu`/`eb_ok` values are NOT meaningful — use the `abs`-mode session below for the actual guarantee check. Results: `/home/exouser/benchkit-results/sperr-gpu-bounded-smoke-20260828`. |
+| `EBLC-SPERR-GPU` bound verification (abs mode) | `sperr-gpu-abs-bounded-20260828` | `js2-h100` | 2026-08-28 | 16 | `SUPERSEDED` (correct at the time; pipeline later redesigned, re-verified below): 16/16 ok, **16/16 `eb_ok=True`** (`sperr_gpu_bounded_smoke.yaml`, `abs` mode — the semantically correct mode for this pipeline, matching how native SPERR's own adapter is handled: native pointwise absolute, `rel_range` emulated by external conversion, never internal rescaling). 4 CESM-2D fields x bounds `1e-2..1e-5`. CR is genuinely data/bound-dependent (2.5x-106x on CLDHGH/CLDLOW; expansion, CR 0.45x-0.69x, on FLDSC/TS at the two tightest bounds) — the guarantee holds in every case, only its cost varies, exactly matching what `sperr_gpu_bounded.cu`'s standalone validation predicted. Results: `/home/exouser/benchkit-results/sperr-gpu-abs-bounded-20260828`. |
+| `EBLC-SPERR-GPU` bound verification (post-Tee-removal, broken) | `sperr-gpu-generic-outliercorrect-20260829` | `js2-h100` | 2026-08-29 | 16 | `SUPERSEDED` (diagnostic, kept for provenance): 16/16 ok but **16/16 `eb_ok=False`** — same `sperr_gpu_bounded_smoke.yaml`, run immediately after replacing `TeeStage` with `Pipeline::bindExternalInput()`. Root cause was in `decompressFromFile()` (the two-process file round trip benkchit always uses), not in the live in-DAG path FZGM's own tests exercise — see sec.3.5. `max_abs_err` ~2.5-2.9x the bound on CLDHGH/CLDLOW (the uncorrected-baseline signature) and literally identical between the `1e-4`/`1e-5` cells on FLDSC/TS (correction not applying at all). Fixed FZGM-side same day; see the next row. Results: `/home/exouser/benchkit-results/sperr-gpu-generic-outliercorrect-20260829`. |
+| `EBLC-SPERR-GPU` bound verification (post-Tee-removal, fixed) | `sperr-gpu-generic-outliercorrect-fixed-20260829` | `js2-h100` | 2026-08-29 | 16 | `COMPLETE`: 16/16 ok, **16/16 `eb_ok=True`**, same `sperr_gpu_bounded_smoke.yaml`, after FZGM's `.fzm` file-format primary-source flag fix. CR/PSNR figures unchanged from `sperr-gpu-abs-bounded-20260828` (pure internal refactor, no behavior change once the file-path regression was fixed). `compute-sanitizer` clean. Results: `/home/exouser/benchkit-results/sperr-gpu-generic-outliercorrect-fixed-20260829`. |
 
 Early-run alert: native cuSZ's first tight-bound cells exited successfully but
 the harness marked their bounds unsatisfied. Several non-degenerate CESM-2D
@@ -185,6 +200,28 @@ natively, which are converted to an absolute tolerance, and which cannot make
 the requested guarantee. Never pool modes solely because their CLI option is
 named `REL`.
 
+Current adapter capability matrix (`native` means the compressor itself applies
+that semantic; `converted` means Benchkit reads the field basis and supplies an
+absolute tolerance):
+
+| Adapter family | `abs` | `rel_range` | `rel_maxabs` | Comparison note |
+|---|---|---|---|---|
+| FZGM | native `ABS` | native `NOA` | native `REL` | Direct three-mode reference |
+| PFPL | native `ABS` | native `NOA` | native `REL` | `REL` is documented as approximate per-element maxabs mode |
+| cuSZ, cuSZ-Hi, cuSZp2/3 | native | native range-relative | unsupported | Do not reinterpret their `REL`/`r2r` label as maxabs-relative |
+| FSZ | native | native range-relative | unsupported | Same range basis as FZGM `NOA` |
+| SZ3 | native | native range-relative `REL` | unsupported | SZ3 `REL` is not FZGM `REL` |
+| FZ-GPU | unsupported | native `NOA` | not wired | Current adapter exposes only range-relative `NOA`; FZ-GPU's differently named `REL` path is not yet mapped |
+| zfp | native | converted to native absolute | converted to native absolute | CPU serial accuracy-mode timing |
+| MGARD-X | native with `s=inf` | converted to native absolute | converted to native absolute | Native MGARD relative norm is not either canonical relative mode |
+| SPERR | native pointwise absolute | converted to native absolute | converted to native absolute | Output-cast ULP guard is included |
+| MANS, lsCOMP | Benchkit quantizer | Benchkit quantizer | Benchkit quantizer | Lossless integer codecs behind a uniform-quantization wrapper; not native float EBLC modes |
+
+Therefore a native-only three-mode comparison is limited to FZGM and PFPL. A
+broader `abs`/`rel_range` campaign can include the native GPU tools; zfp,
+MGARD-X, SPERR, MANS, and lsCOMP must be labelled as converted or wrapped, and
+`rel_maxabs` cannot be reported as a native cross-tool sweep beyond FZGM/PFPL.
+
 A log transform is a separate pipeline experiment, not another error-bound
 type. It remains blocked until the corpus subset and handling of zeros,
 negatives, non-finite values, inverse transformation, and original-domain error
@@ -263,6 +300,163 @@ Future additions such as cuZFP should get their own adapter identity and
 provenance even if a CPU zfp adapter exists; do not treat CPU zfp results as a
 proxy for a CUDA implementation.
 
+## 3.5. FZGM GPU SPERR pipeline (`EBLC-SPERR-GPU`)
+
+FZGM gained a full GPU reimplementation of SPERR's pipeline structure (CDF 9/7
+DWT -> quantizer -> SPECK bit-plane coding, all on-device — SPECK2D's
+encode/decode are both parallel, unlike the reference's serial coder). See
+`FZGPUModules/memory/speck_algorithm_writeup.md` and
+`FZGPUModules/memory/speck_gpu_design.md` for the derivation and the
+measured raw encode/decode throughput vs. native SPERR (27x-349x). Pipeline:
+`configs/pipelines/sperr_gpu.toml`.
+
+**Not yet a fair `eb_ok` comparison.** The smoke above found the pipeline's
+quantizer applies its bound directly to DWT COEFFICIENTS with no
+subband/level-aware scaling and no outlier-correction pass — the two
+mechanisms native SPERR actually uses to turn a coefficient-domain threshold
+into a guaranteed POINTWISE bound in the reconstructed field after the
+inverse transform. Consequences, both confirmed:
+
+1. **`rel_range`/`abs` mode is severely wrong**, not marginally: FZGM's `NOA`
+   (rel_range) mode computes `value_base` from its OWN stage's input range —
+   here that's the DWT COEFFICIENT range, not the original field's range — so
+   the effective bound bears no fixed relationship to the requested one.
+   Observed CR inflation of 20x-500x over cuSZ at the "same" nominal bound,
+   `max_abs_err` up to 47.3 in reconstructed-field units against an intended
+   tiny bound.
+2. **Direct `abs` mode is closer but still wrong**: passing the bound straight
+   through to the coefficient-domain threshold ignores that CDF 9/7's
+   synthesis-filter gain differs by subband/level, so a uniform coefficient
+   threshold does not map to a uniform reconstructed-domain error. Measured
+   miss: requested `1e-3`, achieved `max_abs_err=2.72e-3` (2.7x over) on
+   CLDHGH — a real violation, not ULP-guard-scale noise like SPERR's own
+   adapter emulation footnote.
+
+**What this pipeline IS good evidence for right now:** raw encode/decode GPU
+throughput (device-timed, no bound-satisfaction dependency — this is what
+`memory/speck_gpu_design.md`'s 27x-349x-vs-native numbers rest on), and
+CR/PSNR as an uncalibrated data point at a *reported*, not *guaranteed*,
+distortion level.
+
+**UPDATE (2026-08-28): the fix is designed and validated, but not yet wired
+into the runnable TOML pipeline benchkit invokes.** Two candidates were
+measured on real CLDHGH data before picking one:
+- **Subband/level-scaled quantization (weight each coefficient's threshold by
+  its level's synthesis-filter gain) — REJECTED.** Measured the actual CDF 9/7
+  per-level gain (a real impulse-response calibration, not a guess) and tried
+  it: max reconstruction error got WORSE, not better, because many
+  coefficients across levels jointly influence any given pixel, so bounding
+  each one's isolated worst case doesn't bound their sum.
+- **Sparse outlier correction (matching native SPERR's own `Outlier_Coder`
+  mechanism) — the fix.** Quantize normally; separately dequantize + inverse-
+  transform a copy and compare to the original (cheap: SPECK2D is lossless
+  w.r.t. the codes, so this needs no actual encode/decode round trip); every
+  pixel over bound gets an exact sparse correction applied at decompress. This
+  gives a mathematically exact guarantee. Validated in FZGPUModules'
+  `examples/sperr_gpu_bounded.cu`: every bound now guaranteed exactly, at a
+  measured cost of 0.06%-8.2% of pixels needing correction on CLDHGH/CLDLOW
+  (cheap) but up to 95% on FLDSC at the tightest bound tested (correction
+  stream bigger than the main archive — a real, data-dependent cost the
+  mechanism surfaces honestly, not a case where the guarantee is violated).
+  `compute-sanitizer` clean. Full writeup: FZGPUModules'
+  `memory/speck_gpu_design.md` sec.9.
+
+**DAG-integrated and verified (2026-08-28).** `configs/pipelines/sperr_gpu.toml`
+now runs the real 5-stage pipeline: `Tee -> CDF97 -> Quantizer ->
+Cdf97OutlierCorrect -> SPECK2D`. The `Tee` stage (structural, 1-in/N-out
+forward, N-in/1-out inverse) exists because `Pipeline::compress()` allows
+exactly one true source stage, and `buildInverseDAG()`'s wiring requires
+`inverse_input_count == forward_output_count` / `inverse_output_count ==
+forward_input_count` for every stage — getting the correction stage both the
+ORIGINAL raw field (compress time) and the DOWNSTREAM reconstructed field
+(decompress time) needs this exact shape; see FZGPUModules'
+`modules/coders/cdf97_outlier_correct/cdf97_outlier_correct_stage.h` for the
+full edge-by-edge trace that arrived at it (not an arbitrary topology).
+Verified through `fzgmod-cli`, `compute-sanitizer` clean, full FZGM test
+suite green (`tests/pipeline/test_sperr_gpu_bounded.cpp`).
+
+**One more real finding closing this out: `rel_range` mode is invalid for
+this pipeline, `abs` mode is required.** `sperr_gpu_bounded_smoke.yaml`'s
+20260828 rerun through the real DAG got 8/12 `eb_ok=True` (up from 0/12) but
+4/12 still failed and CR collapsed to ~0.5x everywhere under `rel_range` —
+diagnosed as `QuantizerStage`'s `NOA` mode rescaling its bound internally by
+a coefficient-domain `value_base`, while `Cdf97OutlierCorrectStage` has no
+such rescaling and always treats `error_bound` as literal absolute — the two
+stages' effective bounds silently diverge whenever `rel_range` is used. A
+dedicated `abs`-mode session (`sperr_gpu_bounded_smoke.yaml`,
+`sperr-gpu-abs-bounded-20260828`) confirms the fix cleanly: **16/16 ok,
+16/16 `eb_ok=True`**, across 4 CESM-2D fields and bounds `1e-2..1e-5`. This
+exactly mirrors how native SPERR's OWN adapter is already handled in this
+repo (native pointwise absolute; `rel_range`/`rel_maxabs` emulated by
+external conversion to absolute, never internal tool-side rescaling) — see
+`docs/adapters/sperr.md`. CR is genuinely data/bound-dependent under `abs`
+too: 2.5x-106x on CLDHGH/CLDLOW, but real expansion (CR 0.45x-0.69x) on
+FLDSC/TS at the two tightest bounds — the guarantee holds in every case,
+only its cost varies, exactly matching what `sperr_gpu_bounded.cu`'s
+standalone prototype predicted before the DAG integration.
+
+**Remaining, smaller follow-up:** fold this pipeline into the main
+cross-tool CR/PSNR/throughput comparison using `abs`-only bounds (or add a
+rel_range-to-abs conversion at the harness/adapter level for this pipeline
+specifically, matching the zfp/MGARD/SPERR "converted" pattern) so the full
+comparison table — not just the guarantee check — is on solid ground.
+
+**REDESIGNED (2026-08-29): `TeeStage` removed, replaced with
+`Pipeline::bindExternalInput()` + a genericized, transform-agnostic
+correction stage.** Pushback on `TeeStage`/`Cdf97OutlierCorrectStage` as
+too SPERR-specific to justify as Pipeline primitives (comparable to
+`MergeStage`, which has a genuine general use case) led to two real
+FZGPUModules-side changes, not just a rename:
+- **`Pipeline::bindExternalInput(Stage*)`** binds the pipeline's raw input
+  directly to a specific stage's input port, even when that stage has other
+  real connections too (`Cdf97OutlierCorrectStage` needs the raw field on
+  one port and `Quantizer`'s codes on another). No duplicate-copy node is
+  needed any more — `configs/pipelines/sperr_gpu.toml` is now 4 stages,
+  `CDF97 -> Quantizer -> Cdf97OutlierCorrect -> SPECK2D`, with `CDF97` and
+  `Cdf97OutlierCorrect` both bound directly to the same external buffer.
+  Peak device memory on CLDHGH dropped 303.5 MB -> 254.0 MB (the removed
+  duplicate buffer).
+- **`OutlierCorrectStage<Reconstructor>`** (`FZGPUModules/modules/coders/
+  outlier_correct/`) is now a template: all the diffing/sparse-pack/apply
+  logic is transform-agnostic, parametrized only by a small `Reconstructor`
+  policy supplying the one CDF97-specific step (inverse-transform the
+  dequantized trial). `Cdf97OutlierCorrectStage` is the one shipped
+  instantiation; a future non-CDF97 bound-guarantee pipeline reuses the
+  whole mechanism by writing one small policy struct, not a new stage.
+
+**A real regression was found and fixed while re-verifying this**, not
+assumed clean from the FZGM-side test suite alone: benchkit always runs
+`fzgmod-cli` as two SEPARATE processes (`-z` compress-to-file, then `-x`
+decompress-from-file), which goes through a DIFFERENT, static
+file-header-reconstruction code path (`decompressFromFile()`) than the
+in-process `Pipeline::compress()`/`decompress()` round trip FZGM's own
+tests exercise. That path's "which stage is the answer" heuristic (a plain
+"nothing else in the DAG produced any of my inputs" topology test) has no
+way to recognize a *mixed* stage — one bound via `bindExternalInput()` on
+one port and connected normally on another — as the intended answer stage;
+it silently fell back to `CDF97`'s own uncorrected reconstruction instead
+of `Cdf97OutlierCorrect`'s corrected one. Symptom: **16/16 `eb_ok=False`**,
+with `max_abs_err` ~2.5-2.9x the bound (CLDHGH/CLDLOW — the exact
+signature of the pre-fix, uncorrected baseline) and, on FLDSC/TS,
+`max_abs_err` literally IDENTICAL between the `1e-4` and `1e-5` bound
+cells — the tell that no correction was being applied at all, independent
+of what bound was requested. Fixed FZGM-side by adding an explicit
+"primary source" flag to the `.fzm` file format (`FZMStageInfo::stage_flags`,
+repurposing 2 bytes of prior padding — no format-version break, absent/0 on
+older archives which fall back to the original heuristic unchanged) and
+having `Pipeline::writeToFile()` set it on whichever stage
+`Pipeline::setPrimarySource()` designates. Re-verified via the exact
+two-process compress/decompress command benchkit issues (not just FZGM's
+in-process tests, which could not have caught this): `Max Abs Error`
+returned to the exact requested bound, `compute-sanitizer` clean. Session
+`sperr-gpu-generic-outliercorrect-fixed-20260829` confirms **16/16 ok,
+16/16 `eb_ok=True`**, CR/PSNR figures unchanged from the pre-redesign
+`sperr-gpu-abs-bounded-20260828` session (same guarantee, same cost
+profile — this was a pure internal refactor with one real bug caught and
+fixed before shipping, not a behavior change). The intermediate,
+broken-decompressFromFile() session (`sperr-gpu-generic-outliercorrect-20260829`,
+16/16 `eb_ok=False`) is kept for provenance below, superseded.
+
 ## 4. Feature-highlighting campaigns
 
 ### Adaptive Huffman (`FEAT-HUFF`)
@@ -296,14 +490,12 @@ compress/decompress throughput, peak memory, and quality; stratify by input size
 
 ## Immediate run queue
 
-1. Monitor the active H100 `EBLC-TIGHT` session. Treat `1e-6` as the accuracy
-   extension and `1e-7` as a failure-finding stress tier during interpretation.
-2. Build the adapter capability table for `abs` and `rel_maxabs`; generate only
+1. Build the adapter capability table for `abs` and `rel_maxabs`; generate only
    semantically legal cells.
-3. Author the controlled full-corpus `FEAT-HUFF` cuSZ/cuSZ-Hi preset.
-4. Select and register the raw external lossless corpus before expanding
+2. Author the controlled full-corpus `FEAT-HUFF` cuSZ/cuSZ-Hi preset.
+3. Select and register the raw external lossless corpus before expanding
    `NVC-CORPUS`.
-5. Author a standard-bound `3P-CORPUS` config; keep it distinct from tight-bound
+4. Author a standard-bound `3P-CORPUS` config; keep it distinct from tight-bound
    stress testing and stratify CPU/GPU timing.
 
 ## Per-run record template

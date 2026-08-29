@@ -1,0 +1,42 @@
+# Smoke matrix introducing FZGM's GPU SPERR pipeline (CDF97 -> Quantizer ->
+# Speck2DStage, configs/pipelines/sperr_gpu.toml) as a comparable GPU
+# error-bounded lossy compressor, alongside:
+#   - native cuSZ and cuSZp2  (existing GPU EBLC reference tools)
+#   - fzgm/cusz               (FZGM's own cuSZ-equivalent pipeline, same corpus)
+#   - native sperr            (CPU-only reference oracle -- rate/quality sanity
+#                              check for the GPU reimplementation; NOT
+#                              throughput-comparable, see docs/adapters/sperr.md)
+#
+# Speck2DStage is 2-D only, so this smoke uses CESM-2D fields exclusively (no
+# skip_datasets needed since only CESM-2D is listed).
+#
+#   source scripts/env-jetstream2.sh    # or set BENCHKIT_DATA_ROOT directly
+#   FZGMOD_CLI=/home/exouser/fzgm-pin-aa63482/build/release/bin/fzgmod-cli \
+#     python -m benchkit run configs/experiments/sperr_gpu_smoke.yaml
+#
+# FZGMOD_CLI is pinned to this worktree's own build (not the shared
+# build_benchmarking tree) since SPECK2D/CDF97 are new, uncommitted work.
+
+name: sperr_gpu_smoke
+description: Introduce FZGM's GPU SPERR pipeline (CDF97->Quantizer->SPECK2D) as a comparable GPU EBLC.
+
+datasets: [CESM-2D]
+fields:
+  CESM-2D: [CLDHGH, CLDLOW, FLDSC, TS]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm,   variant: fzgm_sperr_gpu, pipeline: configs/pipelines/sperr_gpu.toml}
+  - {compressor: fzgm,   variant: fzgm_cusz,      pipeline: configs/pipelines/cusz.toml}
+  - {compressor: cusz,   variant: cusz,           pipeline: default}
+  - {compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier}
+  - {compressor: sperr,  variant: sperr,          pipeline: default}
