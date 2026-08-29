@@ -68,6 +68,29 @@ class PipelineToml:
         s = stages[0]
         return float(s["error_bound"]), str(s.get("error_bound_mode", "ABS"))
 
+    def has_mode_agnostic_bound_stage(self) -> bool:
+        """True if some lossy stage's `error_bound` has no `error_bound_mode` sibling
+        key at all (e.g. `Cdf97OutlierCorrect`) alongside at least one that does
+        (e.g. `Quantizer`).
+
+        `render()` substitutes the SAME literal `error_bound` value onto every
+        lossy stage via one global regex pass, and the SAME `error_bound_mode`
+        string onto every stage that declares that key. A stage with no
+        `error_bound_mode` key always treats its `error_bound` as a literal
+        absolute value — it has no NOA/REL rescaling concept — so rendering a
+        non-ABS mode desyncs it from a mode-aware sibling stage that DOES
+        rescale (e.g. FZGM's GPU SPERR pipeline: `Quantizer`'s NOA mode
+        rescales by the coefficient-domain value_base; `Cdf97OutlierCorrect`
+        does not). Callers should pre-convert the bound to an absolute value
+        themselves (matching how the native SPERR adapter handles rel_range —
+        see benchkit/adapters/sperr.py) and render with toml_mode="ABS", rather
+        than rendering the requested mode directly.
+        """
+        stages = self.lossy_stages()
+        has_mode_agnostic = any("error_bound_mode" not in s for s in stages)
+        has_mode_aware = any("error_bound_mode" in s for s in stages)
+        return has_mode_agnostic and has_mode_aware
+
     def check_dtype(self, dtype: str) -> None:
         """Raise if the raw-consuming stage's float input_type contradicts `dtype`.
 

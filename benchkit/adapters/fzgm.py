@@ -15,7 +15,8 @@ from pathlib import Path
 from ..config import FieldSpec
 from ..pipelines import PipelineToml, sha256
 from .base import (Adapter, AdapterError, BenchmarkResult, CompressResult,
-                   DecompressResult, Prepared, RunSpec, load_report_json, run_cli)
+                   DecompressResult, Prepared, RunSpec, load_report_json, run_cli,
+                   read_range_stats)
 
 # canonical mode -> (native FZGM mode string, eb basis for the satisfaction check).
 # rel_range -> NOA (FZGM's range-relative); rel_maxabs -> REL (Lorenzo max|data| basis).
@@ -125,11 +126,28 @@ class FzgmAdapter(Adapter):
         else:
             native_mode, basis = _MODE_MAP[spec.error_mode]
             eb = float(spec.error_bound)
+            render_eb, render_mode = eb, native_mode
+            if native_mode != "ABS" and tpl.has_mode_agnostic_bound_stage():
+                # A stage with no error_bound_mode key (e.g. Cdf97OutlierCorrect)
+                # always treats its error_bound as literal absolute — it has no
+                # NOA/REL rescaling concept — so rendering the requested mode
+                # directly desyncs it from a mode-aware sibling (Quantizer) that
+                # DOES rescale. Pre-convert externally instead, exactly like the
+                # native SPERR adapter handles rel_range/rel_maxabs for its own
+                # --pwe-only CLI (see benchkit/adapters/sperr.py). `eb`/`basis`
+                # stay the ORIGINAL requested values so the harness's own
+                # eb-satisfaction check (which recomputes eb_abs = eb * basis_val
+                # itself, independent of what was sent to the tool) is unaffected;
+                # only what actually gets rendered into the TOML changes.
+                vrange, vmaxabs = read_range_stats(spec.field)
+                render_eb = eb * (vrange if basis == "range" else vmaxabs)
+                render_mode = "ABS"
+                native_mode = f"ABS-emulated({spec.error_mode})"
             # Also fixes up [pipeline] dims/input_size if the template declares them
             # (e.g. cuSZ-Hi presets) — no-op for templates that don't (cusz/fzgpu/pfpl).
             # dtype retargets the raw-consuming stage's float input_type to the field's
             # actual precision; presets are all written float32 (D27).
-            text = tpl.render(eb, native_mode, dims=spec.field.dims,
+            text = tpl.render(render_eb, render_mode, dims=spec.field.dims,
                               input_size=spec.field.original_bytes,
                               dtype=spec.field.dtype)
         out.write_text(text)

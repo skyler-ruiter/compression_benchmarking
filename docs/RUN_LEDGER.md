@@ -69,7 +69,7 @@ the short ID is only a human-readable join key.
 | `NVC-PARITY` | FZGM lossless stages vs closest nvCOMP counterparts | `COMPLETE` | H100 scientific subset | Keep bit-exact stage gate with future backend changes |
 | `NVC-CORPUS` | Broader general-lossless corpus | `PARTIAL` | H100 scientific subset only | Select, license, checksum, and register raw log/genomic/general-byte datasets |
 | `NVC-PROP` | Unpaired nvCOMP Bitcomp/Cascaded and other native codecs | `COMPLETE` for current subset | H100 | Extend with `NVC-CORPUS`; do not imply an FZGM pair |
-| `EBLC-SPERR-GPU` | FZGM's new GPU SPERR pipeline (CDF97->Quantizer->Cdf97OutlierCorrect->SPECK2D, no Tee since 2026-08-29) as a comparable GPU EBLC | `COMPLETE` for `abs`-mode bound verification (16/16 `eb_ok=True`); `PARTIAL` for the `rel_range` cross-tool CR/PSNR/throughput table | H100: bound-guarantee smoke 16/16 `eb_ok=True` (`sperr_gpu_bounded_smoke.yaml`, re-verified post-redesign in `sperr-gpu-generic-outliercorrect-fixed-20260829`); cross-tool table 60/60 ran but `rel_range` `eb_ok` is not meaningful for this pipeline (see sec.3.5) | Fold the DAG-integrated pipeline into the main cross-tool comparison using `abs`-only bounds (or add rel_range->abs conversion at the harness level, matching SPERR's own adapter pattern) so `EBLC-SPERR-GPU` closes fully |
+| `EBLC-SPERR-GPU` | FZGM's new GPU SPERR pipeline (CDF97->Quantizer->Cdf97OutlierCorrect->SPECK2D, no Tee since 2026-08-29) as a comparable GPU EBLC | `COMPLETE` for both `abs`-mode bound verification (16/16 `eb_ok=True`) and the `rel_range` cross-tool CR/PSNR/throughput table (12/12 `eb_ok=True`, fixed 2026-08-29) | H100: bound-guarantee smoke 16/16 `eb_ok=True` (`sperr_gpu_bounded_smoke.yaml`); `rel_range` cross-tool table 60/60 ran, 12/12 `fzgm_sperr_gpu` cells `eb_ok=True` (`sperr-gpu-relrange-fixed-20260829`, harness-level rel_range->abs conversion in `FzgmAdapter._prepare_toml`) — see sec.3.5 | None — closed. `benchkit verify` flags this smoke session as not publication-grade (ad-hoc `FZGMOD_CLI` build provenance, one cv-unreliable row); re-run through the pinned `build_benchmarking` tree before citing numbers in a paper |
 | `3P-ADAPTERS` | FSZ, SZ3, zfp, MGARD-X, SPERR, MANS, lsCOMP execution support | `COMPLETE` for H100 smoke | H100 | Re-smoke on other CUDA machines as needed |
 | `3P-CORPUS` | Standalone third-party EBLC on the general scientific corpus | `RUNNING` | H100 gate complete; full corpus active | Complete the 3,282-cell standard-bound session; keep CPU, GPU, and mixed-wrapper timing strata separate |
 | `FEAT-HUFF` | Adaptive Huffman feature highlight | `COMPLETE-DIAGNOSTIC` | H100 full f32 corpus | Curate the 483 cuSZ and 432 cuSZ-Hi reliable pairs; distribution-drift/refit behavior is a separate future study |
@@ -119,6 +119,7 @@ rerun only when its scientific result or required provenance cannot be recovered
 | `EBLC-SPERR-GPU` bound verification (abs mode) | `sperr-gpu-abs-bounded-20260828` | `js2-h100` | 2026-08-28 | 16 | `SUPERSEDED` (correct at the time; pipeline later redesigned, re-verified below): 16/16 ok, **16/16 `eb_ok=True`** (`sperr_gpu_bounded_smoke.yaml`, `abs` mode — the semantically correct mode for this pipeline, matching how native SPERR's own adapter is handled: native pointwise absolute, `rel_range` emulated by external conversion, never internal rescaling). 4 CESM-2D fields x bounds `1e-2..1e-5`. CR is genuinely data/bound-dependent (2.5x-106x on CLDHGH/CLDLOW; expansion, CR 0.45x-0.69x, on FLDSC/TS at the two tightest bounds) — the guarantee holds in every case, only its cost varies, exactly matching what `sperr_gpu_bounded.cu`'s standalone validation predicted. Results: `/home/exouser/benchkit-results/sperr-gpu-abs-bounded-20260828`. |
 | `EBLC-SPERR-GPU` bound verification (post-Tee-removal, broken) | `sperr-gpu-generic-outliercorrect-20260829` | `js2-h100` | 2026-08-29 | 16 | `SUPERSEDED` (diagnostic, kept for provenance): 16/16 ok but **16/16 `eb_ok=False`** — same `sperr_gpu_bounded_smoke.yaml`, run immediately after replacing `TeeStage` with `Pipeline::bindExternalInput()`. Root cause was in `decompressFromFile()` (the two-process file round trip benkchit always uses), not in the live in-DAG path FZGM's own tests exercise — see sec.3.5. `max_abs_err` ~2.5-2.9x the bound on CLDHGH/CLDLOW (the uncorrected-baseline signature) and literally identical between the `1e-4`/`1e-5` cells on FLDSC/TS (correction not applying at all). Fixed FZGM-side same day; see the next row. Results: `/home/exouser/benchkit-results/sperr-gpu-generic-outliercorrect-20260829`. |
 | `EBLC-SPERR-GPU` bound verification (post-Tee-removal, fixed) | `sperr-gpu-generic-outliercorrect-fixed-20260829` | `js2-h100` | 2026-08-29 | 16 | `COMPLETE`: 16/16 ok, **16/16 `eb_ok=True`**, same `sperr_gpu_bounded_smoke.yaml`, after FZGM's `.fzm` file-format primary-source flag fix. CR/PSNR figures unchanged from `sperr-gpu-abs-bounded-20260828` (pure internal refactor, no behavior change once the file-path regression was fixed). `compute-sanitizer` clean. Results: `/home/exouser/benchkit-results/sperr-gpu-generic-outliercorrect-fixed-20260829`. |
+| `EBLC-SPERR-GPU` `rel_range` cross-tool table (fixed) | `sperr-gpu-relrange-fixed-20260829` | `js2-h100` | 2026-08-29 | 60 | `COMPLETE`: 60/60 ok, **12/12 `fzgm_sperr_gpu` cells `eb_ok=True`** (up from 8/12 pre-fix), same `sperr_gpu_smoke.yaml`, after `benchkit/pipelines.py`'s `has_mode_agnostic_bound_stage()` + `benchkit/adapters/fzgm.py`'s harness-level `rel_range`/`rel_maxabs`->`abs` pre-conversion for dual-basis pipelines (see sec.3.5 close-out). CR now realistic (3.54x-588.02x) instead of collapsed ~0.5x. `benchkit verify`: FAIL on `timing_reliability` (1 cv-unreliable row) and `h3_eligibility` (ad-hoc `FZGMOD_CLI` build, not the pinned `build_benchmarking` tree) — smoke-grade, not publication-grade; re-run through the pinned build before citing these numbers. Results: `/home/exouser/benchkit-results/sperr-gpu-relrange-fixed-20260829`. |
 
 Early-run alert: native cuSZ's first tight-bound cells exited successfully but
 the harness marked their bounds unsatisfied. Several non-degenerate CESM-2D
@@ -395,11 +396,36 @@ FLDSC/TS at the two tightest bounds — the guarantee holds in every case,
 only its cost varies, exactly matching what `sperr_gpu_bounded.cu`'s
 standalone prototype predicted before the DAG integration.
 
-**Remaining, smaller follow-up:** fold this pipeline into the main
-cross-tool CR/PSNR/throughput comparison using `abs`-only bounds (or add a
-rel_range-to-abs conversion at the harness/adapter level for this pipeline
-specifically, matching the zfp/MGARD/SPERR "converted" pattern) so the full
-comparison table — not just the guarantee check — is on solid ground.
+**CLOSED (2026-08-29): `rel_range` cross-tool table fixed via harness-level
+conversion, matching the zfp/MGARD/SPERR "converted" pattern exactly.**
+`PipelineToml.has_mode_agnostic_bound_stage()` (`benchkit/pipelines.py`)
+detects a template where some lossy stage's `error_bound` has no
+`error_bound_mode` sibling key (`Cdf97OutlierCorrect`) alongside one that
+does (`Quantizer`) — the same structural situation the earlier root-cause
+diagnosis above named. `FzgmAdapter._prepare_toml` (`benchkit/adapters/
+fzgm.py`) now pre-converts a non-`abs` request to a literal absolute bound
+itself (`eb * range` or `eb * maxabs`, via the same `read_range_stats` helper
+`sperr.py` already uses) before rendering, so BOTH stages get the identical
+converted value and `render_mode="ABS"` — never the raw requested eb under a
+mode `Cdf97OutlierCorrect` can't interpret. `prep.eb`/`prep.basis` stay the
+ORIGINAL requested values (the harness's own `metrics.py` eb check
+recomputes `eb_abs = eb * basis_val` independently, so it needs the request,
+not what got rendered); `native_mode` is recorded as
+`ABS-emulated(rel_range)` for provenance. Verified: `sperr-gpu-relrange-fixed-
+20260829` (`sperr_gpu_smoke.yaml`, H100) — 60/60 ok, **12/12
+`fzgm_sperr_gpu` cells `eb_ok=True`** (up from the earlier 8/12 with 4/12
+false and CR collapsed to ~0.5x everywhere), CR now realistic and
+bound-dependent (3.54x-588.02x across CLDHGH/CLDLOW/FLDSC/TS x
+1e-2/1e-3/1e-4), matching the `abs`-mode session's own CR/PSNR figures at
+matching effective bounds. 6 new unit tests in
+`tests/test_sperr_gpu_render.py` cover the detection helper and all three
+render paths (rel_range, rel_maxabs, abs) plus the eb/basis-stays-unconverted
+invariant. Not re-run through this repo's pinned `build_benchmarking` tree
+(used `FZGMOD_CLI` pointed at FZGPUModules' own fresh `build/release` instead,
+post-merge-to-main) — `benchkit verify` correctly flags the session as not
+publication-grade on build provenance; re-run before citing these exact
+numbers in a paper, though the fix's correctness does not depend on which
+build produced them.
 
 **REDESIGNED (2026-08-29): `TeeStage` removed, replaced with
 `Pipeline::bindExternalInput()` + a genericized, transform-agnostic
