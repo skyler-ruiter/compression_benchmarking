@@ -1,0 +1,40 @@
+# Four-arm gate for feature_huffman_full_f32.yaml. Exercises both 2-D Lorenzo
+# and 3-D GInterp paths before starting the full H100 campaign.
+name: feature_huffman_smoke
+description: Controlled PerBlock-versus-Adaptive Huffman gate on one 2-D and one 3-D field.
+
+datasets: [CESM-2D, HURR]
+fields:
+  CESM-2D: [CLDHGH]
+  HURR: [CLOUD]
+
+error: {mode: rel_range, bounds: [1.0e-3]}
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: af516d1d2c040222098f3e7016e20afe1898226d348612295c7c2518d04ae817
+
+runs:
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cusz_huffman_perblock
+    pipeline: configs/pipelines/cusz.toml
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cusz_huffman_adaptive
+    pipeline: configs/pipelines/cusz_hufbook_adaptive.toml
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszhi_cr_huffman_perblock
+    pipeline: configs/pipelines/cusz_hi_cr.toml
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszhi_cr_huffman_adaptive
+    pipeline: configs/pipelines/cusz_hi_cr_hufbook_adaptive.toml

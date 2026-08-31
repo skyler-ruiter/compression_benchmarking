@@ -1,0 +1,54 @@
+[pipeline]
+# Controlled FEAT-HUFF arm for cusz_hi_cr.toml. The only operational change is
+# Huffman book_source = "Adaptive"; predictor, radius, LC back end, memory
+# strategy, and launch geometry remain identical to the PerBlock baseline.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "gi"
+type = "GInterp"
+input_type = "float32"
+code_type = "uint16"
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 2048
+outlier_capacity = 0.2
+
+[[stage]]
+name = "huf"
+type = "Huffman"
+input_type = "uint16"
+bklen = 4096
+book_source = "Adaptive"
+inputs = [{from = "gi", port = "codes"}]
+
+[[stage]]
+name = "merge"
+type = "Merge"
+segments = ["vle", "anchor", "outlier_vals", "outlier_idxs"]
+inputs = [
+  {from = "huf", port = "output"},
+  {from = "gi",  port = "anchor"},
+  {from = "gi",  port = "outlier_vals"},
+  {from = "gi",  port = "outlier_idxs"},
+]
+
+[[stage]]
+name = "rre4"
+type = "RRE"
+word_size = 4
+inputs = [{from = "merge", port = "output"}]
+
+[[stage]]
+name = "tcms8"
+type = "Zigzag"
+input_type = "int64"
+output_type = "uint64"
+byte_transparent = true
+inputs = [{from = "rre4", port = "output"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1
+inputs = [{from = "tcms8", port = "output"}]

@@ -1,0 +1,68 @@
+# Full-f32-corpus steady-state Huffman codebook reuse study.
+#
+# Interpretation contract:
+#   Adaptive results assume subsequent compressed data has a sufficiently
+#   similar symbol distribution to the field used to fit the retained book.
+#   Benchkit repeats the identical field, so this is deliberately a best-case
+#   steady-state reuse experiment. Distribution drift, automatic refit triggers,
+#   and time-series policy are a separate follow-up campaign.
+#
+# Every pair below changes only Huffman book_source (PerBlock vs Adaptive).
+# cuSZ covers every registered f32 family. cuSZ-Hi CR/GInterp covers the full
+# >=2-D f32 subset and excludes only HACC and EXAALT because GInterp is >=2-D.
+
+name: feature_huffman_full_f32
+description: >
+  Full-f32-corpus controlled PerBlock-versus-Adaptive Huffman ablation for the
+  FZGM cuSZ and cuSZ-Hi CR pipelines. Adaptive numbers assume subsequent fields
+  have a sufficiently similar symbol distribution to reuse the fitted book.
+
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - EXAFEL
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: af516d1d2c040222098f3e7016e20afe1898226d348612295c7c2518d04ae817
+
+runs:
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cusz_huffman_perblock
+    pipeline: configs/pipelines/cusz.toml
+
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cusz_huffman_adaptive
+    pipeline: configs/pipelines/cusz_hufbook_adaptive.toml
+
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszhi_cr_huffman_perblock
+    pipeline: configs/pipelines/cusz_hi_cr.toml
+    skip_datasets: [HACC, EXAALT]
+
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszhi_cr_huffman_adaptive
+    pipeline: configs/pipelines/cusz_hi_cr_hufbook_adaptive.toml
+    skip_datasets: [HACC, EXAALT]

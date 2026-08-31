@@ -1,0 +1,89 @@
+# Execution gate for the standalone third-party standard-bound corpus.
+#
+# The three fields cover f32/2-D, f64/3-D, and f32/1-D adapter paths. SPERR is
+# deliberately absent from the 1-D cell because its reference tools support only
+# 2-D/3-D data. Timing classes remain heterogeneous and must not be pooled.
+
+name: third_party_eblc_standard_smoke
+description: >
+  Gate SZ3, zfp, MGARD-X, SPERR, MANS, and lsCOMP before the standard-bound
+  standalone full-corpus campaign.
+
+datasets: [CESM-2D, MIRANDA, EXAALT]
+fields:
+  CESM-2D: [CLDHGH]
+  MIRANDA: [density]
+  EXAALT: [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 3
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-sz3-tool: &sz3_tool
+  tool_version: 3.3.2
+  tool_source_commit: e08c0ba830dc192d45d19c223dbf5de712a76629
+  tool_build_flags: Release;CPU;GNU-CXX
+  tool_patch_sha256: clean
+
+x-zfp-tool: &zfp_tool
+  tool_version: 1.0.1
+  tool_source_commit: 5bf9376f3a91d68596e7537e17deec36523a12bc
+  tool_build_flags: Release;ZFP_WITH_CUDA=ON;adapter-execution=serial-CPU
+  tool_patch_sha256: clean
+
+x-mgard-tool: &mgard_tool
+  tool_version: 1.6.0-dev
+  tool_source_commit: b40d1a7392f422fe3b01bdf7e860263cd82d8908
+  tool_build_flags: Release;MGARD_ENABLE_CUDA=ON;CMAKE_CUDA_ARCHITECTURES=90
+  tool_patch_sha256: clean
+
+x-sperr-tool: &sperr_tool
+  tool_version: 0.8.5-dev
+  tool_source_commit: b8012586908aaabba993038d183b3937c8ea9c7c
+  tool_build_flags: Release;CPU-OpenMP
+  tool_patch_sha256: clean
+
+x-mans-tool: &mans_tool
+  tool_version: sc-ae-plus-21
+  tool_source_commit: 7e9265f0d90027a7f4ea399feceba376d58b0b24
+  tool_build_flags: CPU-backend;1D-flattened;benchkit-quarter-bound-quantizer
+  tool_patch_sha256: 3e25743272ac445b319c1f84112280c6ff0b6a74ffb96afec28e6c8bccb3243b
+
+x-lscomp-tool: &lscomp_tool
+  tool_version: d920dd9-benchkit
+  tool_source_commit: d920dd9dc8ddbd2684c777d1e2ba27397212e59c
+  tool_build_flags: Release;CMAKE_CUDA_ARCHITECTURES=90;benchkit-quarter-bound-quantizer
+  tool_patch_sha256: a76a074f4ee69fefa7f90d682c6b3ad5eb8d43ef771d2d0c2f0718702ab86ba5
+
+runs:
+  - <<: *sz3_tool
+    compressor: sz3
+    variant: sz3-reference
+    pipeline: default
+  - <<: *zfp_tool
+    compressor: zfp
+    variant: zfp-quality-reference
+    pipeline: default
+  - <<: *mgard_tool
+    compressor: mgard
+    variant: mgard-quality-reference
+    pipeline: default
+  - <<: *sperr_tool
+    compressor: sperr
+    variant: sperr-quality-reference
+    pipeline: default
+    skip_datasets: [EXAALT]
+  - <<: *mans_tool
+    compressor: mans
+    variant: mans-quantized-reference
+    pipeline: default
+  - <<: *lscomp_tool
+    compressor: lscomp
+    variant: lscomp-quantized-reference
+    pipeline: default

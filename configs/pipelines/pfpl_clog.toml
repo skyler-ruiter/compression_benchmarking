@@ -1,0 +1,37 @@
+[pipeline]
+# PFPL front (Quantizer inplace-zigzag -> Difference -> Bitshuffle) with the CLOG
+# LC coder as the chunk-cooperative sink. Exercises the new CLOGCoder fused op.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-4
+error_bound_mode = "NOA"
+quant_radius = 32768
+outlier_capacity = 0.1
+zigzag_codes = true
+
+[[stage]]
+name = "diff"
+type = "Difference"
+input_type = "int32"
+output_type = "uint32"
+chunk_size = 16384
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "bshuf"
+type = "Bitshuffle"
+element_width = 4
+block_size = 16384
+inputs = [{from = "diff", port = "output"}]
+
+[[stage]]
+name = "clog"
+type = "CLOG"
+word_size = 1
+chunk_size = 16384
+inputs = [{from = "bshuf", port = "output"}]
