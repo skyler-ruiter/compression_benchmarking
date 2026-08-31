@@ -485,6 +485,38 @@ broken-decompressFromFile() session (`sperr-gpu-generic-outliercorrect-20260829`
 
 ## 4. Feature-highlighting campaigns
 
+### Automatic pipeline fusion (`FEAT-FUSION`)
+
+The publication experiment records finalize-time specialization directly in
+each result row (`fusion_policy`, legal/installed group counts, implementation,
+stage membership, and fallback reason). `FZ_FUSION` and `FZ_FUSION_NVRTC` are
+also execution-identity inputs, preventing staged and Auto rows from sharing a
+resume identity.
+
+The H100 gate uses locked clocks, five timed repetitions after one warmup, and
+the standard `rel_range` bounds. Sessions
+`fusion-standard-smoke-staged-paired-20260831` and
+`fusion-standard-smoke-auto-valid-20260831` verified publication-grade: 36/36
+controlled staged rows and 60/60 Auto rows passed validity and timing checks.
+Every Auto row installed exactly one group (warp-register for cuSZp, chunk-coop
+for PFPL). Across the 36 identical-semantics pairs, compression-throughput
+geometric-mean speedups were 2.095x for cuSZp2 outlier, 1.321x for cuSZp3
+outlier, and 1.494x for PFPL; compressed bytes and PSNR were identical in every
+pair. Decompression remained near 1x because inverse-DAG fusion is not
+implemented.
+
+PlainBitpackCoder modes are fused-versus-native evidence only. Arming their
+current warp op uses the adaptive archive container, while fusion-off executes
+the adaptive plain/outlier stage; those are not an algorithm-controlled A/B and
+must not be reported as staged/fused speedups. Float64 datasets are likewise
+excluded from the fusion-performance campaign because the current device ops
+are float32-only; fallback coverage belongs in a separate compatibility test.
+
+Full-f32 sessions are launched sequentially by
+`scripts/run-fusion-standard-full.sh`: staged controls first, then Auto. Native
+comparisons reuse `h100-jetstream2-20260808-fullcorpus-postfix` after its
+validity/provenance filters.
+
 ### Adaptive Huffman (`FEAT-HUFF`)
 
 Subset evidence on H100 already shows about a 1.14x compression-throughput

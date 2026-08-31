@@ -46,7 +46,12 @@ else:
                          "decompress":{"device_ms":{"all":[2.0]*runs},
                                          "host_wall_ms":{"all":[2.1]*runs}}},
                "stages":[], "stage_versions":{}, "memory":{"peak_device_bytes":1024},
-               "config":{"coloring":True}, "run_notes":{}}
+               "config":{"coloring":True}, "run_notes":{},
+               "fusion":{"policy":"auto", "legal_group_count":1,
+                         "installed_group_count":1, "installed_stage_count":3,
+                         "fallback_reason":None,
+                         "groups":[{"implementation":"warp-register",
+                                    "stages":["Quantizer", "Lorenzo", "AdaptiveBitpack"]}]}}
 report.write_text(json.dumps(payload))
 '''
 
@@ -109,6 +114,8 @@ class FakeCliEndToEndTests(unittest.TestCase):
         rows = load_result_file(self.results / "session" / "runs.jsonl")
         self.assertEqual(len(rows), 2)
         self.assertTrue(all(row["status"] == "ok" for row in rows))
+        self.assertTrue(all(row["fusion_policy"] == "auto" for row in rows))
+        self.assertTrue(all(row["fusion_installed_group_count"] == 1 for row in rows))
 
     def test_failure_is_append_only_evidence(self):
         with patch.dict(os.environ, {"BENCHKIT_FAKE_FAIL": "compress"}):

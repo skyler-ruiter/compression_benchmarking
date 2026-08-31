@@ -284,4 +284,5 @@ class FzgmAdapter(Adapter):
             peak_device_bytes=None if peak is None else int(peak),
             coloring_enabled=coloring,
             run_notes={k: list(v) for k, v in notes.items()},
+            fusion=rep.get("fusion"),
         )

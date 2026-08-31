@@ -498,6 +498,18 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench,
         "graph_requested": bench.graph_requested,
         "graph_active": bench.graph_active,
         "graph_reason": bench.graph_reason,
+        # Finalize-time compression specialization. The resolved CLI report is
+        # authoritative: an Auto request may still fall back to staged execution.
+        "fusion_policy": None if bench.fusion is None else bench.fusion.get("policy"),
+        "fusion_legal_group_count": (
+            None if bench.fusion is None else bench.fusion.get("legal_group_count")),
+        "fusion_installed_group_count": (
+            None if bench.fusion is None else bench.fusion.get("installed_group_count")),
+        "fusion_installed_stage_count": (
+            None if bench.fusion is None else bench.fusion.get("installed_stage_count")),
+        "fusion_fallback_reason": (
+            None if bench.fusion is None else bench.fusion.get("fallback_reason")),
+        "fusion_groups": None if bench.fusion is None else bench.fusion.get("groups", []),
         "status": "ok",
         "error_message": None,
     }

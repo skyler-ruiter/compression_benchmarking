@@ -308,6 +308,10 @@ row whose inputs were edited without re-hashing.
   harness/config identity, and GPU/host/software state. The row also retains the actual
   `pipeline_sha256` produced by adapter preparation as an independent audit value; H3
   archives and verifies that file and completes build provenance.
+  FZGM's `FZ_FUSION` and `FZ_FUSION_NVRTC` environment variables are included in the
+  execution environment payload because they change the selected kernels without
+  changing the TOML or executable. Fusion ablation arms still require distinct variant
+  names because logical identity, not execution identity, defines scientific matching.
 - `run_id` identifies one attempt and is unique even when the same exact execution is
   retried. It is not used for scientific matching.
 

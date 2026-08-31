@@ -1,0 +1,31 @@
+[pipeline]
+# Fusion-compatible cuSZp3 plain mode, 3-D. The fused coder emits only plain
+# blocks in an AdaptiveBitpack-decodable archive.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 4
+tile_y = 4
+tile_z = 4
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+outlier_selection = true
+fused_coder = "PlainBitpackCoder"
+inputs = [{from = "tl"}]

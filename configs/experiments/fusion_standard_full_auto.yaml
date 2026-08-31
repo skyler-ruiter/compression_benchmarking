@@ -1,0 +1,64 @@
+# Full-f32-corpus auto-specialized pair of fusion_standard_full_staged.yaml. Launch
+# only with FZ_FUSION=auto and require fusion_installed_group_count > 0 per row.
+# PlainBitpackCoder rows are fused-versus-native only, not staged/fused pairs.
+name: fusion_standard_full_auto
+description: Full-f32-corpus Auto-specialized FZGM cuSZp1/2/3 and PFPL study.
+
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - EXAFEL
+error: {mode: rel_range, bounds: [1.0e-2, 1.0e-3, 1.0e-4]}
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+verification:
+  accepted_failures:
+    - match:
+        compressor: fzgm
+        variant: pfpl_auto
+        dataset: CESM-2D
+        field: PSL
+        error_bound: 1.0e-4
+        error_type: AdapterError
+        fail_phase: compress
+      reason: >-
+        This offset-dominated field puts 99.9% of values outside PFPL's declared
+        10% quantizer outlier capacity. The safe refusal is retained as a measured
+        capability boundary and excluded from native and staged pairings.
+  accepted_exclusions:
+    - codes: [degenerate_field]
+      match: {dataset: CESM-2D, field: SFCLDICE}
+      reason: Field is constant in the checksum-locked SDRBench snapshot.
+    - codes: [degenerate_field]
+      match: {dataset: CESM-2D, field: SFCLDLIQ}
+      reason: Field is constant in the checksum-locked SDRBench snapshot.
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: f6469e3585a56ea4bc68f8f4a46c7dbe5d59f3c7
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: 21f8c98eeee200d1d3fda6078a0dfe33ec270c5acea2839fab3a0329957357ab
+
+runs:
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp1_plain_auto, pipeline: configs/pipelines/cuszp2_plainfused.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_outlier_auto, pipeline: configs/pipelines/cuszp2_sp.toml}
+
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_auto, pipeline: configs/pipelines/cuszp3_plainfused.toml, only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_auto, pipeline: configs/pipelines/cuszp3_3d_plainfused.toml, only_datasets: [CESMATM-3D, HURR, NYX, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_auto, pipeline: configs/pipelines/cuszp2_plainfused.toml, only_datasets: [HACC, EXAALT]}
+
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_auto, pipeline: configs/pipelines/cuszp3_outlier_sp.toml, only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_auto, pipeline: configs/pipelines/cuszp3_3d_sp.toml, only_datasets: [CESMATM-3D, HURR, NYX, QMCPACK-3D, SCALE-LETKF, EXAFEL]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_auto, pipeline: configs/pipelines/cuszp2_sp.toml, only_datasets: [HACC, EXAALT]}
+
+  - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl_auto, pipeline: configs/pipelines/pfpl.toml}

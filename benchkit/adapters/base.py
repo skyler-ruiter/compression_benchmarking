@@ -112,6 +112,9 @@ class BenchmarkResult:
     # Stage::getRunNotes(). Currently the only token is "huffman_adaptive_fallback".
     # Empty is the normal case and means nothing surprising happened.
     run_notes: dict[str, list[str]] = field(default_factory=dict)
+    # fzgm only: resolved finalize-time compression-fusion decision. None for
+    # native tools and FZGM builds predating the report-json field.
+    fusion: dict | None = None
 
 
 class AdapterError(RuntimeError):

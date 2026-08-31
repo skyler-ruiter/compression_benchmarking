@@ -1,0 +1,69 @@
+# Auto-specialized pair of fusion_standard_smoke_staged.yaml. Launch only with
+# FZ_FUSION=auto; the CLI-reported fusion fields prove whether each cell installed.
+# PlainBitpackCoder rows are fused-versus-native only: their armed staged stage
+# has adaptive archive semantics, so they have no controlled staged A/B row.
+name: fusion_standard_smoke_auto
+description: Auto-specialized FZGM fusion-family gate on one field per dimensional shape class.
+
+datasets: [CESM-2D, HURR, NYX, HACC]
+fields:
+  CESM-2D: [CLDHGH]
+  HURR: [TC]
+  NYX: [temperature]
+  HACC: [vx]
+error: {mode: rel_range, bounds: [1.0e-2, 1.0e-3, 1.0e-4]}
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: f6469e3585a56ea4bc68f8f4a46c7dbe5d59f3c7
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: 21f8c98eeee200d1d3fda6078a0dfe33ec270c5acea2839fab3a0329957357ab
+
+runs:
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp1_plain_auto
+    pipeline: configs/pipelines/cuszp2_plainfused.toml
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp2_outlier_auto
+    pipeline: configs/pipelines/cuszp2_sp.toml
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp3_plain_auto
+    pipeline: configs/pipelines/cuszp3_plainfused.toml
+    only_datasets: [CESM-2D]
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp3_plain_auto
+    pipeline: configs/pipelines/cuszp3_3d_plainfused.toml
+    only_datasets: [HURR, NYX]
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp3_plain_auto
+    pipeline: configs/pipelines/cuszp2_plainfused.toml
+    only_datasets: [HACC]
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp3_outlier_auto
+    pipeline: configs/pipelines/cuszp3_outlier_sp.toml
+    only_datasets: [CESM-2D]
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp3_outlier_auto
+    pipeline: configs/pipelines/cuszp3_3d_sp.toml
+    only_datasets: [HURR, NYX]
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: cuszp3_outlier_auto
+    pipeline: configs/pipelines/cuszp2_sp.toml
+    only_datasets: [HACC]
+  - <<: *fzgm_tool
+    compressor: fzgm
+    variant: pfpl_auto
+    pipeline: configs/pipelines/pfpl.toml

@@ -5,7 +5,17 @@ compressor whose output we fully control — it emits structured JSON, so the ad
 parses a file instead of scraping stdout.
 
 Authoritative schema: FZGM repo `memory/report_json_spec.md`; user docs `docs/cli.md`.
-Schema version targeted: **1.0**.
+Schema version targeted: **1.1**.
+
+## Fusion decision provenance
+
+Current reports include a `fusion` object with the resolved policy, number of maximal
+legal domains, installed group/stage counts, implementation names, covered stage names,
+and an explicit fallback reason. Benchkit promotes these fields into every FZGM row.
+Use them to distinguish “Auto requested” from “fusion actually installed”; the latter is
+the scientific execution arm. `FZ_FUSION` and `FZ_FUSION_NVRTC` also participate in the
+exact `execution_id`, because they change executed kernels without changing the pipeline
+TOML or binary.
 
 ## Invocation
 

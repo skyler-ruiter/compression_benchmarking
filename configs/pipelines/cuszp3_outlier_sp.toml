@@ -1,0 +1,30 @@
+[pipeline]
+# Fusion-compatible cuSZp3 adaptive plain/outlier mode, 2-D. The default
+# single-precision linear quantizer is required by the warp-register device op.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+outlier_selection = true
+inputs = [{from = "tl"}]
