@@ -13,6 +13,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+import os
 import yaml
 
 from . import metrics
@@ -26,6 +27,23 @@ from .identity import (execution_id, logical_cell_id, make_execution_context,
 from .pipelines import PipelineToml
 from .provenance import assign_provenance_id, capture_git_state, capture_session
 from .store import ResultStore, sha256_file
+
+
+_DIAGNOSTIC_SUFFIXES = frozenset((".log", ".json", ".toml"))
+_FZGM_BEHAVIOR_ENV = ("FZ_FUSION", "FZ_FUSION_NVRTC")
+
+
+def _cleanup_cell_artifacts(workdir: Path) -> None:
+    """Delete regenerable cell data while preserving diagnostic metadata.
+
+    Adapters may create benchmark-only compressed or reconstructed files in addition
+    to the canonical paths returned by compress()/decompress().  The runner cannot
+    enumerate those names, so a no-retention run sweeps every non-diagnostic regular
+    file after the result row (or failure row) has been recorded.
+    """
+    for leftover in workdir.iterdir():
+        if leftover.is_file() and leftover.suffix not in _DIAGNOSTIC_SUFFIXES:
+            leftover.unlink(missing_ok=True)
 
 
 def cell_key(entry, dataset: str, field: str, mode: str, eb) -> str:
@@ -68,7 +86,12 @@ def verify_dataset_inputs(cells, allow_unverified: bool = False):
     dataset_records: dict[tuple[str, str], dict] = {}
     for _, (_, fspec, _) in cells:
         digest_key = (fspec.path, fspec.original_bytes)
-        observed = dataset_digests.setdefault(digest_key, sha256_prefix(*digest_key))
+        # Do not use setdefault(key, sha256_prefix(...)): Python evaluates the
+        # default eagerly, so a matrix with many pipelines would rehash the same
+        # multi-GB field once per cell even though the cached value wins.
+        if digest_key not in dataset_digests:
+            dataset_digests[digest_key] = sha256_prefix(*digest_key)
+        observed = dataset_digests[digest_key]
         if fspec.expected_sha256 is not None and observed != fspec.expected_sha256:
             raise RuntimeError(f"dataset checksum mismatch for {fspec.dataset}/{fspec.field}: "
                                f"expected {fspec.expected_sha256}, observed {observed}")
@@ -178,6 +201,10 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
         "gpu": stable_gpu,
         "host": {k: v for k, v in manifest["host"].items() if k != "node"},
         "software": manifest["software"],
+        # These variables change which FZGM kernels execute without changing the
+        # TOML or binary. They must participate in exact resume identity.
+        "fzgm_behavior": {key: os.environ[key] for key in _FZGM_BEHAVIOR_ENV
+                          if key in os.environ},
     }
 
     def identities(entry, fspec, eb):
@@ -346,19 +373,6 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             msg = str(e)
             phase = next((p for p in ("compress", "decompress", "benchmark", "prepare")
                           if f"{p} failed" in msg), "unknown")
-            # A failed cell exits above before reaching the retain_* cleanup, so whatever
-            # it managed to write stays on disk forever. That is fine at 4 fields and
-            # ruinous at corpus scale: a compressor that aborts partway through a large
-            # dataset leaks a full-size d.bin per failed cell (CESMATM is 674 MB/field,
-            # and native cuSZ-Hi fails on every one of them). Sweep the cell's binary
-            # artifacts here, keeping everything diagnostic -- logs, the rendered
-            # pipeline.toml and any report JSON are what you actually read afterwards,
-            # and they are KB. Skipped entirely if either retain_* is set, since then
-            # the artifacts were explicitly asked for. See DESIGN.md D26.
-            if not cfg.retain_decompressed and not cfg.retain_compressed:
-                for leftover in wd.iterdir():
-                    if leftover.is_file() and leftover.suffix not in (".log", ".json", ".toml"):
-                        leftover.unlink(missing_ok=True)
             store.append({"run_id": run_id, "session_id": store.session_id,
                           "cell_key": key,
                           "identity_schema_version": 1,
@@ -377,6 +391,14 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
                           "error_type": type(e).__name__,
                           "error_message": msg})
             print(f"  [{idx}] FAIL {label}  -> {e}", flush=True)
+        finally:
+            # This includes adapter-owned benchmark scratch such as d_bench.bin, not
+            # just the canonical artifacts returned by compress()/decompress().  Run
+            # after append so the checksums, sizes, quality, and failure evidence are
+            # durable before the regenerable data is removed.  `finally` also covers
+            # interruptions and unexpected exception types.  See DESIGN.md D26.
+            if not cfg.retain_decompressed and not cfg.retain_compressed:
+                _cleanup_cell_artifacts(wd)
 
     # A previous merged result may coexist with newly appended shard rows during a
     # repair run.  Summarize this task's file, not that older canonical merge.

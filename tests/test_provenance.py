@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from benchkit.config import DatasetCatalog
 from benchkit.dataset_checksums import dump_checksum_lock
@@ -75,6 +76,20 @@ class H3ProvenanceTests(unittest.TestCase):
             spec.expected_sha256 = hashlib.sha256(b"abcd").hexdigest()
             _, records = verify_dataset_inputs(cells)
             self.assertTrue(records[("d", "f")]["verified"])
+
+    def test_dataset_verification_hashes_each_distinct_input_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "field.bin"
+            path.write_bytes(b"abcd")
+            from benchkit.config import FieldSpec
+            spec = FieldSpec("d", "f", "u8", "fast-to-slow", [4], path,
+                             expected_sha256=hashlib.sha256(b"abcd").hexdigest())
+            # The same field appears once per pipeline/bound in a real matrix.
+            cells = [(i, (None, spec, None)) for i in range(8)]
+            with patch("benchkit.runner.sha256_prefix",
+                       return_value=spec.expected_sha256) as digest:
+                verify_dataset_inputs(cells)
+            digest.assert_called_once_with(path, 4)
 
     def test_dirty_identity_covers_tracked_patch_and_untracked_content(self):
         with tempfile.TemporaryDirectory() as tmp:
