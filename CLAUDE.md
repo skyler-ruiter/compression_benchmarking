@@ -41,6 +41,11 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
 - `tools/nvcomp_cli/` — the only compressor CLI built *in this repo*. nvCOMP ships
   as a library with no vendor binary that reports device time; build with
   `scripts/build-nvcomp-cli.sh`.
+- `compressors/` — portable representation of `~/compressors/` (D41): `manifest.toml`
+  (pinned commit + patches + build recipe per tool), `patches/`, `build/`, `vendor/`
+  (the cuSZp forks), `bootstrap.py`. To rebuild the reference set on a new machine:
+  `source scripts/env-<machine>.sh && python compressors/bootstrap.py`. See
+  `compressors/README.md`. Edited a checkout? `python compressors/bootstrap.py capture <name>`.
 - `configs/` — `datasets.yaml`, `experiments/*.yaml`, `pipelines/*.toml`,
   `site.example.yaml` (copy to gitignored `site.local.yaml`).
 - `docs/` — `DESIGN.md`, `adapters/`. `scripts/submit.slurm` — SLURM array template.

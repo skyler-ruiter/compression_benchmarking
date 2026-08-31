@@ -1,0 +1,76 @@
+# ROIBIN pipeline — binned arm (bin_factor = 2), the ROIBIN-SZ configuration
+#
+# Same graph as roibin_sweep_b1.toml, but the background branch is spatially
+# binned 2x2 before quantization, so it carries 776x740 values instead of
+# 1552x1480. This is what ROIBIN-SZ actually does, and it is where most of the
+# ratio comes from.
+#
+# IMPORTANT: with bin_factor > 1 the background no longer satisfies an error
+# bound. Its reconstruction error is the binning error (a resolution reduction)
+# plus the quantization error. Background fidelity is reported as PSNR only, and
+# the per-region gate records bg_bound_ok = "n/a" for this arm. The ROI branch
+# still satisfies EB_ROI exactly, which is the invariant the science needs.
+#
+# TiledLorenzo on the background carries an explicit dim_x/dim_y override because
+# the binned image is not the pipeline's input shape; without it finalize() would
+# push 1552x1480 and the predictor would use the wrong row stride (and still
+# round-trip, silently costing ratio).
+
+[pipeline]
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "split"
+type = "ROIBinSplit"
+data_type = "float32"
+roi_half_width = 4          # 9x9 box per peak
+bin_factor = 2
+peaks_file = "PEAKS_FILE"   # substituted per frame by run_roibin.py
+
+# ── ROI branch: tight bound ──────────────────────────────────────────────────
+[[stage]]
+name = "roi_q"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = EB_ROI
+error_bound_mode = "ABS"
+linear_mode = true
+inputs = [{from = "split", port = "roi"}]
+
+[[stage]]
+name = "roi_ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "roi_q", port = "codes"}]
+
+# ── Background branch: loose bound ───────────────────────────────────────────
+[[stage]]
+name = "bg_q"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = EB_BG
+error_bound_mode = "ABS"
+linear_mode = true
+inputs = [{from = "split", port = "bg"}]
+
+[[stage]]
+name = "bg_tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+dim_x = 776
+dim_y = 740
+dim_z = 1
+inputs = [{from = "bg_q", port = "codes"}]
+
+[[stage]]
+name = "bg_ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "bg_tl"}]

@@ -1,0 +1,81 @@
+# ROIBIN dual-error-bound pipeline — strict arm (bin_factor = 1)
+#
+# One pipeline, two error bounds. ROIBinSplit forks the detector frame into the
+# Bragg-peak boxes and the background; each fork carries its own Quantizer with
+# its own bound, its own predictor and its own coder, and they converge only at
+# the archive. This is the graph shape a linear compressor cannot express: a
+# single-bound codec has to apply the tight ROI bound to the whole frame.
+#
+#   input ──> split ─┬─ roi   ──> Quantizer(1e-2 ABS) ──────────────> AdaptiveBitpack
+#                    ├─ bg    ──> Quantizer(1e+1 ABS) ──> TiledLorenzo ──> AdaptiveBitpack
+#                    └─ peaks ──> (stored verbatim; 8 B/peak, self-contained archive)
+#
+# bin_factor = 1: the background is NOT binned, so its reconstruction error is
+# bounded pixel-wise by the background bound. This is the arm where per-region
+# error-bound verification is meaningful on BOTH regions. See roibin_binned.toml
+# for the true ROIBIN configuration (bin_factor = 2), where the background bound
+# is no longer an error bound.
+#
+# The ROI branch has no TiledLorenzo: `roi` is a peak-major concatenation of 9x9
+# boxes, not an image, so a 2-D spatial predictor has no valid stride over it.
+# AdaptiveBitpack is block-local and dimension-agnostic, so it applies cleanly.
+#
+# Usage (peaks_file must match the frame; the stage cross-checks its geometry):
+#   fzgmod-cli -b -i frames/exafel_f000.f32 -l 1552x1480 \
+#              -c roibin_dual_eb.toml --report
+
+[pipeline]
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "split"
+type = "ROIBinSplit"
+data_type = "float32"
+roi_half_width = 4          # 9x9 box per peak
+bin_factor = 1
+peaks_file = "PEAKS_FILE"   # substituted per frame by run_roibin.py
+
+# ── ROI branch: tight bound ──────────────────────────────────────────────────
+[[stage]]
+name = "roi_q"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-2
+error_bound_mode = "ABS"
+linear_mode = true
+inputs = [{from = "split", port = "roi"}]
+
+[[stage]]
+name = "roi_ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "roi_q", port = "codes"}]
+
+# ── Background branch: loose bound ───────────────────────────────────────────
+[[stage]]
+name = "bg_q"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e1
+error_bound_mode = "ABS"
+linear_mode = true
+inputs = [{from = "split", port = "bg"}]
+
+[[stage]]
+name = "bg_tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+inputs = [{from = "bg_q", port = "codes"}]
+
+[[stage]]
+name = "bg_ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "bg_tl"}]

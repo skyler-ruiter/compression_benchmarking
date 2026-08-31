@@ -46,10 +46,12 @@ reported `adm_buf overflow` after already corrupting the heap. This machine has
 the one-line capacity correction applied. Reproduce and rebuild it with:
 
 ```bash
-bash scripts/build-mans-benchkit.sh
+bash scripts/build-mans-benchkit.sh          # -> compressors/bootstrap.py all mans
 ```
 
-The source diff is archived at `patches/mans-u32-adm-capacity.patch`.
+The source diff is archived at
+`compressors/patches/mans/0001-u32-adm-capacity-and-cuda-compiler.patch`
+(part of the portable compressor tree — see `compressors/README.md`).
 
 Environment:
 

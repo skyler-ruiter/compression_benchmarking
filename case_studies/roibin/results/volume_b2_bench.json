@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.1",
+  "tool": { "name": "fzgmod-cli", "version": "2.0.0", "git_sha": "8c49011" },
+  "status": "ok",
+  "error_message": null,
+  "config": {
+    "operation": "benchmark",
+    "dtype": "f32",
+    "dims": [1552, 1480, 130], "dim_order": "fast-to-slow", "num_elements": 298604800,
+    "error_mode": "rel", "error_bound": 0.001, "radius": 32768,
+    "pipeline": "/tmp/vol.toml",
+    "memory_strategy": "PREALLOCATE", "coloring": true, "chunk_size": 16384, "n_runs": 3
+  },
+  "size": {
+    "original_bytes": 1194419200,
+    "compressed_bytes": 23444336,
+    "ratio": 50.947026,
+    "bitrate_bits_per_elem": 0.62810339
+  },
+  "timing": {
+    "n_runs": 3,
+    "timing_method": "cuda_events_dag",
+      "compress": {
+        "device_ms":    { "median": 1.9864, "min": 1.984864, "max": 1.992576, "all": [1.984864, 1.992576, 1.9864] },
+        "host_wall_ms": { "median": 2.08262, "min": 2.076442, "max": 2.096092, "all": [2.08262, 2.096092, 2.076442] }
+      },
+      "decompress": {
+        "device_ms":    { "median": 2.597024, "min": 2.5887361, "max": 2.7231359, "all": [2.7231359, 2.597024, 2.5887361] },
+        "host_wall_ms": { "median": 2.634771, "min": 2.621844, "max": 5.350902, "all": [5.350902, 2.634771, 2.621844] }
+      }
+  },
+  "throughput": {
+    "compress_gbs": 601.29843,
+    "decompress_gbs": 459.91844,
+    "basis": "original_bytes / device_ms median (GB/s, 1e9)"
+  },
+  "memory": { "peak_device_bytes": 3962295310, "method": "pipeline_pool_tracker" },
+  "quality": {
+    "val_min": -1749.0985, "val_max": 14731.934, "val_range": 16481.032,
+    "max_abs_err": 10518.031, "psnr_db": 44.034378, "nrmse": 0.0062846497
+  },
+  "stages": [
+    { "name": "ROIBinSplit", "phase": "compress", "device_ms": 0.70355201 },
+    { "name": "Quantizer", "phase": "compress", "device_ms": 0.0079359999 },
+    { "name": "AdaptiveBitpack", "phase": "compress", "device_ms": 0.877056 },
+    { "name": "Quantizer", "phase": "compress", "device_ms": 0.25820801 },
+    { "name": "TiledLorenzo", "phase": "compress", "device_ms": 0.61184001 },
+    { "name": "AdaptiveBitpack", "phase": "compress", "device_ms": 0.38195199 },
+    { "name": "AdaptiveBitpack", "phase": "decompress", "device_ms": 0.29417601 },
+    { "name": "TiledLorenzo", "phase": "decompress", "device_ms": 0.79545599 },
+    { "name": "AdaptiveBitpack", "phase": "decompress", "device_ms": 1.074496 },
+    { "name": "Quantizer", "phase": "decompress", "device_ms": 0.25625601 },
+    { "name": "Quantizer", "phase": "decompress", "device_ms": 0.255072 },
+    { "name": "ROIBinSplit", "phase": "decompress", "device_ms": 1.2295361 }
+  ],
+  "stage_versions": {
+    "AdaptiveBitpack": "97371ea6ea7a0cda",
+    "Quantizer": "089d86e6e8f6d2c1",
+    "ROIBinSplit": "94ee043009bc5333",
+    "TiledLorenzo": "7860dd4996dfa9d7"
+  },
+  "run_notes": {
+    "ROIBinSplit": ["ROIBinSplit: 13837 peaks, box 9x9, roi 1120797 elems (0.3753% of field, 0.49% duplicated), bin 2 -> bg 74651200 elems (25.00% of field)", "ROIBinSplit: bin_factor > 1 — background error is binning error plus quantization error and is NOT bounded by the background branch's error bound; report background fidelity as PSNR only."]
+  }
+}

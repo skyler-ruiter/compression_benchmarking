@@ -1,0 +1,75 @@
+# ROIBIN binned arm applied to the whole 130-frame EXAFEL volume at once.
+#
+# Per-frame runs never exercise nz > 1: the ROI scatter/gather index arithmetic,
+# the peak records' z field, and the binning kernel's slice stride are all
+# untested by a single-frame field. This config runs the full
+# 1552 x 1480 x 130 volume (1.19 GB) with the combined 13,837-peak list, which is
+# also the realistic streaming shape -- a detector delivers a run, not a frame.
+#
+# TiledLorenzo stays 2-D (tile_z = 1) on purpose: the background is a stack of
+# independent diffraction patterns, not a volume with structure across z, so
+# predicting along z would add cost for no correlation. dim_z = 130 is still
+# required so the stage knows the slice count.
+#
+# Usage:
+#   fzgmod-cli -b -i SDRBENCH-EXAFEL-data-130x1480x1552.f32 -l 1552x1480x130 \
+#              -c roibin_volume_b2.toml --report
+
+[pipeline]
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "split"
+type = "ROIBinSplit"
+data_type = "float32"
+roi_half_width = 4          # 9x9 box per peak
+bin_factor = 2
+peaks_file = "PEAKS_FILE"   # use peaks/exafel_full.roi (all 13,837 peaks, z-indexed)
+
+# ── ROI branch: tight bound ──────────────────────────────────────────────────
+[[stage]]
+name = "roi_q"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = EB_ROI
+error_bound_mode = "ABS"
+linear_mode = true
+inputs = [{from = "split", port = "roi"}]
+
+[[stage]]
+name = "roi_ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "roi_q", port = "codes"}]
+
+# ── Background branch: loose bound ───────────────────────────────────────────
+[[stage]]
+name = "bg_q"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = EB_BG
+error_bound_mode = "ABS"
+linear_mode = true
+inputs = [{from = "split", port = "bg"}]
+
+[[stage]]
+name = "bg_tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+dim_x = 776
+dim_y = 740
+dim_z = 130
+inputs = [{from = "bg_q", port = "codes"}]
+
+[[stage]]
+name = "bg_ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "bg_tl"}]

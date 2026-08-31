@@ -129,9 +129,14 @@ explains both framings and the validity-gate consequences of lossless rows.
 - **The harness owns the metrics.** CR, PSNR, NRMSE, and error-bound checks are computed
   by the toolkit from raw artifacts, not scraped from each tool's self-report — so the
   comparison is fair. The only number trusted from a tool is its device kernel time.
-- **Reference compressors are external source/SDK builds today**, not pinned submodules;
-  publication sessions therefore require explicit source/build/patch provenance. FZGM
-  is likewise driven through an installed `fzgmod-cli`. See
+- **Reference compressors are external source/SDK builds**, not pinned submodules, but
+  they are reproducible from a pinned recipe: [`compressors/`](compressors/README.md)
+  carries `manifest.toml` (upstream repo + commit + patches + build recipe per tool),
+  `patches/`, path-free `build/` scripts, and `bootstrap.py`. Rebuild the whole set on
+  a new machine with `source scripts/env-<machine>.sh && python compressors/bootstrap.py`.
+  Publication sessions still require explicit source/build/patch provenance; FZGM is
+  driven through an installed `fzgmod-cli`. See
+  [`compressors/README.md`](compressors/README.md) and
   [reference-tool status](docs/reference-tools.md).
 - **Datasets are the SDRBench standard set**, described by a checksummed manifest.
 - **Results are append-only JSONL**, one row per atomic run, each carrying full

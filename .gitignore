@@ -11,6 +11,14 @@ configs/site.local.yaml
 external/**/build/
 external/**/install/
 
+# compressors/ is the portable recipe (manifest + patches + build scripts + vendored
+# fork source). Actual checkouts land in $COMPRESSORS_ROOT (~/compressors), never here.
+# Guard against a stray in-tree build or checkout.
+compressors/vendor/**/build/
+compressors/vendor/**/build-*/
+compressors/vendor/**/build_*/
+compressors/checkouts/
+
 # nvcomp_cli is source in this repo, but its build tree is not
 tools/**/build/
 # Machine-specific helper outputs; sources and reproducible build scripts are tracked.

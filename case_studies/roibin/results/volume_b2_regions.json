@@ -1,0 +1,18 @@
+{
+  "frame": "SDRBENCH-EXAFEL-data-130x1480x1552.f32",
+  "npeaks": 13837,
+  "roi_pixels": 1115349,
+  "roi_frac_pct": 0.373520117560066,
+  "bin_factor": 2,
+  "eb_roi": 10.0,
+  "eb_bg": 100.0,
+  "roi_max_abs_err": 10.0,
+  "bg_max_abs_err": 10518.03125,
+  "global_max_abs_err": 10518.03125,
+  "roi_psnr_db": 69.15035863458775,
+  "bg_psnr_db": 44.01817578133296,
+  "global_psnr_db": 44.03437797913795,
+  "value_range": 16481.03125,
+  "roi_bound_ok": true,
+  "bg_bound_ok": "n/a"
+}

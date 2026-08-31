@@ -1,0 +1,230 @@
+# Pinned third-party compressor sources for reproducible cross-machine builds.
+#
+# This file + the patch series in patches/ + the recipes in build/ are the
+# portable representation of ~/compressors/. `bootstrap.py` consumes it:
+#
+#     source <benchkit>/scripts/env-<machine>.sh   # toolchain + CUDA_ARCH
+#     python compressors/bootstrap.py               # clone -> patch -> build
+#
+# Nothing here is machine-specific. Architecture, host compiler and job width
+# come from the environment (see [toolchain] below and build/_common.sh).
+#
+# Editing rules:
+#   - `commit` is always a full 40-char SHA, never a tag or branch name, so a
+#     re-clone is bit-reproducible even if upstream force-pushes or moves a tag.
+#     The tag/branch it corresponds to is in the trailing comment.
+#   - When you change a checkout locally, re-extract its patch with
+#     `python compressors/bootstrap.py capture <name>` and commit the result.
+#   - `kind = "vendored"` entries have no upstream; their full source lives under
+#     vendor/<name>/ and `repo`/`commit` are omitted.
+
+[toolchain]
+# Read from the environment by build/_common.sh; listed here so the contract is
+# in one place. All have defaults — an unset environment still builds (for the
+# local desktop), it just targets whatever the default arch is.
+#   CUDA_ARCH   e.g. "80" (A100), "86", "90" (H100/Hopper), "90a". Default "90".
+#   CC / CXX    host compiler. Default: first gcc/g++ on PATH.
+#   CUDA_ROOT   toolkit prefix (contains bin/nvcc). Default: derived from `which nvcc`.
+#   JOBS        parallel build width. Default: nproc.
+default_cuda_arch = "90"
+
+[defaults]
+# Where checkouts are created / expected. Override with COMPRESSORS_ROOT.
+clone_root = "~/compressors"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Error-bounded lossy — GPU
+# ─────────────────────────────────────────────────────────────────────────────
+
+[compressor.cusz]
+repo       = "https://github.com/szcompressor/cuSZ.git"   # was git@ SSH locally; https for portability
+commit     = "e1c0135f2309921e13e7dac72c00101381e60c23"   # v0.17.3
+submodules = true                                          # third_party/lc
+patches    = ["cusz/0001-cli-timing-and-gcc13-ice.patch"]
+build      = "cusz.sh"
+cli        = "build/cusz"
+clone_dir  = "cuSZ"
+notes      = "gcc-13 ICE on codec/hf/src/hf_hl.cc is fixed by the patch (const RMerge/SMerge -> const auto)."
+
+[compressor.cuszhi]
+repo       = "https://github.com/shixun404/cuSZ-Hi.git"
+commit     = "e16b75b63369ef3676742c34ea0d71451b6626a0"   # branch cuSZ-Hi
+submodules = false                                         # third_party/googletest unused (examples off)
+patches    = ["cuszhi/0001-cli-timing-and-error-metrics.patch"]
+build      = "cuszhi.sh"
+cli        = "build/cuszhi"
+clone_dir  = "cuSZ-Hi"
+
+[compressor.cuszp2]
+repo       = "https://github.com/szcompressor/cuSZp.git"
+commit     = "240240b2f8cc3984236c6cea1f18658ef535a81c"   # tag cuSZp-V2.0.1
+submodules = false
+patches    = ["cuszp2/0001-cli-timing-harness.patch"]
+build      = "cuszp2.sh"
+cli        = "build/examples/bin/cuSZp"
+clone_dir  = "cuSZp-V2.0.1"
+
+[compressor.cuszp3]
+repo       = "https://github.com/szcompressor/cuSZp.git"
+commit     = "da90afb42770fcef6129cb586cf185c7d54c614c"   # tag cuSZp-V3.0.0
+submodules = false
+patches    = ["cuszp3/0001-cli-timing-harness.patch"]
+build      = "cuszp3.sh"
+cli        = "build/examples/bin/cuSZp"
+clone_dir  = "cuSZp-V3.0.0"
+
+[compressor.fz-gpu]
+repo       = "https://github.com/szcompressor/FZ-GPU.git"
+commit     = "c7e83f7614c8505e9b539190606b11589273696b"   # main, v.0.1-3-g
+submodules = false
+patches    = ["fz-gpu/0001-file-io-and-repeat-harness.patch"]
+build      = "fz-gpu.sh"
+cli        = "fz-gpu"
+clone_dir  = "FZ-GPU"
+
+[compressor.pfpl]
+repo       = "https://github.com/burtscher/PFPL.git"
+commit     = "36f5aaef42744ed78b4d1525b03a7fb2168b363c"   # main
+submodules = false
+patches    = ["pfpl/0001-build-config.patch"]              # NV_SM is overridden by build/ anyway
+build      = "pfpl.sh"
+cli        = "bin"                                          # PFPL_BIN_DIR, not a single binary
+clone_dir  = "PFPL"
+
+[compressor.mgard]
+repo       = "https://github.com/CODARcode/MGARD.git"
+commit     = "b40d1a7392f422fe3b01bdf7e860263cd82d8908"   # 1.6.0-3-g
+submodules = false
+patches    = []                                            # build script clones nvcomp/zstd/protobuf deps itself
+build      = "mgard.sh"
+cli        = "install-cuda-hopper/bin/mgard-x"
+clone_dir  = "MGARD"
+notes      = "build/mgard.sh vendors nvcomp v2.2.0, zstd v1.5.0, protobuf v3.19.4 into its own install prefix. Needs that lib/ on LD_LIBRARY_PATH at runtime."
+
+[compressor.lscomp]
+repo       = "https://github.com/szcompressor/lsCOMP.git"
+commit     = "d920dd9dc8ddbd2684c777d1e2ba27397212e59c"   # main
+submodules = false
+patches    = ["lscomp/0001-build-config.patch"]            # arch list is overridden by build/ anyway
+build      = "lscomp.sh"
+cli        = "build/lsCOMP_uint32"
+clone_dir  = "lsCOMP"
+
+[compressor.mans]
+repo       = "https://github.com/hpdps-group/MANS.git"
+commit     = "7e9265f0d90027a7f4ea399feceba376d58b0b24"   # main, sc-ae-21-g
+submodules = false
+patches    = ["mans/0001-u32-adm-capacity-and-cuda-compiler.patch"]
+build      = "mans.sh"
+cli        = "build/bin/cpu/cpu_mans_compress"             # + cpu_mans_decompress beside it
+clone_dir  = "MANS"
+notes      = "float wrapper uses the CPU backend; the NVIDIA backend crashes on the u32 codes tight bounds need. adm.h capacity fix (3->4 bytes) is in the patch. See docs/adapters/mans.md."
+
+[compressor.szp]
+repo       = "https://github.com/szcompressor/SZp.git"
+commit     = "5d15dc3794e94ab2657cd14ef675bff6d44af1ed"   # main, 1.1-40-g
+submodules = false
+patches    = []
+build      = ""                                            # no benchkit adapter; consumed by FZGM
+cli        = ""
+clone_dir  = "SZp"
+notes      = "not used by benchkit. Pinned here because it lives in ~/compressors/ and feeds FZGPUModules experimental/reference_compressors. Build per the FZGPUModules docs."
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Error-bounded lossy — CPU (quality / CR baselines, not throughput peers)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[compressor.sz3]
+repo       = "https://github.com/szcompressor/SZ3.git"
+commit     = "e08c0ba830dc192d45d19c223dbf5de712a76629"   # v3.3.2-10-g
+submodules = false
+patches    = []
+build      = "sz3.sh"
+cli        = "build/tools/sz3/sz3"
+clone_dir  = "SZ3"
+
+[compressor.zfp]
+repo       = "https://github.com/llnl/zfp.git"
+commit     = "5bf9376f3a91d68596e7537e17deec36523a12bc"   # develop
+submodules = false
+patches    = []
+build      = "zfp.sh"
+cli        = "build/bin/zfp"
+
+[compressor.sperr]
+repo       = "https://github.com/NCAR/SPERR.git"
+commit     = "b8012586908aaabba993038d183b3937c8ea9c7c"   # v0.8.5-1-g
+submodules = false
+patches    = []
+build      = "sperr.sh"
+cli        = "build/bin"                                    # SPERR_BIN_DIR (sperr2d, sperr3d)
+clone_dir  = "SPERR"
+
+[compressor.tthresh]
+repo       = "https://github.com/rballester/tthresh.git"
+commit     = "2dbad4ee811faa68d11f2e10d70ee179c636aeb9"   # master
+submodules = false
+patches    = []
+build      = "tthresh.sh"
+cli        = "build/tthresh"
+notes      = "present on disk, no benchkit adapter yet."
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fused / reference reimplementation targets
+# ─────────────────────────────────────────────────────────────────────────────
+
+[compressor.fsz]
+repo       = "https://github.com/JiajunHuang1999/FSZ.git"
+commit     = "43240ed1149ff4c48b52e74c9d8ba998ca5bcf8c"   # v1.0.0
+submodules = false
+patches    = []
+build      = "fsz.sh"
+cli        = "build/fsz"
+clone_dir  = "FSZ"
+notes      = "repo-owned host/device timing harness is tools/fsz_hosttime/ in benchkit, built separately."
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Lossless — prebuilt SDK (download, not build)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[compressor.nvcomp]
+kind       = "redist"
+url        = "https://developer.download.nvidia.com/compute/nvcomp/redist/nvcomp/linux-x86_64/nvcomp-linux-x86_64-5.3.0.16_cuda12-archive.tar.xz"
+version    = "5.3.0.16"                                    # released 2026-07-14; check redist/ for newer
+build      = "nvcomp.sh"                                    # just unpacks + symlinks nvcomp -> versioned dir
+cli        = ""                                             # nvcomp_cli is built in benchkit tools/, not here
+clone_dir  = "nvcomp-5.3.0.16"
+notes      = "5.2.0.10 kept beside it for A/B (bitstreams identical; 5.3 ANS compress +34%). See docs/adapters/nvcomp.md."
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vendored — no usable upstream (full source under vendor/<name>/)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[compressor.cuszp2-optimized]
+kind      = "vendored"
+base      = "cuszp2"                                        # cuSZp-V2.0.1 + local H100 kernel work
+build     = "cuszp2.sh"
+cli       = "build/examples/bin/cuSZp"
+clone_dir = "cuSZp-V2.0.1_optimized"
+notes     = "warp-cooperative kernel rewrite (FZGM cuSZp H100 optimization). Diverged too far from upstream for a patch series; snapshot only."
+
+[compressor.cuszp2-split]
+kind      = "vendored"
+base      = "cuszp2"
+build     = "cuszp2.sh"
+cli       = "build/examples/bin/cuSZp"
+clone_dir = "cuSZp-V2.0.1_split"
+notes     = "split compress/assemble variant used for the nvCOMP host-time comparison (D33)."
+
+[compressor.cuszp3-optimized]
+kind      = "vendored"
+base      = "cuszp3"
+build     = "cuszp3.sh"
+cli       = "build/examples/bin/cuSZp"
+clone_dir = "cuSZp-V3.0.0_optimized"
+notes     = "cuSZp-V3.0.0 + local H100 kernel work."
