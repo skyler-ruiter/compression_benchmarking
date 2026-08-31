@@ -1,0 +1,12 @@
+[pipeline]
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-7
+error_bound_mode = "NOA"
+linear_mode = true
+linear_high_precision = true

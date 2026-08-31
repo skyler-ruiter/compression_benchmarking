@@ -1,0 +1,31 @@
+[pipeline]
+# cuSZp2 outlier pipeline with strict linear quantization and a SLEEK-style
+# power-of-two absolute half-bound. The resolved ABS/NOA/PREL bound is rounded
+# downward, so this arm is up to 2x tighter than the nominal requested bound.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+linear_high_precision = true
+power_of_two_bound = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 32
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+outlier_selection = true
+inputs = [{from = "lrz"}]

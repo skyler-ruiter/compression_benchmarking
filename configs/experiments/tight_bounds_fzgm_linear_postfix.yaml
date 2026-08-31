@@ -1,0 +1,107 @@
+# Publication-grade rerun of every FZGM cuSZp-family linear-quantizer cell after
+# adding signed-code overflow detection. This deliberately remeasures both prior
+# successes and failures: the old failure-only repair could not revisit rows that
+# exited successfully while violating the requested error bound.
+
+name: tight_bounds_fzgm_linear_postfix
+description: >
+  Full-corpus FZGM cuSZp2/cuSZp3 linear-quantizer sweep at rel_range 1e-6 and
+  1e-7 after the no-silent-wrap correctness fix.
+
+fields:
+  NWCHEM: [t631]
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - MIRANDA
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - S3D
+  - NWCHEM
+  - BROWN
+  - EXAFEL
+
+error:
+  mode: rel_range
+  bounds: [1.0e-6, 1.0e-7]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - compressor: fzgm
+    variant: cuszp2_outlier
+    pipeline: configs/pipelines/cuszp2.toml
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean
+
+  - compressor: fzgm
+    variant: cuszp2_plain
+    pipeline: configs/pipelines/cuszp2_plain.toml
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean
+
+  - compressor: fzgm
+    variant: cuszp3_plain
+    pipeline: configs/pipelines/cuszp3.toml
+    only_datasets: [CESM-2D]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean
+
+  - compressor: fzgm
+    variant: cuszp3_plain
+    pipeline: configs/pipelines/cuszp3_3d.toml
+    only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean
+
+  - compressor: fzgm
+    variant: cuszp3_plain
+    pipeline: configs/pipelines/cuszp3_1d.toml
+    only_datasets: [HACC, EXAALT, NWCHEM, BROWN]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean
+
+  - compressor: fzgm
+    variant: cuszp3_outlier
+    pipeline: configs/pipelines/cuszp3_outlier.toml
+    only_datasets: [CESM-2D]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean
+
+  - compressor: fzgm
+    variant: cuszp3_outlier
+    pipeline: configs/pipelines/cuszp3_3d_outlier.toml
+    only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean
+
+  - compressor: fzgm
+    variant: cuszp3_outlier
+    pipeline: configs/pipelines/cuszp3_1d_outlier.toml
+    only_datasets: [HACC, EXAALT, NWCHEM, BROWN]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: clean

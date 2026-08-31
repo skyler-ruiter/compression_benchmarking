@@ -20,6 +20,7 @@ code_type = "uint32"
 error_bound = 1e-3
 error_bound_mode = "ABS"
 linear_mode = true
+linear_high_precision = true
 
 [[stage]]
 name = "lrz"

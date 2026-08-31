@@ -1,0 +1,57 @@
+# Focused validity check for the strict linear-quantizer arithmetic paths.
+# These fields previously exhibited severe f32 bound misses in both cuSZp2 and
+# cuSZp3, making them a compact gate before the full-corpus rerun.
+
+name: tight_bounds_quantizer_precision_smoke
+description: Strict-double versus strict-double-plus-power2 on captured failure fields.
+
+fields:
+  CESM-2D: [FLNTC]
+  HURR: [V]
+  NYX: [velocity_z]
+datasets: [CESM-2D, HURR, NYX]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-6, 1.0e-7]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - compressor: fzgm
+    variant: cuszp2_outlier_double
+    pipeline: configs/pipelines/cuszp2.toml
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: 3e90b37d3911c29659df5bfebc02c6c3b50d70fef5204043f1e3af6801c51ecb
+
+  - compressor: fzgm
+    variant: cuszp2_outlier_double_power2
+    pipeline: configs/pipelines/cuszp2_power2.toml
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: 3e90b37d3911c29659df5bfebc02c6c3b50d70fef5204043f1e3af6801c51ecb
+
+  - compressor: fzgm
+    variant: cuszp3_outlier_double
+    pipeline: configs/pipelines/cuszp3_outlier.toml
+    only_datasets: [CESM-2D]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: 3e90b37d3911c29659df5bfebc02c6c3b50d70fef5204043f1e3af6801c51ecb
+
+  - compressor: fzgm
+    variant: cuszp3_outlier_double
+    pipeline: configs/pipelines/cuszp3_3d_outlier.toml
+    only_datasets: [HURR, NYX]
+    tool_version: 2.0.0-dev
+    tool_source_commit: 65299209bee12f7e4518d018050d7602f56808d9
+    tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+    tool_patch_sha256: 3e90b37d3911c29659df5bfebc02c6c3b50d70fef5204043f1e3af6801c51ecb
