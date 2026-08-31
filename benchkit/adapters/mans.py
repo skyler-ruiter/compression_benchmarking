@@ -98,6 +98,13 @@ class MansAdapter(Adapter):
         workdir.mkdir(parents=True, exist_ok=True)
         mode = self._mode(spec)
         meta = make_metadata(spec, "mans", mode)
+        # The installed CPU MANS u16 path is not bit-exact on realistic fields:
+        # the gate found sparse wrong-code populations on CESM and MIRANDA in
+        # both p and r modes. Its patched u32 path round-trips those same code
+        # streams exactly, so keep one correctness-preserving backend for the
+        # complete campaign rather than silently mixing widths by field.
+        meta["integer_dtype"] = "u32"
+        meta["integer_dtype_reason"] = "forced-u32; installed MANS u16 path is not bit-exact"
         mpath = workdir / "quantization.json"
         write_metadata(meta, mpath)
         quantize(spec.field.path, workdir / "q.bin", meta)

@@ -63,20 +63,22 @@ class LscompAdapter(Adapter):
                 "This complete implemented transform is not directly comparable "
                 "to a pure native GPU device_ms figure."
             ),
-            "lscomp_settings": "-b 1 1 1 1 -p 1 (lossless integer payload)",
+            "lscomp_settings": (
+                "-b 1 1 1 1 -p 1 (lossless integer payload); flattened into "
+                "65536-element codec tiles to avoid upstream partial-grid corruption"
+            ),
         }
 
     @staticmethod
-    def _dims(spec: RunSpec) -> list[str]:
-        slow = list(reversed(spec.field.dims))
-        return [str(x) for x in ([1] * (3 - len(slow)) + slow)]
+    def _dims(meta: dict) -> list[str]:
+        return [str(x) for x in meta["codec_dims_slow_to_fast"]]
 
     def _cli(self, meta: dict) -> str:
         return self.cli16 if meta["integer_dtype"] == "u16" else self.cli32
 
     def _argv(self, spec: RunSpec, meta: dict, qpath: Path,
               payload: Path, qout: Path) -> list[str]:
-        return [self._cli(meta), "-i", str(qpath), "-d", *self._dims(spec),
+        return [self._cli(meta), "-i", str(qpath), "-d", *self._dims(meta),
                 "-b", "1", "1", "1", "1", "-p", "1",
                 "-x", str(payload), "-o", str(qout)]
 
@@ -97,6 +99,16 @@ class LscompAdapter(Adapter):
             raise AdapterError("lsCOMP supports 1-3D fields")
         workdir.mkdir(parents=True, exist_ok=True)
         meta = make_metadata(spec, "lscomp", "lossless-bins1-pool1")
+        # Upstream's global look-back kernel corrupts the tail of a partial
+        # 1024-block grid (and can illegal-access extremely skinny 1-D shapes).
+        # Treat this as an integer-backend wrapper: flatten into complete groups
+        # of 1024 8x8 blocks, padding only the final <=65535 zero codes. The
+        # original scientific shape and element count remain in the container.
+        tile_elements = 1024 * 8 * 8
+        codec_slices = (int(meta["num_elements"]) + tile_elements - 1) // tile_elements
+        meta["codec_dims_slow_to_fast"] = [codec_slices, 256, 256]
+        meta["codec_num_elements"] = codec_slices * tile_elements
+        meta["codec_layout"] = "flattened-65536-element-tiles-zero-padded"
         mpath = workdir / "quantization.json"
         write_metadata(meta, mpath)
         quantize(spec.field.path, workdir / "q.bin", meta)
@@ -119,11 +131,9 @@ class LscompAdapter(Adapter):
     def decompress(self, spec: RunSpec, compressed: Path, workdir: Path) -> DecompressResult:
         payload, qout = workdir / "decode.lscomp", workdir / "q.dec.bin"
         meta = unpack(compressed, payload)
-        dims = [str(x) for x in ([1] * (3 - len(spec.field.dims)) +
-                                list(reversed(spec.field.dims)))]
         log = workdir / "decompress.log"
         argv = [self.decoder, "-i", str(payload), "-o", str(qout),
-                "-t", meta["integer_dtype"], "-d", *dims]
+                "-t", meta["integer_dtype"], "-d", *self._dims(meta)]
         proc = run_cli(argv, log)
         if proc.returncode != 0 or not qout.exists():
             raise AdapterError(f"decompress failed (exit {proc.returncode}); see {log}")

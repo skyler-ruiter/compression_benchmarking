@@ -100,11 +100,17 @@ def quantize(input_path: Path, output_path: Path, meta: dict) -> float:
     src_dtype = {"f32": np.float32, "f64": np.float64}[meta["original_dtype"]]
     q_dtype = {"u16": np.uint16, "u32": np.uint32}[meta["integer_dtype"]]
     n = int(meta["num_elements"])
+    codec_n = int(meta.get("codec_num_elements", n))
+    if codec_n < n:
+        raise AdapterError(
+            f"codec_num_elements {codec_n} is smaller than num_elements {n}")
     src = np.memmap(input_path, dtype=src_dtype, mode="r", shape=(n,))
-    dst = np.memmap(output_path, dtype=q_dtype, mode="w+", shape=(n,))
+    dst = np.memmap(output_path, dtype=q_dtype, mode="w+", shape=(codec_n,))
     t0 = time.perf_counter()
+    if codec_n > n:
+        dst[n:] = 0
     if meta["constant"]:
-        dst[:] = 0
+        dst[:n] = 0
     else:
         off, step = float(meta["offset"]), float(meta["step"])
         for lo in range(0, n, _CHUNK_ELEMS):
@@ -121,7 +127,11 @@ def dequantize(input_path: Path, output_path: Path, meta: dict) -> float:
     dst_dtype = {"f32": np.float32, "f64": np.float64}[meta["original_dtype"]]
     q_dtype = {"u16": np.uint16, "u32": np.uint32}[meta["integer_dtype"]]
     n = int(meta["num_elements"])
-    src = np.memmap(input_path, dtype=q_dtype, mode="r", shape=(n,))
+    codec_n = int(meta.get("codec_num_elements", n))
+    if codec_n < n:
+        raise AdapterError(
+            f"codec_num_elements {codec_n} is smaller than num_elements {n}")
+    src = np.memmap(input_path, dtype=q_dtype, mode="r", shape=(codec_n,))
     dst = np.memmap(output_path, dtype=dst_dtype, mode="w+", shape=(n,))
     t0 = time.perf_counter()
     off, step = float(meta["offset"]), float(meta["step"])

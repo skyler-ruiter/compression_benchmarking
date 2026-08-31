@@ -11,9 +11,10 @@ x_hat = min(x) + q * (abs_eb / 4)
 For relative modes, `abs_eb` is resolved from the field range or maximum
 absolute value first. Ideal quantization error is at most one eighth of the
 requested bound; the remaining headroom covers floating-point reconstruction
-rounding at tight f32 settings. u16 is used when the realized code range fits,
-otherwise u32. MANS codes those values
-losslessly. A self-describing benchkit header stores dtype, dimensions, offset,
+rounding at tight f32 settings. The adapter always uses u32. The installed CPU
+MANS u16 path produced sparse wrong codes on realistic CESM and MIRANDA fields
+in both `p` and `r` modes; the patched u32 path round-trips those same streams
+bit-exactly. A self-describing benchkit header stores dtype, dimensions, offset,
 step, and codec settings, and its bytes count toward CR.
 
 `pipeline: default` selects MANS mode `p`; `p` and `r` can also be requested

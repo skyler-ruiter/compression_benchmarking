@@ -22,8 +22,13 @@ export LSCOMP_UINT16_CLI=$HOME/compressors/lsCOMP/build/lsCOMP_uint16
 export LSCOMP_DECODE_CLI=$PWD/tools/lscomp_decode/lscomp_decode
 ```
 
-Field dimensions are reversed from benchkit's fast-to-slow convention and
-padded to the CLI's required `(slow, middle, fast)` triple.
+The integer stream is flattened and zero-padded into complete 65,536-element
+codec tiles, passed as `(tiles, 256, 256)`. This avoids two upstream correctness
+failures found by the full-corpus gate: sparse tail corruption when the kernel's
+1024-block global-lookback grid was partial, and an illegal memory access on a
+skinny 1-D field. Padding is at most 65,535 codes, the original shape/count stay
+in the self-describing wrapper, and dequantization discards the padded tail.
+This makes lsCOMP an integer-backend reference rather than a spatial-shape study.
 
 ## Timing
 
