@@ -32,7 +32,10 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 DATA_DIR="${1:-${SDRBENCH_DATA_ROOT:-$(pwd)/sdrbench_data}}"
 TARBALL_DIR="${2:-$(dirname "$DATA_DIR")/sdrbench_tarballs}"
-BASE_URL="https://g-8d6b0.fd635.8443.data.globus.org/ds131.2/Data-Reduction-Repo/raw-data"
+BASE_URL="https://g-d0cd3f.fd635.8443.data.globus.org/raw-data"
+# 2026-08-24: the SDRBench Globus guest collection was re-issued under a new
+# collection ID/path (g-8d6b0 + /ds131.2/Data-Reduction-Repo -> g-d0cd3f, no
+# extra prefix); the old URL now 404s (verified against sdrbench.github.io).
 
 mkdir -p "$DATA_DIR" "$TARBALL_DIR"
 echo "[config] DATA_DIR    = $DATA_DIR"
@@ -89,7 +92,7 @@ DATASETS=(
   "HACC"    "EXASKY-HACC-data-medium-size.tar.gz"          "EXASKY/HACC/EXASKY-HACC-data-medium-size.tar.gz"                "HACCM_280953867"
   "NYX"     "SDRBENCH-EXASKY-NYX-512x512x512.tar.gz"       "EXASKY/NYX/SDRBENCH-EXASKY-NYX-512x512x512.tar.gz"             "NYX_512x512x512"
   "MIRANDA" "SDRBENCH-Miranda-256x384x384.tar.gz"          "Miranda/SDRBENCH-Miranda-256x384x384.tar.gz"                    "MIRANDA_256x384x384"
-  "QMCPACK" "SDRBENCH-QMCPack.tar.gz"                      "QMCPack/SDRBENCH-QMCPack.tar.gz"                               "QMCPACK"
+  "QMCPACK" "SDRBENCH-QMCPack.tar.gz"                      "QMCPACK/SDRBENCH-QMCPack.tar.gz"                               "QMCPACK"
   # ── added 2026-07-28: the rest of SDRBench that this harness can actually read ──
   "SCALE"   "SDRBENCH-SCALE-98x1200x1200.tar.gz"           "SCALE_LETKF/SDRBENCH-SCALE-98x1200x1200.tar.gz"                "SCALE_98x1200x1200"
   "NWCHEM"  "SDRBENCH-NWChem-dataset.tar.gz"               "NWChem/SDRBENCH-NWChem-dataset.tar.gz"                          "NWCHEM_102953248"

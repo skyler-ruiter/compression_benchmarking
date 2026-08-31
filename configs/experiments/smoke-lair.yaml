@@ -1,0 +1,38 @@
+# Smoke test for LAIR — run on an L40S/H100 node (no CUDA on the login node).
+#
+#   srun --account=yuxilab --partition=general --gres=gpu:L40S:1 --time=00:30:00 --pty bash
+#   cd ~/compression_benchmarking
+#   source scripts/env-lair.sh
+#   python -m benchkit run configs/experiments/smoke-lair.yaml --session-id smoke-lair
+#
+# One field per dataset shape class (2-D, 3-D, 1-D) x both pipelines x one bound.
+# Should finish in a few minutes; confirms fzgmod-cli, data, and benchkit all work.
+
+name: smoke-lair
+description: Quick end-to-end sanity check on LAIR before submitting full arrays.
+
+datasets:
+  - CESM-2D        # 2-D surface field
+  - HURR           # 3-D field
+  - NYX            # 3-D field, different shape
+  - HACC           # 1-D particle data
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range   # NOA: eb x (max-min)
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 2
+lock_clocks: false    # interactive/shared node; not exclusive
+retain_decompressed: false
+retain_compressed: false  # disk budget: c.fzm/c.cuszp/etc. deleted after each cell; sizes/checksums still recorded
+
+runs:
+  - {compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml}
+  - {compressor: fzgm, variant: cusz,  pipeline: configs/pipelines/cusz.toml}
