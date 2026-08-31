@@ -507,9 +507,15 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench,
             None if bench.fusion is None else bench.fusion.get("installed_group_count")),
         "fusion_installed_stage_count": (
             None if bench.fusion is None else bench.fusion.get("installed_stage_count")),
+        "fusion_inverse_installed_group_count": (
+            None if bench.fusion is None else bench.fusion.get("inverse_installed_group_count")),
+        "fusion_inverse_installed_stage_count": (
+            None if bench.fusion is None else bench.fusion.get("inverse_installed_stage_count")),
         "fusion_fallback_reason": (
             None if bench.fusion is None else bench.fusion.get("fallback_reason")),
         "fusion_groups": None if bench.fusion is None else bench.fusion.get("groups", []),
+        "fusion_inverse_groups": (
+            None if bench.fusion is None else bench.fusion.get("inverse_groups", [])),
         "status": "ok",
         "error_message": None,
     }
