@@ -1,0 +1,86 @@
+# Specialization-aware buffer coloring — peak device-memory ablation.
+#
+# Pipeline Specialization lowers PEAK POOL MEMORY, not just kernel time: under
+# PREALLOCATE, a buffer produced and consumed entirely inside a fused group is
+# never allocated (the kernel keeps it in registers / shared memory), and the
+# whole group collapses to one liveness point so the rest of the DAG aliases
+# around it. This experiment measures that.
+#
+# ---------------------------------------------------------------------------
+# FOUR ARMS per cell = 2 sessions x 2 pipeline variants
+# ---------------------------------------------------------------------------
+#   FZ_SPECIALIZE=off  + <preset>.toml          staged, coloring on   (baseline)
+#   FZ_SPECIALIZE=off  + <preset>_nocolor.toml  staged, coloring off  (worst-case reservation)
+#   FZ_SPECIALIZE=auto + <preset>.toml          specialized, coloring on
+#   FZ_SPECIALIZE=auto + <preset>_nocolor.toml  specialized, coloring off
+#
+# The _nocolor presets add `coloring = false` to the [pipeline] table; benchkit
+# records the requested state as the `coloring_enabled` row field (it already has
+# a coloring-ablation concept — see runner.py). peak_device_mb /
+# peak_device_bytes are captured for every FZGM row.
+#
+#   FZ_SPECIALIZE=off  python -m benchkit run configs/experiments/specialization_memory_smoke.yaml \
+#       --session-id specialization-memory-smoke-<host>-staged-<date>
+#   FZ_SPECIALIZE=auto python -m benchkit run configs/experiments/specialization_memory_smoke.yaml \
+#       --session-id specialization-memory-smoke-<host>-auto-<date>
+#
+# Expected shape (measured H100, CLDHGH, szp_composed): staged+color 131 MB,
+# staged+nocolor 157 MB, specialized 79 MB in BOTH coloring arms — fusion's
+# internal-buffer elision dominates and makes coloring redundant across the fused
+# span. cusz (never specializes) is the control: only the coloring axis moves it.
+#
+# This is a memory experiment — throughput here is secondary and the numbers are
+# the same as specialization_vs_native_smoke.yaml for the shared presets.
+
+name: specialization_memory_smoke
+description: >
+  Peak device-memory ablation for specialization-aware buffer coloring:
+  {staged, specialized} x {coloring on, off} for a warp-fusion chain
+  (szp_composed, cuszp2_sp), a chunk-coop chain (pfpl), and a non-fusing control
+  (cusz). 4 shape-class fields, eb in {1e-2,1e-3,1e-4}, rel_range. Run twice
+  (FZ_SPECIALIZE=off then auto).
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 3           # memory peak is deterministic; fewer reps than a timing run
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: clean
+
+runs:
+  # ── warp-register fusion chain: SZp composed (block 128, plain) ───────────
+  - {<<: *fzgm_tool, compressor: fzgm, variant: szp_composed_color,   pipeline: configs/pipelines/szp_composed.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: szp_composed_nocolor, pipeline: configs/pipelines/szp_composed_nocolor.toml}
+
+  # ── warp-register fusion chain: cuSZp2 (block 32, outlier) ───────────────
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_sp_color,   pipeline: configs/pipelines/cuszp2_sp.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_sp_nocolor, pipeline: configs/pipelines/cuszp2_sp_nocolor.toml}
+
+  # ── chunk-cooperative fusion chain: PFPL ─────────────────────────────────
+  - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl_color,   pipeline: configs/pipelines/pfpl.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl_nocolor, pipeline: configs/pipelines/pfpl_nocolor.toml}
+
+  # ── non-fusing control: cuSZ (Huffman) — only the coloring axis moves it ──
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cusz_color,   pipeline: configs/pipelines/cusz.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cusz_nocolor, pipeline: configs/pipelines/cusz_nocolor.toml}

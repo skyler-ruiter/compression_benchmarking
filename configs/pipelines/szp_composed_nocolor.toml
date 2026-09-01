@@ -1,0 +1,40 @@
+[pipeline]
+coloring = false   # peak-memory ablation arm: disable liveness-driven buffer aliasing
+# SZp / fZ-light — the SUPPORTED modular expression of the SZp algorithm.
+#   Quantizer(linear) -> Lorenzo(block_size=128) -> AdaptiveBitpack(block_size=128)
+#
+# SZp's inner loop is 1-D Lorenzo prediction + error-bound quantization + per-block
+# fixed-length residual packing, no entropy coder. That is exactly this three-stage
+# chain at SZp's default block size of 128. The monolithic SZpStage reference
+# implementation is quarantined under FZGPUModules
+# experimental/reference_compressors/szp/ and is NOT a supported module; use this
+# preset for the SZp algorithm.
+#
+# Under FZ_SPECIALIZE=auto the whole chain fuses into one warp-register kernel
+# (forward) and one warp-register-inverse kernel (decompress). There is no native
+# SZp CLI wired into this repo, so the fzgm row here is an FZGM-only showcase of
+# the specialization gain, not a vs-native pairing.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 128
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 128
+inputs = [{from = "lrz"}]

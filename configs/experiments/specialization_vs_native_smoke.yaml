@@ -1,0 +1,146 @@
+# Pipeline Specialization vs. native — cross-machine throughput/CR/memory smoke.
+#
+# The refreshed FZGM-vs-native comparison, run AFTER the 2026-08/09 optimization
+# work: generalized warp-register fusion (any block = 32*EPL, plain + outlier),
+# warp-register *decompress* fusion, chunk-cooperative decompress fusion, and
+# specialization-aware buffer coloring. This is the 4-field preflight; a
+# full-corpus counterpart is a follow-up once these numbers look right on 2-3
+# machines.
+#
+# ---------------------------------------------------------------------------
+# HOW TO RUN — two launches of THIS file, distinguished only by environment
+# ---------------------------------------------------------------------------
+#   FZ_SPECIALIZE=off  python -m benchkit run configs/experiments/specialization_vs_native_smoke.yaml \
+#       --session-id specialization-vs-native-smoke-<host>-staged-<date>
+#   FZ_SPECIALIZE=auto python -m benchkit run configs/experiments/specialization_vs_native_smoke.yaml \
+#       --session-id specialization-vs-native-smoke-<host>-auto-<date>
+#
+# FZ_SPECIALIZE overrides the pipeline's finalize-time specialization policy
+# (FZGM compressor.cpp planAndInstallFusion); `auto` = FZGM specialized (kernel
+# fusion + single-pass decoupled-lookback, both compress and decompress), `off` =
+# FZGM staged (one kernel per stage). It is recorded in the session's resume
+# identity (benchkit runner _FZGM_BEHAVIOR_ENV), so the two sessions do not
+# collide. The native rows are separate binaries, unaffected by FZ_SPECIALIZE;
+# they re-measure consistently across both sessions and are the cross-check.
+#
+# scripts/run-specialization-smoke.sh does both launches + verify + a combined
+# report. Use that unless you are iterating.
+#
+# ---------------------------------------------------------------------------
+# THE MATRIX — three FZGM arms per native compressor
+# ---------------------------------------------------------------------------
+#   <native>          the reference binary (cusz / cuszp2 / cuszp3 / fzgpu / pfpl)
+#   fzgm ..._hp       the current vs-native FZGM preset (linear_high_precision
+#                     quant — used for tight-bound CR/quality parity). This chain
+#                     CANNOT specialize (high-precision quant is gated out), so its
+#                     `auto` session numbers == its `off` session numbers: it is
+#                     the "modular but staged" point.
+#   fzgm ..._sp       the specialization-ready preset (plain linear quant, the same
+#                     arithmetic native cuSZp actually does). Staged in the `off`
+#                     session, fused in the `auto` session — the delta between the
+#                     two sessions for these rows is the specialization gain.
+#
+# So each cell yields, across the two sessions: native, FZGM-staged(hp),
+# FZGM-staged(sp), FZGM-specialized(sp). Compress AND decompress throughput, CR,
+# PSNR, eb-satisfaction, and peak device memory are captured for every row
+# (decompress_throughput_gbs / peak_device_mb are first-class row fields).
+#
+#   python -m benchkit report results/<session>/ --aggregate
+#
+# ---------------------------------------------------------------------------
+# Structural notes
+# ---------------------------------------------------------------------------
+#   - cusz / fzgpu never specialize (Huffman entropy stage / FZ-GPU's bitshuffle
+#     shape). One fzgm row each; kept so the table has the full family.
+#   - cuszp3's 3-D TiledLorenzo predictor fuses on COMPRESS only — the warp
+#     inverse has no 2-D/3-D separable undelta yet — so its `_sp` decompress rows
+#     stay staged in the `auto` session. Expected, not a regression.
+#   - pfpl specializes via the chunk-cooperative path (1 preset, no _hp/_sp split).
+#   - szp_composed has no native SZp CLI in this repo: FZGM-only showcase row.
+#   - HACC is 1-D: cuszp3 there is native's 1-D Lorenzo(block=32); the FZGM _sp
+#     equivalent is the block-32 cuszp2 fused preset (identical chain).
+
+name: specialization_vs_native_smoke
+description: >
+  Pipeline Specialization vs native for cusz, cuszp2 (plain/outlier), cuszp3
+  (plain/outlier, dim-matched), fzgpu, pfpl, plus an FZGM-only szp_composed
+  showcase — 4 shape-class fields, eb in {1e-2,1e-3,1e-4}, rel_range. Run twice
+  (FZ_SPECIALIZE=off then auto).
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true          # single-tenant VM: run scripts/lock_clocks.sh first.
+                           # Inert where clock control is admin-only (BigRed200 /
+                           # Delta) — use --exclusive there instead (D15).
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: clean
+
+runs:
+  # ── cuSZ (Lorenzo-Quant → Huffman; never specializes) ──────────────────────
+  - {compressor: cusz, variant: cusz, pipeline: default}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cusz, pipeline: configs/pipelines/cusz.toml}
+
+  # ── cuSZp2 outlier ────────────────────────────────────────────────────────
+  - {compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_outlier_hp, pipeline: configs/pipelines/cuszp2.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml}
+
+  # ── cuSZp2 plain ──────────────────────────────────────────────────────────
+  - {compressor: cuszp2, variant: cuszp2_plain, pipeline: plain}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_hp, pipeline: configs/pipelines/cuszp2_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_sp, pipeline: configs/pipelines/cuszp2_plainfused.toml}
+
+  # ── cuSZp3 plain (dimension-matched) ──────────────────────────────────────
+  - {compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:2d", only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_hp, pipeline: configs/pipelines/cuszp3.toml, only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp3_plainfused.toml, only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:3d", only_datasets: [HURR, NYX]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_hp, pipeline: configs/pipelines/cuszp3_3d.toml, only_datasets: [HURR, NYX]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp3_3d_plainfused.toml, only_datasets: [HURR, NYX]}
+  - {compressor: cuszp3, variant: cuszp3_plain, pipeline: plain, only_datasets: [HACC]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_hp, pipeline: configs/pipelines/cuszp3_1d.toml, only_datasets: [HACC]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp2_plainfused.toml, only_datasets: [HACC]}
+
+  # ── cuSZp3 outlier (dimension-matched) ────────────────────────────────────
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:2d", only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_hp, pipeline: configs/pipelines/cuszp3_outlier.toml, only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_outlier_sp.toml, only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:3d", only_datasets: [HURR, NYX]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_hp, pipeline: configs/pipelines/cuszp3_3d_outlier.toml, only_datasets: [HURR, NYX]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_3d_sp.toml, only_datasets: [HURR, NYX]}
+  - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: outlier, only_datasets: [HACC]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_hp, pipeline: configs/pipelines/cuszp3_1d_outlier.toml, only_datasets: [HACC]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml, only_datasets: [HACC]}
+
+  # ── FZ-GPU (bitshuffle shape; never specializes) ──────────────────────────
+  - {compressor: fzgpu, variant: fzgpu, pipeline: default}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml}
+
+  # ── PFPL (chunk-cooperative specialization; single preset) ────────────────
+  - {compressor: pfpl, variant: pfpl, pipeline: default}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
+
+  # ── SZp composed — FZGM-only showcase (no native SZp CLI in this repo) ─────
+  - {<<: *fzgm_tool, compressor: fzgm, variant: szp_composed, pipeline: configs/pipelines/szp_composed.toml}

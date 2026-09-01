@@ -30,7 +30,13 @@ from .store import ResultStore, sha256_file
 
 
 _DIAGNOSTIC_SUFFIXES = frozenset((".log", ".json", ".toml"))
-_FZGM_BEHAVIOR_ENV = ("FZ_FUSION", "FZ_FUSION_NVRTC")
+# Variables that change which FZGM kernels execute without changing the pipeline
+# TOML or the binary, so they must participate in exact resume identity.
+# FZ_SPECIALIZE is the current name for the finalize-time specialization policy
+# (kernel fusion + single-pass decoupled-lookback + ...); FZ_FUSION is its
+# still-honored deprecated alias. Both are recorded so an off/auto A/B keyed on
+# either one produces distinct execution_ids.
+_FZGM_BEHAVIOR_ENV = ("FZ_SPECIALIZE", "FZ_FUSION", "FZ_FUSION_NVRTC")
 
 
 def _cleanup_cell_artifacts(workdir: Path) -> None:

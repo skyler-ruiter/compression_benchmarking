@@ -7,15 +7,29 @@ parses a file instead of scraping stdout.
 Authoritative schema: FZGM repo `memory/report_json_spec.md`; user docs `docs/cli.md`.
 Schema version targeted: **1.1**.
 
-## Fusion decision provenance
+## Specialization (formerly "fusion") decision provenance
 
-Current reports include a `fusion` object with the resolved policy, number of maximal
-legal domains, installed group/stage counts, implementation names, covered stage names,
-and an explicit fallback reason. Benchkit promotes these fields into every FZGM row.
-Use them to distinguish “Auto requested” from “fusion actually installed”; the latter is
-the scientific execution arm. `FZ_FUSION` and `FZ_FUSION_NVRTC` also participate in the
-exact `execution_id`, because they change executed kernels without changing the pipeline
-TOML or binary.
+The FZGM feature was renamed **Pipeline Specialization** (2026-09) — it does more than
+fuse kernels (single-pass decoupled-lookback, NVRTC codegen, a roofline profitability
+gate, both compress and decompress). The CLI report now carries a `specialization`
+object AND a byte-identical legacy `fusion` object; benchkit reads `fusion` (adapter
+`rep.get("fusion")`) so nothing broke. Either object has the resolved policy, number of
+maximal legal domains, installed forward + inverse group/stage counts, implementation
+names, covered stage names, and an explicit fallback reason. Benchkit promotes these
+into every FZGM row as `fusion_*`. Use `fusion_installed_group_count` /
+`fusion_inverse_installed_group_count` to distinguish "Auto requested" from
+"specialization actually installed on compress / decompress" — the latter is the
+scientific execution arm.
+
+The policy env var is **`FZ_SPECIALIZE`** (`off|auto|force`); `FZ_FUSION` is a
+still-honored deprecated alias. Both, plus `FZ_FUSION_NVRTC`, participate in the exact
+`execution_id` (runner `_FZGM_BEHAVIOR_ENV`) because they change executed kernels
+without changing the pipeline TOML or binary — so an off/auto A/B keyed on either name
+produces distinct, non-colliding sessions.
+
+`configs/experiments/specialization_vs_native_smoke.yaml` +
+`specialization_memory_smoke.yaml` (driver: `scripts/run-specialization-smoke.sh`) are
+the cross-machine preflight: each is launched twice, `FZ_SPECIALIZE=off` then `auto`.
 
 ## Invocation
 
