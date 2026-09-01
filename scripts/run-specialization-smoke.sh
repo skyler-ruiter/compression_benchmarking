@@ -19,7 +19,10 @@ set -euo pipefail
 
 host_tag="${1:?usage: run-specialization-smoke.sh <host-tag> [<site-env-script>]}"
 site_env="${2:-scripts/env-jetstream2.sh}"
-date_tag="$(date +%Y%m%d)"
+# Session ids embed this tag. It MUST stay fixed across a resume, so override it
+# (SPEC_DATE_TAG=20260901 ...) when resuming a run that may cross midnight —
+# otherwise the new day's tag starts a fresh, empty session instead of resuming.
+date_tag="${SPEC_DATE_TAG:-$(date +%Y%m%d)}"
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${repo_dir}"
