@@ -25,9 +25,13 @@ Driver: `scripts/run-specialization-smoke.sh <host-tag> [<env-script>]`
 
 - **compression_benchmarking**: commit with `specialization_vs_native_smoke.yaml`
   (this file's introduction) or later. `git log --oneline -1`.
-- **FZGPUModules**: commit `dc5c70c` ("Pipeline Specialization: generalize warp
-  fusion (fwd+inverse)...") or later. Must be **rebuilt** for the machine's arch —
-  the specialization code is new.
+- **FZGPUModules**: commit `6897f66` ("test: drop the fragile standalone-inverse
+  assertion...") or later — the `ed94548`/`096a5ba`/`6897f66` chain. Must be
+  **rebuilt** for the machine's arch — the specialization code is new.
+  NOTE: FZGM history was rewritten on 2026-09-02 (Co-Authored-By trailer strip),
+  so the old anchors `dc5c70c` / `4b0efdd` / `b57a333` / `8b1ea2a` are gone. A
+  machine cloned before then must `git fetch origin && git reset --hard
+  origin/main` (a plain `git pull` diverges). Same for compression_benchmarking.
 
 ## The setup-check + run prompt
 
@@ -40,16 +44,18 @@ Set up and run the Pipeline Specialization smoke on this machine. Do NOT commit
 anything. Fill HOST_TAG=<HOST_TAG> ENV_SCRIPT=<ENV_SCRIPT>. If a check fails, stop
 and tell me what's wrong rather than trying to fix it.
 
-1. REPOS
-   - cd ~/compression_benchmarking && git fetch && git log --oneline -1 &&
+1. REPOS  (history was rewritten 2026-09-02 — fetch + hard-reset, do NOT pull)
+   - cd ~/compression_benchmarking && git fetch origin &&
      git status --porcelain
-     Confirm the checked-out commit includes configs/experiments/
-     specialization_vs_native_smoke.yaml (git show --stat HEAD -- that path, or
-     git log --oneline -- that path). If the working tree is dirty, show me the
-     diff and stop.
-   - cd ~/FZGPUModules && git fetch && git log --oneline -1
-     Confirm HEAD is dc5c70c or a descendant (git merge-base --is-ancestor
-     dc5c70c HEAD; echo $?  -> 0). If not, stop.
+     If the working tree is dirty, show me the diff and stop. Otherwise
+     git reset --hard origin/main && git log --oneline -1
+     Confirm HEAD includes configs/experiments/specialization_vs_native_smoke.yaml
+     (git log --oneline -- that path).
+   - cd ~/FZGPUModules && git fetch origin
+     If the working tree is dirty, stop. Otherwise git reset --hard origin/main &&
+     git log --oneline -1
+     Confirm HEAD is 6897f66 or a descendant (git merge-base --is-ancestor
+     6897f66 origin/main; echo $?  -> 0). If not, stop.
 
 2. FZGM BUILD (rebuild — the specialization code is new)
    - source ~/compression_benchmarking/<ENV_SCRIPT>  (sets FZGMOD_CLI, CUDA, venv)
