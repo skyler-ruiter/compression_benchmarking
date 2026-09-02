@@ -17,6 +17,9 @@ fzgm_build:
   # 4b0efdd "cuSZp3 decompress fusion", rebased onto origin's libpressio-doc
   # merge 9f78c56 — no code change). The vs-native runs.jsonl recorded the
   # pre-rebase anchor dc5c70c in tool_source_commit; the code is identical.
+  # NOTE 2026-09-02: commits 8b1ea2a / dc5c70c were rewritten by a history
+  # cleanup (Co-Authored-By trailer strip); the equivalent tree is now 6897f66
+  # (096a5ba for the pre-test-fix cuSZp3-inverse state). Content is identical.
   tool_source_commit: 8b1ea2a4d61f750d816c660595782433d9846e5a
   tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
   tool_patch_sha256: clean

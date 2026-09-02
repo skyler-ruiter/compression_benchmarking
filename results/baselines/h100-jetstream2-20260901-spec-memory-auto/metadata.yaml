@@ -13,6 +13,9 @@ experiment_config: configs/experiments/specialization_memory_smoke.yaml
 clocks_locked: true
 
 fzgm_build:
+  # NOTE 2026-09-02: commits 8b1ea2a / dc5c70c were rewritten by a history
+  # cleanup (Co-Authored-By trailer strip); the equivalent tree is now 6897f66
+  # (096a5ba for the pre-test-fix cuSZp3-inverse state). Content is identical.
   tool_source_commit: 8b1ea2a4d61f750d816c660595782433d9846e5a
   tool_patch_sha256: clean
   specialization_policy: "FZ_SPECIALIZE=auto"
