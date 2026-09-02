@@ -1,7 +1,7 @@
 {
   "verification_schema_version": 1,
   "session_id": "specialization-memory-smoke-skyler-h100-auto-20260901",
-  "generated_at": "2026-09-01T04:03:59.942214+00:00",
+  "generated_at": "2026-09-02T02:39:39.102982+00:00",
   "publication_grade": false,
   "summary": {
     "checks_passed": 11,
@@ -63,24 +63,19 @@
     {
       "name": "timing_reliability",
       "status": "fail",
-      "summary": "0/16 unreliable rows accepted",
+      "summary": "0/11 unreliable rows accepted",
       "details": [
-        "specialization_memory_smoke-0034-649b2b783059",
-        "specialization_memory_smoke-0045-eba898a2df11",
-        "specialization_memory_smoke-0047-b60721c71f78",
-        "specialization_memory_smoke-0049-f68b3fcf6198",
-        "specialization_memory_smoke-0050-6968907694a3",
-        "specialization_memory_smoke-0053-f9d824509ec4",
-        "specialization_memory_smoke-0054-9c9d5e6d6524",
-        "specialization_memory_smoke-0055-4c3e162a197f",
-        "specialization_memory_smoke-0056-19e9aa83a856",
-        "specialization_memory_smoke-0057-55d1caa115b3",
-        "specialization_memory_smoke-0060-f662c74315b2",
-        "specialization_memory_smoke-0061-329de89bec7d",
-        "specialization_memory_smoke-0066-7032cf8aeb66",
-        "specialization_memory_smoke-0067-98a847ef670d",
-        "specialization_memory_smoke-0068-4a2c8b597f02",
-        "specialization_memory_smoke-0069-041a9bf0f382"
+        "specialization_memory_smoke-0033-e5923cd74397",
+        "specialization_memory_smoke-0034-e0ed1a622fec",
+        "specialization_memory_smoke-0054-a5dbe1b17d57",
+        "specialization_memory_smoke-0055-bb686c13077b",
+        "specialization_memory_smoke-0057-7eaa0b72db6c",
+        "specialization_memory_smoke-0060-71b566ad0d9f",
+        "specialization_memory_smoke-0066-e224be24002e",
+        "specialization_memory_smoke-0067-280434190ed7",
+        "specialization_memory_smoke-0068-c6455adb529b",
+        "specialization_memory_smoke-0069-4154cfce3946",
+        "specialization_memory_smoke-0070-1f4f5967651c"
       ]
     },
     {

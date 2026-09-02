@@ -1,0 +1,74 @@
+# Baseline: H100 / JetStream2 — Pipeline Specialization vs native, SPECIALIZED arm.
+# Pair with h100-jetstream2-20260901-spec-vsnative-staged (same matrix, specialization off).
+# See results/baselines/README.md.
+
+baseline_id: h100-jetstream2-20260901-spec-vsnative-auto
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (single-tenant persistent VM, skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 25.7"
+date: "2026-09-01"
+
+experiment_config: configs/experiments/specialization_vs_native_smoke.yaml
+clocks_locked: true
+
+fzgm_build:
+  tool_source_commit: 8b1ea2a4d61f750d816c660595782433d9846e5a
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: clean
+  binary: build_benchmarking/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=auto (kernel fusion + single-pass decoupled-lookback, compress and decompress)"
+
+reference_compressors: same trees as the staged pair (not rebuilt).
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. From ~/benchkit-results/specialization-vs-native-smoke-skyler-h100-auto-20260901/.
+
+cells:
+  total: 228
+  ok: 228
+  failed: 0
+  eb_satisfied_false: >
+    Same 6 native cells as the staged pair, bit-for-bit identical — proof
+    specialization changed nothing about correctness.
+
+controlled_ab: >
+  No CR drift on ANY fzgm variant between the off and auto sessions (checked all
+  fzgm rows: 0 with |Δcr|/cr > 1e-4). Every fzgm *_sp / pfpl / szp_composed row
+  installs fusion fwd AND inverse (fusion_installed_group_count = 1,
+  fusion_inverse_installed_group_count = 1); every *_hp / cusz / fzgpu row is 0/0
+  (fallback: cusz/fzgpu no_legal_group, *_hp no_profitable_implementation —
+  linear_high_precision gates the warp path).
+
+result_summary: >
+  off -> auto (this = the auto session), compress / decompress GB/s / peak MB:
+    szp_composed  CLDHGH  81->175  / 83->411  / 131->79
+                  HACC/vx 126->517 / 46->819  / 5692->3426
+                  NYX/tmp 173->651 / 105->1254 / 2719->1637
+    cuszp2_outlier_sp  CLDHGH  90->145 / 225->355 / 134->81 ; HACC 113->254 / 279->544
+    cuszp3_plain_sp    CLDHGH 138->148 / 172->230 (2-D tiled inverse, 1.34x) / 132->79
+    cuszp3_outlier_sp  CLDHGH 135->146 / 178->241 (1.36x) ; 3-D HURR/NYX d ~1.08-1.22x
+                       (roofline-bound, like the 3-D forward)
+    pfpl (chunk-coop)  CLDHGH 124->144 / 116->238 / 215->137 ; auto AHEAD of native pfpl
+  CR unchanged vs staged for every FZGM row; every FZGM row eb-satisfied.
+  vs native: pfpl fused now leads native PFPL; cuszp2/cuszp3 fused close most of
+  the small-field gap but native still leads ~1.5-2x on the big contiguous
+  fields (HACC/NYX) where its monolithic kernel wins.
+
+known_issues:
+  - >
+    ONE timing outlier: cuszp2_outlier_sp / NYX/temperature / eb=1e-3 decompress
+    reads 297 -> 168 GB/s (auto SLOWER) — an isolated timing artifact, flagged
+    timing_reliable=false, not a real regression (every other decompress row for
+    that variant shows the expected 1.6-2x gain, and the reconstruction is
+    byte-identical to staged). Re-measure on an exclusive node for a clean number.
+  - >
+    `benchkit verify` exits non-zero (expected for a smoke): validity_exclusions
+    0/6 (the native eb misses above); timing_reliability 0/8; h3_eligibility
+    (publication-provenance gate). This is a cross-machine comparison input, not
+    a publication artifact.
+  - FZGM peak_device_mb is meaningful only vs the staged pair.
+
+related_decisions: [D15, D24, D33, D41, D42]

@@ -13,7 +13,7 @@ experiment_config: configs/experiments/specialization_memory_smoke.yaml
 clocks_locked: true
 
 fzgm_build:
-  tool_source_commit: dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae
+  tool_source_commit: 8b1ea2a4d61f750d816c660595782433d9846e5a
   tool_patch_sha256: clean
   specialization_policy: "FZ_SPECIALIZE=auto"
 

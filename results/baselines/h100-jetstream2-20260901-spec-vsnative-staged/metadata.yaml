@@ -1,0 +1,81 @@
+# Baseline: H100 / JetStream2 — Pipeline Specialization vs native, STAGED arm.
+# Pair with h100-jetstream2-20260901-spec-vsnative-auto (same matrix, specialization on).
+# See results/baselines/README.md.
+
+baseline_id: h100-jetstream2-20260901-spec-vsnative-staged
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (single-tenant persistent VM, skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 25.7"
+date: "2026-09-01"   # benchkit session, v3 re-run with cuSZp3 inverse fusion
+
+experiment_config: configs/experiments/specialization_vs_native_smoke.yaml
+clocks_locked: true   # scripts/lock_clocks.sh, SM pinned 1980 MHz; single-tenant VM.
+
+fzgm_build:
+  # Binary built from FZGPUModules 8b1ea2a (== dc5c70c "Pipeline Specialization" +
+  # 4b0efdd "cuSZp3 decompress fusion", rebased onto origin's libpressio-doc
+  # merge 9f78c56 — no code change). The vs-native runs.jsonl recorded the
+  # pre-rebase anchor dc5c70c in tool_source_commit; the code is identical.
+  tool_source_commit: 8b1ea2a4d61f750d816c660595782433d9846e5a
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: clean
+  binary: build_benchmarking/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=off (staged — one kernel per stage)"
+
+reference_compressors:
+  # ~/compressors per compression_benchmarking/compressors/manifest.toml (D41);
+  # same trees as h100-jetstream2-20260808-fullcorpus-postfix, not rebuilt.
+  cusz: ~/compressors/cuSZ/build/cusz
+  cuszp2: ~/compressors/cuSZp-V2.0.1/build/examples/bin/cuSZp
+  cuszp3: ~/compressors/cuSZp-V3.0.0/build/examples/bin/cuSZp
+  fzgpu: ~/compressors/FZ-GPU/fz-gpu
+  pfpl: ~/compressors/PFPL/bin
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. runs.jsonl + provenance.json copied from
+    ~/benchkit-results/specialization-vs-native-smoke-skyler-h100-off-20260901/
+    right after the run. Per-rep timing arrays, stages[], gpu_sampling,
+    checksums, compressed_bytes, peak_device_mb, fusion_* all present.
+
+cells:
+  total: 228
+  ok: 228
+  failed: 0
+  eb_satisfied_false: >
+    6 cells, ALL native, bit-for-bit identical to the auto arm: native cusz
+    HACC/vx eb=1e-4 (cr 1.26, a near-total failure — 1-D HACC tight bound);
+    native cuszp3_outlier CESM-2D/CLDHGH at all three bounds + HURR/TC at
+    1e-3/1e-4 (~8x overshoot, matches a100-bigred200-slurm7802064); native
+    fzgpu CESM-2D/CLDHGH at all three bounds (rounding-level). No FZGM row
+    misses; none are regressions; none involve specialization.
+
+matrix_design: >
+  Three FZGM arms per native compressor:
+    <native>       reference binary
+    fzgm ..._hp    current vs-native preset (linear_high_precision quant) —
+                   CANNOT specialize, so auto == off for these rows. The
+                   "modular but staged" reference point.
+    fzgm ..._sp    specialization-ready preset (clean plain / plain linear quant,
+                   = native's arithmetic). Staged here; fused in the auto arm.
+                   The compressed payload is byte-identical off vs auto (only an
+                   8-byte FZM header checksum differs — data_checksum and the
+                   reconstruction match), so this is a controlled A/B.
+  cusz / fzgpu have one fzgm row (never specialize). pfpl one (chunk-coop).
+  szp_composed is FZGM-only (no native SZp CLI in this repo).
+
+known_issues:
+  - >
+    FZGM peak_device_mb is large; native reports none (null) — PREALLOCATE sizes
+    the pool to worst case. Compare FZGM peak against the auto arm, not native.
+  - >
+    configs/pipelines/cusz.toml still carries encode_mode = "Fine", a Huffman
+    mode FZGPUModules removed; the loader silently ignores it and runs the
+    default. Harmless for throughput/CR here.
+  - >
+    Native fzgpu is wall-clock timed — run was single-tenant + clocks locked to
+    remove contention as a confound.
+
+related_decisions: [D15, D24, D33, D41, D42]

@@ -1,0 +1,92 @@
+{
+  "verification_schema_version": 1,
+  "session_id": "specialization-vs-native-smoke-skyler-h100-off-20260901",
+  "generated_at": "2026-09-02T01:46:57.883445+00:00",
+  "publication_grade": false,
+  "summary": {
+    "checks_passed": 10,
+    "checks_failed": 2,
+    "canonical_rows": 228
+  },
+  "policy": {},
+  "checks": [
+    {
+      "name": "provenance_schema",
+      "status": "pass",
+      "summary": "1 unique provenance manifest(s)"
+    },
+    {
+      "name": "result_schema",
+      "status": "pass",
+      "summary": "228 canonical row(s), 228 raw attempt(s)"
+    },
+    {
+      "name": "merge_state",
+      "status": "pass",
+      "summary": "canonical merge is current"
+    },
+    {
+      "name": "unique_ids",
+      "status": "pass",
+      "summary": "canonical IDs are unique"
+    },
+    {
+      "name": "provenance_joins",
+      "status": "pass",
+      "summary": "228/228 rows joined"
+    },
+    {
+      "name": "artifact_checksums",
+      "status": "pass",
+      "summary": "all archived inputs match SHA-256"
+    },
+    {
+      "name": "matrix_coverage",
+      "status": "pass",
+      "summary": "228/228 expected cells"
+    },
+    {
+      "name": "dataset_joins",
+      "status": "pass",
+      "summary": "228/228 rows joined"
+    },
+    {
+      "name": "failures",
+      "status": "pass",
+      "summary": "0/0 failures accepted"
+    },
+    {
+      "name": "validity_exclusions",
+      "status": "fail",
+      "summary": "0/6 gating exclusions accepted",
+      "details": [
+        "specialization_vs_native_smoke-0011-281db8d45613: eb_violated_severe",
+        "specialization_vs_native_smoke-0132-96e750d1bce2: eb_violated_severe",
+        "specialization_vs_native_smoke-0133-ac10a55e3f08: eb_violated_severe",
+        "specialization_vs_native_smoke-0134-56c5f24cf5f0: eb_violated_severe",
+        "specialization_vs_native_smoke-0142-6f9ff4b2eb21: eb_violated_severe",
+        "specialization_vs_native_smoke-0143-c45be47fb55a: eb_violated_severe"
+      ]
+    },
+    {
+      "name": "timing_reliability",
+      "status": "pass",
+      "summary": "0/0 unreliable rows accepted"
+    },
+    {
+      "name": "h3_eligibility",
+      "status": "fail",
+      "summary": "datasets and build provenance are publication-eligible",
+      "details": [
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: H3 provenance incomplete",
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: cusz:cusz build incomplete",
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: cuszp2:cuszp2_outlier build incomplete",
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: cuszp2:cuszp2_plain build incomplete",
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: cuszp3:cuszp3_plain build incomplete",
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: cuszp3:cuszp3_outlier build incomplete",
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: fzgpu:fzgpu build incomplete",
+        "provenance-v1-343572666109867ac96454233e7fb7ab9d09966bed1cf1f811acd93b35649340: pfpl:pfpl build incomplete"
+      ]
+    }
+  ]
+}

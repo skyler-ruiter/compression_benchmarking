@@ -1,8 +1,8 @@
 {
   "session_schema_version": 1,
   "session_kind": "native",
-  "session_id": "specialization-memory-smoke-skyler-h100-off-20260901",
-  "timestamp": "2026-09-01T03:44:14.483451+00:00",
+  "session_id": "specialization-memory-smoke-skyler-h100-auto-20260901",
+  "timestamp": "2026-09-02T02:29:54.898661+00:00",
   "shard": null,
   "gpu": {
     "available": true,
@@ -19,7 +19,7 @@
   "host": {
     "node": "skyler-h100",
     "system": "Linux",
-    "release": "7.0.0-28-generic",
+    "release": "7.0.0-30-generic",
     "machine": "x86_64",
     "processor": "x86_64"
   },
@@ -31,15 +31,15 @@
     "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Tue_May_27_02:21:03_PDT_2025\nCuda compilation tools, release 12.9, V12.9.86\nBuild cuda_12.9.r12.9/compiler.36037853_0"
   },
   "harness": {
-    "git_sha": "fe87e0d0ce22dafd6d32a380639673dec9d612c8",
+    "git_sha": "0a4289376a939a97d05c8fc61679079d31b29238",
     "git": {
-      "commit": "fe87e0d0ce22dafd6d32a380639673dec9d612c8",
+      "commit": "0a4289376a939a97d05c8fc61679079d31b29238",
       "dirty": false,
       "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "untracked": [],
       "dirty_identity_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
-    "config_sha256": "4814e10e5763298bbc9f27c3c45c7ae7128c7b437c45a4cde6dfed24d20a4e90",
+    "config_sha256": "7f4c6e612b7d2c1151e58568b7a25aabbcde81050923b60b6d03cae21953a0ea",
     "python": "3.12.3"
   },
   "compressors": {
@@ -48,7 +48,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -59,7 +59,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -70,7 +70,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -81,7 +81,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -92,7 +92,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -103,7 +103,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -114,7 +114,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -125,7 +125,7 @@
       "name": "fzgmod-cli",
       "declared_build_provenance": {
         "version": "2.0.0-dev",
-        "source_commit": "dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae",
+        "source_commit": "8b1ea2a4d61f750d816c660595782433d9846e5a",
         "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
         "local_patch_sha256": "clean"
       },
@@ -135,8 +135,8 @@
   "provenance_schema_version": 1,
   "input_artifacts": {
     "experiment": {
-      "path": "inputs/experiment.1d582eff54f5361accdc65bf29ae2aee74f2d4086464df43043a5bb75065db23.yaml",
-      "sha256": "1d582eff54f5361accdc65bf29ae2aee74f2d4086464df43043a5bb75065db23"
+      "path": "inputs/experiment.18e0a35abfc9149b7010d94d6edb505cb9141d84c0179985f7dc06b905a1c649.yaml",
+      "sha256": "18e0a35abfc9149b7010d94d6edb505cb9141d84c0179985f7dc06b905a1c649"
     },
     "datasets": {
       "path": "inputs/datasets.d84b4720be7f079fba131f70c8b2a986c9cb0f253acbcf788d85d52d8e64ce72.yaml",
@@ -202,6 +202,6 @@
       }
     ]
   },
-  "nvidia_smi": "Tue Sep  1 03:44:14 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 595.84                 Driver Version: 595.84         CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H100 80GB HBM3          On  |   00000000:04:00.0 Off |                    0 |\n| N/A   41C    P0            134W /  700W |       0MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+",
-  "provenance_id": "provenance-v1-9dc950153f18d1f26d815eb230482569eee813183da28413f165ac8285032854"
+  "nvidia_smi": "Wed Sep  2 02:29:55 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 595.84                 Driver Version: 595.84         CUDA Version: 13.2     |\n+-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H100 80GB HBM3          On  |   00000000:04:00.0 Off |                    0 |\n| N/A   40C    P0            126W /  700W |       0MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n\n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+",
+  "provenance_id": "provenance-v1-e130d26a1b3636b310f9ac2b4198b3e0a9768f4823edc93d548a59c88e2a703b"
 }
