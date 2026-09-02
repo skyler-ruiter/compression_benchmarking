@@ -1,0 +1,36 @@
+[pipeline]
+# cuSZp2/cuSZp3 PLAIN mode, specialization-ready — the fusable clean-plain chain.
+#   Quantizer(linear) -> Lorenzo(block=32) -> AdaptiveBitpack(block=32, no outlier)
+#
+# vs cuszp2_plain.toml: drops linear_high_precision (which gates out warp
+# fusion). vs cuszp2_plainfused.toml: no outlier_selection / fused_coder trick —
+# this is genuine plain packing in BOTH the staged and the fused path, so
+# FZ_SPECIALIZE=off and =auto produce a byte-identical compressed payload (only
+# an 8-byte FZM header checksum differs) and this is a valid staged<->fused A/B.
+# Also the faithful match for native cuSZp plain mode (round(x/eb) + fixed-length
+# residual packing, no per-block outlier escape).
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "lrz"
+type = "Lorenzo"
+data_type = "int32"
+block_size = 32
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+outlier_selection = false
+inputs = [{from = "lrz"}]

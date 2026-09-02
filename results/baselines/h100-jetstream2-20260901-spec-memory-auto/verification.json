@@ -1,0 +1,92 @@
+{
+  "verification_schema_version": 1,
+  "session_id": "specialization-memory-smoke-skyler-h100-auto-20260901",
+  "generated_at": "2026-09-01T04:03:59.942214+00:00",
+  "publication_grade": false,
+  "summary": {
+    "checks_passed": 11,
+    "checks_failed": 1,
+    "canonical_rows": 96
+  },
+  "policy": {},
+  "checks": [
+    {
+      "name": "provenance_schema",
+      "status": "pass",
+      "summary": "1 unique provenance manifest(s)"
+    },
+    {
+      "name": "result_schema",
+      "status": "pass",
+      "summary": "96 canonical row(s), 96 raw attempt(s)"
+    },
+    {
+      "name": "merge_state",
+      "status": "pass",
+      "summary": "canonical merge is current"
+    },
+    {
+      "name": "unique_ids",
+      "status": "pass",
+      "summary": "canonical IDs are unique"
+    },
+    {
+      "name": "provenance_joins",
+      "status": "pass",
+      "summary": "96/96 rows joined"
+    },
+    {
+      "name": "artifact_checksums",
+      "status": "pass",
+      "summary": "all archived inputs match SHA-256"
+    },
+    {
+      "name": "matrix_coverage",
+      "status": "pass",
+      "summary": "96/96 expected cells"
+    },
+    {
+      "name": "dataset_joins",
+      "status": "pass",
+      "summary": "96/96 rows joined"
+    },
+    {
+      "name": "failures",
+      "status": "pass",
+      "summary": "0/0 failures accepted"
+    },
+    {
+      "name": "validity_exclusions",
+      "status": "pass",
+      "summary": "0/0 gating exclusions accepted"
+    },
+    {
+      "name": "timing_reliability",
+      "status": "fail",
+      "summary": "0/16 unreliable rows accepted",
+      "details": [
+        "specialization_memory_smoke-0034-649b2b783059",
+        "specialization_memory_smoke-0045-eba898a2df11",
+        "specialization_memory_smoke-0047-b60721c71f78",
+        "specialization_memory_smoke-0049-f68b3fcf6198",
+        "specialization_memory_smoke-0050-6968907694a3",
+        "specialization_memory_smoke-0053-f9d824509ec4",
+        "specialization_memory_smoke-0054-9c9d5e6d6524",
+        "specialization_memory_smoke-0055-4c3e162a197f",
+        "specialization_memory_smoke-0056-19e9aa83a856",
+        "specialization_memory_smoke-0057-55d1caa115b3",
+        "specialization_memory_smoke-0060-f662c74315b2",
+        "specialization_memory_smoke-0061-329de89bec7d",
+        "specialization_memory_smoke-0066-7032cf8aeb66",
+        "specialization_memory_smoke-0067-98a847ef670d",
+        "specialization_memory_smoke-0068-4a2c8b597f02",
+        "specialization_memory_smoke-0069-041a9bf0f382"
+      ]
+    },
+    {
+      "name": "h3_eligibility",
+      "status": "pass",
+      "summary": "datasets and build provenance are publication-eligible"
+    }
+  ]
+}

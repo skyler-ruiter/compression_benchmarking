@@ -38,7 +38,17 @@
 #   fzgm ..._sp       the specialization-ready preset (plain linear quant, the same
 #                     arithmetic native cuSZp actually does). Staged in the `off`
 #                     session, fused in the `auto` session — the delta between the
-#                     two sessions for these rows is the specialization gain.
+#                     two sessions for these rows is the specialization gain, and it
+#                     is a CONTROLLED A/B: the compressed payload is byte-identical
+#                     off vs auto (only an 8-byte FZM header checksum differs — the
+#                     data_checksum and the reconstruction match), so any CR change
+#                     between the two sessions would be a bug. NB the plain-mode _sp
+#                     presets are clean plain packing (outlier_selection = false),
+#                     NOT the cuszp2_plainfused / cuszp3_*_plainfused trick
+#                     (outlier_selection = true + fused_coder = PlainBitpackCoder) —
+#                     that one's staged run has adaptive/outlier semantics and its
+#                     fused run forces plain, so it is a fused-vs-NATIVE row only,
+#                     never a staged<->fused A/B, and is deliberately not used here.
 #
 # So each cell yields, across the two sessions: native, FZGM-staged(hp),
 # FZGM-staged(sp), FZGM-specialized(sp). Compress AND decompress throughput, CR,
@@ -52,13 +62,17 @@
 # ---------------------------------------------------------------------------
 #   - cusz / fzgpu never specialize (Huffman entropy stage / FZ-GPU's bitshuffle
 #     shape). One fzgm row each; kept so the table has the full family.
-#   - cuszp3's 3-D TiledLorenzo predictor fuses on COMPRESS only — the warp
-#     inverse has no 2-D/3-D separable undelta yet — so its `_sp` decompress rows
-#     stay staged in the `auto` session. Expected, not a regression.
+#   - cuszp3 (TiledLorenzo) now specializes BOTH directions: the warp inverse
+#     reconstructs each tile by the separable prefix sum + scatters to natural
+#     row-major (fused_unpack_tiled_body). The 3-D gain is small (~1.05-1.12x
+#     decompress) because the 3-D predictor is roofline/compute-bound — the same
+#     reason the 3-D forward gain is small. 2-D is ~1.35-1.43x.
 #   - pfpl specializes via the chunk-cooperative path (1 preset, no _hp/_sp split).
 #   - szp_composed has no native SZp CLI in this repo: FZGM-only showcase row.
 #   - HACC is 1-D: cuszp3 there is native's 1-D Lorenzo(block=32); the FZGM _sp
-#     equivalent is the block-32 cuszp2 fused preset (identical chain).
+#     equivalent is the block-32 cuszp2_*_sp preset (identical chain).
+#   - cuszp3_*_plain_sp use clean plain packing (outlier_selection = false), which
+#     fuses forward AND inverse byte-identically.
 
 name: specialization_vs_native_smoke
 description: >
@@ -110,18 +124,18 @@ runs:
   # ── cuSZp2 plain ──────────────────────────────────────────────────────────
   - {compressor: cuszp2, variant: cuszp2_plain, pipeline: plain}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_hp, pipeline: configs/pipelines/cuszp2_plain.toml}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_sp, pipeline: configs/pipelines/cuszp2_plainfused.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_sp, pipeline: configs/pipelines/cuszp2_plain_sp.toml}
 
   # ── cuSZp3 plain (dimension-matched) ──────────────────────────────────────
   - {compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:2d", only_datasets: [CESM-2D]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_hp, pipeline: configs/pipelines/cuszp3.toml, only_datasets: [CESM-2D]}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp3_plainfused.toml, only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp3_plain_sp.toml, only_datasets: [CESM-2D]}
   - {compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:3d", only_datasets: [HURR, NYX]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_hp, pipeline: configs/pipelines/cuszp3_3d.toml, only_datasets: [HURR, NYX]}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp3_3d_plainfused.toml, only_datasets: [HURR, NYX]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp3_3d_plain_sp.toml, only_datasets: [HURR, NYX]}
   - {compressor: cuszp3, variant: cuszp3_plain, pipeline: plain, only_datasets: [HACC]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_hp, pipeline: configs/pipelines/cuszp3_1d.toml, only_datasets: [HACC]}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp2_plainfused.toml, only_datasets: [HACC]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp, pipeline: configs/pipelines/cuszp2_plain_sp.toml, only_datasets: [HACC]}
 
   # ── cuSZp3 outlier (dimension-matched) ────────────────────────────────────
   - {compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:2d", only_datasets: [CESM-2D]}

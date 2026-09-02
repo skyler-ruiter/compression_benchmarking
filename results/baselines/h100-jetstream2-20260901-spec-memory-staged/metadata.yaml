@@ -1,0 +1,42 @@
+# Baseline: H100 / JetStream2 — specialization-aware buffer-coloring peak-memory
+# ablation, STAGED arm. Pair with h100-jetstream2-20260901-spec-memory-auto.
+# See results/baselines/README.md.
+
+baseline_id: h100-jetstream2-20260901-spec-memory-staged
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (single-tenant persistent VM, skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 25.7"
+date: "2026-09-01"
+
+experiment_config: configs/experiments/specialization_memory_smoke.yaml
+clocks_locked: true
+
+fzgm_build:
+  tool_source_commit: dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae
+  tool_patch_sha256: clean
+  specialization_policy: "FZ_SPECIALIZE=off"
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. From ~/benchkit-results/specialization-memory-smoke-skyler-h100-off-20260901/.
+    This is a MEMORY experiment — throughput columns are secondary (3 reps only)
+    and several rows are timing_reliable=false by design.
+
+cells: {total: 96, ok: 96, failed: 0}
+
+design: >
+  Each *_color / *_nocolor variant pair differs only by `coloring = false` in the
+  pipeline [pipeline] table (the *_nocolor.toml presets). Cross with the auto
+  pair for the full 4 arms:
+    staged + coloring   (this baseline, *_color)
+    staged, no coloring (this baseline, *_nocolor)
+    specialized + coloring / no coloring (the auto pair)
+
+result_summary: >
+  peak_device_mb, eb 1e-3, CLDHGH:  szp_composed staged+color 131, staged+nocolor 157;
+  cuszp2_sp 134 / 160; pfpl 215 / 267; cusz 112 / 112 (a 2-stage chain — coloring
+  finds nothing to alias, a real outcome). Coloring alone saves ~16-20%.
+
+related_decisions: [D15, D24, D42]

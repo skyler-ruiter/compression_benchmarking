@@ -1,0 +1,33 @@
+[pipeline]
+# cuSZp3 PLAIN mode (TiledLorenzo 8x8x1), specialization-ready.
+# Clean plain packing (no outlier_selection / fused_coder), no
+# linear_high_precision -> forward fuses byte-identically to its staged self.
+# NOTE: the TiledLorenzo INVERSE does not fuse yet (needs a separable undelta),
+# so the decompress side stays staged in the auto session (fusion f/i = 1/0).
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 8
+tile_y = 8
+tile_z = 1
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+outlier_selection = false
+inputs = [{from = "tl"}]

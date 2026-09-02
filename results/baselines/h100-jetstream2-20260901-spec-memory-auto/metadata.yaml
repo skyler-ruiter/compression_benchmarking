@@ -1,0 +1,41 @@
+# Baseline: H100 / JetStream2 — specialization-aware buffer-coloring peak-memory
+# ablation, SPECIALIZED arm. Pair with h100-jetstream2-20260901-spec-memory-staged.
+# See results/baselines/README.md.
+
+baseline_id: h100-jetstream2-20260901-spec-memory-auto
+gpu: NVIDIA H100 80GB HBM3
+site: JetStream2 (single-tenant persistent VM, skyler-h100)
+driver: "595.84"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 25.7"
+date: "2026-09-01"
+
+experiment_config: configs/experiments/specialization_memory_smoke.yaml
+clocks_locked: true
+
+fzgm_build:
+  tool_source_commit: dc5c70c57b3362f0f0a0494d2c5cbdbcb796e9ae
+  tool_patch_sha256: clean
+  specialization_policy: "FZ_SPECIALIZE=auto"
+
+source:
+  kind: benchkit_native_output
+  fidelity: Full. From ~/benchkit-results/specialization-memory-smoke-skyler-h100-auto-20260901/.
+
+cells: {total: 96, ok: 96, failed: 0}
+
+result_summary: >
+  peak_device_mb, eb 1e-3, CLDHGH: szp_composed specialized 79 in BOTH the
+  coloring and no-coloring arm; cuszp2_sp 81 / 81; pfpl 137 / 137; cusz 112 / 112.
+  Reading with the staged pair — CLDHGH szp_composed: staged+color 131,
+  staged+nocolor 157, specialized 79 (both). Specialization's fused-internal
+  buffer elision cuts peak ~40% vs staged+coloring, and makes coloring a no-op
+  across the fused span (the buffers it would alias no longer exist). Holds
+  across all fields: HACC/vx 5692 -> 3426, NYX/temp 2719 -> 1637, HURR/TC 506 -> 305.
+  cusz (never specializes) is the control — flat across all four arms.
+
+verification: >
+  `benchkit verify` exits non-zero: timing_reliability 0/16 (expected — memory
+  experiment, 3 reps, small fields). Peak memory itself is deterministic. Not a
+  publication artifact.
+
+related_decisions: [D15, D24, D42]
