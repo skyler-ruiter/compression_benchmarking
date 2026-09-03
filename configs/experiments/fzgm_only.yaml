@@ -30,7 +30,7 @@
 
 name: fzgm_only
 description: >
-  FZGM across cuSZ, cuSZ-Hi (tp/cr), cuSZp2 (plain/outlier), cuSZp3 (plain/outlier),
+  FZGM across cuSZ, cuSZ-Hi (tp/cr), cuSZp2 (plain/outlier), cuSZp3 (fixed/plain/outlier),
   FZ-GPU, and PFPL pipelines — one field per shape class, eb in {1e-2, 1e-3, 1e-4},
   rel_range. Native-reference half of fzgm_vs_native.yaml omitted.
 
@@ -67,6 +67,8 @@ runs:
 
   - {compressor: fzgm, variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
   - {compressor: fzgm, variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  - {compressor: fzgm, variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml}
 
   - {compressor: fzgm, variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3.toml,
      only_datasets: [CESM-2D]}

@@ -9,7 +9,16 @@ Experiments (each launched twice — `FZ_SPECIALIZE=off` then `auto`):
 - `configs/experiments/specialization_vs_native_smoke.yaml` — 4 shape-class fields, preflight
 - `configs/experiments/specialization_memory_smoke.yaml` — peak-memory / buffer-coloring ablation
 - `configs/experiments/specialization_vs_native_full.yaml` — full 186-field corpus, `_sp` arms
-  only, ~46 h/pair on an H100. Run ONLY after the smoke is confirmed clean on the machine.
+  plus the non-specializing cuSZp3-fixed control, ~52 h/pair on an H100. Run ONLY after
+  the smoke is confirmed clean on the machine.
+
+This campaign is performance-first. CR, quality, and bound checks remain mandatory
+validity gates, but the analysis emphasizes compression/decompression throughput and
+specialization speedup. Peak-memory values are FZGM's internal pool high-water marks;
+native rows remain null until the native adapters gain comparable allocation reporting.
+Every experiment sets both `retain_compressed: false` and
+`retain_decompressed: false`, so per-cell compressed and reconstruction artifacts are
+deleted after metrics, sizes, checksums, and diagnostics are recorded.
 
 Drivers:
 - `scripts/run-specialization-smoke.sh <host-tag> [<env-script>]`
@@ -134,7 +143,7 @@ and tell me what's wrong rather than trying to fix it.
      (must be > 0 on compress AND inverse for every fzgm *_sp / pfpl /
      szp_composed row, including cuszp3 — the TiledLorenzo inverse now fuses too,
      though its 3-D gain is small by roofline). For *_hp / cusz /
-     fzgpu rows they must be 0.
+     fzgpu / cuszp3_fixed rows they must be 0.
    - off -> auto compress and decompress throughput ratio, and peak_device_mb
      ratio, for szp_composed / cuszp2_outlier_sp / pfpl on each of the 4 fields.
    - Any row where CR differs between the off and auto session for the SAME fzgm

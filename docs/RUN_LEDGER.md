@@ -61,18 +61,19 @@ the short ID is only a human-readable join key.
 | ID | Campaign | Status | Machines with useful results | Next action |
 |---|---|---|---|---|
 | `EBLC-BASE` | FZGM vs matching native GPU EBLC, standard bounds | `COMPLETE` | H100, A100; FZGM-only H200/MI100 | Preserve as reference; rerun only for a material code/toolchain change |
+| `EBLC-SPEC` | Performance-first FZGM Pipeline Specialization vs native, including cuSZp3 fixed | `CONFIGURED` | Smoke evidence on H100; refreshed full matrix not run | Run off/auto smoke, then the 186-field full pair; retain no compressed or decompressed artifacts; use FZGM-only pool peaks for memory |
 | `EBLC-TIGHT` | GPU pairs plus FSZ at `1e-6` and `1e-7` | `COMPLETE-DIAGNOSTIC` | H100 | Preserve the 55 explicit refusals as failure evidence; accept four f64 `PRES` ratios of `1.000000080109` as marginal relative-mode boundary noise and continue to `EBLC-MODES` |
 | `EBLC-MODES` | `abs`, range-relative, max-absolute-relative comparisons | `IDEA` | Range-relative baseline only | Build a capability/semantics matrix before authoring configs |
 | `EBLC-LOG` | Positive-domain log transform plus EBLC | `BLOCKED` | None | Specify transform, zero/negative policy, inverse, and original-domain quality gates |
 | `EBLC-FSZ` | Native FSZ vs matching FZGM pipeline | `COMPLETE-DIAGNOSTIC` | H100 full corpus | Curate the 544 reliable pairs; preserve six native constant-field failures and target only eight timing-unreliable cells if publication requires them |
-| `EBLC-SZX` | Native SZx/SZp family comparison | `BLOCKED` | cuSZp2/cuSZp3 pairs already covered | Name the exact repository/version and distinguish it from existing cuSZp2/3 |
+| `EBLC-SZX` | Native SZx comparison | `SUPERSEDED` | None | Out of the current paper scope; revisit only after a supported modular SZx pipeline exists |
 | `NVC-PARITY` | FZGM lossless stages vs closest nvCOMP counterparts | `COMPLETE` | H100 scientific subset | Keep bit-exact stage gate with future backend changes |
 | `NVC-CORPUS` | Broader general-lossless corpus | `PARTIAL` | H100 scientific subset only | Select, license, checksum, and register raw log/genomic/general-byte datasets |
 | `NVC-PROP` | Unpaired nvCOMP Bitcomp/Cascaded and other native codecs | `COMPLETE` for current subset | H100 | Extend with `NVC-CORPUS`; do not imply an FZGM pair |
 | `EBLC-SPERR-GPU` | FZGM's new GPU SPERR pipeline (CDF97->Quantizer->Cdf97OutlierCorrect->SPECK2D, no Tee since 2026-08-29) as a comparable GPU EBLC | `COMPLETE` for both `abs`-mode bound verification (16/16 `eb_ok=True`) and the `rel_range` cross-tool CR/PSNR/throughput table (12/12 `eb_ok=True`, fixed 2026-08-29) | H100: bound-guarantee smoke 16/16 `eb_ok=True` (`sperr_gpu_bounded_smoke.yaml`); `rel_range` cross-tool table 60/60 ran, 12/12 `fzgm_sperr_gpu` cells `eb_ok=True` (`sperr-gpu-relrange-fixed-20260829`, harness-level rel_range->abs conversion in `FzgmAdapter._prepare_toml`) — see sec.3.5 | None — closed. `benchkit verify` flags this smoke session as not publication-grade (ad-hoc `FZGMOD_CLI` build provenance, one cv-unreliable row); re-run through the pinned `build_benchmarking` tree before citing numbers in a paper |
 | `3P-ADAPTERS` | FSZ, SZ3, zfp, MGARD-X, SPERR, MANS, lsCOMP execution support | `COMPLETE` for H100 smoke | H100 | Re-smoke on other CUDA machines as needed |
 | `3P-CORPUS` | Standalone third-party EBLC on the general scientific corpus | `RUNNING` | H100 gate complete; full corpus active | Complete the 3,282-cell standard-bound session; keep CPU, GPU, and mixed-wrapper timing strata separate |
-| `FEAT-HUFF` | Adaptive Huffman feature highlight | `COMPLETE-DIAGNOSTIC` | H100 full f32 corpus | Curate the 483 cuSZ and 432 cuSZ-Hi reliable pairs; distribution-drift/refit behavior is a separate future study |
+| `FEAT-HUFF` | Adaptive Huffman feature highlight | `COMPLETE-DIAGNOSTIC` | H100 full f32 corpus | Deferred from the current rerun while the cross-timestep/refit hypothesis is refined |
 | `FEAT-BITPACK` | Adaptive bitpack/outlier-selection ablation | `PARTIAL` | H100 baseline modes | Name one knob at a time and avoid relabeling existing TP/CR pairs |
 | `FEAT-GINTERP` | GInterp adaptivity ablation | `IDEA` | No clean adaptive-only comparison | Identify an actual independent adaptive switch before scheduling |
 | `FEAT-PRED` | Adaptive vs fixed predictor/coder behavior | `PARTIAL` | H100 FSZ subset | Fold a controlled full-corpus comparison into the FSZ campaign |
@@ -237,8 +238,12 @@ validation are specified.
 - cuSZp2 and cuSZp3 already have native/FZGM pairs in the main baseline.
 - SZ3 is supported as a standalone CPU reference and structural analogue; it
   is not an exact native implementation of an FZGM pipeline.
-- “SZx/SZp” is not yet a runnable item beyond cuSZp2/3. Record the exact project,
-  commit/version, executable, precision support, and intended FZGM pairing.
+- `szp_composed.toml` is an FZGM-only SZp/fZ-light-inspired composition for the
+  specialization ablation. It shares the upstream quantize/Lorenzo/fixed-width
+  structure, but differs in quantization and predictor partition boundaries and is
+  not a native-parity or container-compatibility claim.
+- SZx is out of the current paper campaign because there is no supported modular
+  FZGM SZx pipeline to evaluate.
 
 ## 2. FZGM vs nvCOMP
 
@@ -517,7 +522,7 @@ Full-f32 sessions are launched sequentially by
 comparisons reuse `h100-jetstream2-20260808-fullcorpus-postfix` after its
 validity/provenance filters.
 
-### Adaptive Huffman (`FEAT-HUFF`)
+### Adaptive Huffman (`FEAT-HUFF`, deferred)
 
 Subset evidence on H100 already shows about a 1.14x compression-throughput
 geometric mean for the tested adaptive-Huffman set with unchanged quality; the
@@ -527,10 +532,9 @@ data-dependent compression-ratio cost. Evidence:
 [`new-stage-features-h100.md`](results/new-stage-features-h100.md) and
 [`adaptive-huffman-gpu-zstd.md`](results/adaptive-huffman-gpu-zstd.md).
 
-The requested full-corpus cuSZ and/or cuSZ-Hi CR-mode ablation is still an
-`IDEA`. Its config must hold predictor, error mode, backend, launch geometry,
-and repetition policy fixed while toggling only adaptive Huffman. Report CR,
-compress/decompress throughput, peak memory, and quality; stratify by input size.
+The existing results remain diagnostic evidence, but adaptive-Huffman book reuse is
+outside the current paper rerun. A future campaign must first define cross-timestep
+distribution drift and refit policy; identical-field warm reuse is not sufficient.
 
 ### Other adaptive features
 

@@ -40,8 +40,9 @@
 # The _hp arm (linear_high_precision quant, used for tight-bound CR parity in
 # fzgm_vs_native_full.yaml) is NOT included: high-precision quant is gated out of
 # fusion, so its auto numbers == its off numbers — nothing to learn at corpus
-# scale. cusz / fzgpu keep ONE fzgm row each: they never specialize (Huffman
-# entropy stage / FZ-GPU bitshuffle shape), so those are controls — auto MUST
+# scale. cusz / fzgpu / cuszp3_fixed keep ONE fzgm row each: they never
+# specialize (Huffman entropy stage, FZ-GPU bitshuffle shape, or fixed mode's
+# lack of a block-local predictor), so those are controls — auto MUST
 # equal off exactly, and a difference there is a bug in the env plumbing.
 #
 # Every row captures compress AND decompress throughput, CR, PSNR, eb-satisfaction,
@@ -52,9 +53,9 @@
 # ---------------------------------------------------------------------------
 # Runtime, disk, sharding
 # ---------------------------------------------------------------------------
-# ~8,240 cells per session (vs. ~9,680 in fzgm_vs_native_full — no cuSZ-Hi, which
-# does not specialize). At fzgm_vs_native_full's measured ~27 h/9.68k on the H100
-# that is ~23 h per session, so ~46 h for the off+auto pair; longer on A100/H200.
+# ~9,354 cells per session (no cuSZ-Hi, which does not specialize). At the prior
+# full-corpus rate this is ~26 h per session, or ~52 h for the off+auto pair;
+# longer on A100/H200.
 # Shard across nodes/GPUs (never several shards on one GPU — overlapping processes
 # contend during the timed kernels, D15):
 #
@@ -79,7 +80,8 @@
 #     row-major (fused_unpack_tiled_body). 3-D decompress gain is small (~1.05-
 #     1.12x) because the 3-D predictor is roofline/compute-bound; 2-D is ~1.35-1.4x.
 #   - pfpl specializes via the chunk-cooperative path (single preset).
-#   - szp_composed: no native SZp CLI in this repo -> FZGM-only showcase row.
+#   - szp_composed is an FZGM-only SZp-inspired composition, not an exact native
+#     SZp/fZ-light reconstruction or byte-compatible container.
 #   - fzgpu is float32-only -> dropped on both sides for the f64 datasets (MIRANDA,
 #     S3D, NWCHEM, BROWN), same as fzgm_vs_native_full.yaml.
 #   - NEW TERRITORY: the smoke was f32-only. The f64 _sp rows (cuszp2/cuszp3 on
@@ -98,8 +100,8 @@
 name: specialization_vs_native_full
 description: >
   Full-corpus Pipeline Specialization vs native for cuSZ, cuSZp2 (plain/outlier),
-  cuSZp3 (plain/outlier, dim-matched), FZ-GPU and PFPL, plus an FZGM-only
-  szp_composed showcase — every field of all 13 usable SDRBench datasets
+  cuSZp3 (fixed/plain/outlier, dim-matched), FZ-GPU and PFPL, plus an FZGM-only
+  SZp-inspired szp_composed showcase — every field of all 13 usable SDRBench datasets
   (186 fields), eb in {1e-2, 1e-3, 1e-4}, rel_range. Run twice (FZ_SPECIALIZE=off
   then auto). _sp arms only.
 
@@ -172,6 +174,18 @@ runs:
   - {compressor: cuszp2, variant: cuszp2_plain,      pipeline: plain}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_sp,   pipeline: configs/pipelines/cuszp2_plain_sp.toml}
 
+  # ── cuSZp3 fixed (no predictor; non-specializing performance control) ──────
+  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: "fixed:2d", only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml, only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: "fixed:3d",
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: fixed,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+
   # ── cuSZp3 plain (dimension-matched) ──────────────────────────────────────
   - {compressor: cuszp3, variant: cuszp3_plain,      pipeline: "plain:2d", only_datasets: [CESM-2D]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp,   pipeline: configs/pipelines/cuszp3_plain_sp.toml, only_datasets: [CESM-2D]}
@@ -206,5 +220,5 @@ runs:
   - {compressor: pfpl, variant: pfpl, pipeline: default}
   - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
 
-  # ── SZp composed — FZGM-only showcase (no native SZp CLI in this repo) ─────
+  # ── SZp-inspired composition — FZGM-only; not native/byte parity ───────────
   - {<<: *fzgm_tool, compressor: fzgm, variant: szp_composed, pipeline: configs/pipelines/szp_composed.toml}

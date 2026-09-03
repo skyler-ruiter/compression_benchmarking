@@ -39,7 +39,7 @@
 name: fzgm_only_full
 description: >
   Full-corpus FZGM-only sweep (no native references) across cuSZ, cuSZ-Hi (tp/cr),
-  cuSZp2 (plain/outlier), cuSZp3 (plain/outlier), FZ-GPU and PFPL — every field of
+  cuSZp2 (plain/outlier), cuSZp3 (fixed/plain/outlier), FZ-GPU and PFPL — every field of
   all 13 usable SDRBench datasets (186 fields), eb in {1e-2, 1e-3, 1e-4}, rel_range.
 
 # Every dataset takes all of its declared fields EXCEPT the one listed below — a
@@ -90,6 +90,8 @@ runs:
   - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
   - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
 
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml}
+
   # cuszp3 — 2-D preset
   - {compressor: fzgm,   variant: cuszp3_plain,   pipeline: configs/pipelines/cuszp3.toml,
      only_datasets: [CESM-2D]}
@@ -111,4 +113,3 @@ runs:
      skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
 
   - {compressor: fzgm,   variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}
-

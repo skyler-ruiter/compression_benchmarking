@@ -2,7 +2,7 @@
 # only with FZ_FUSION=auto and require fusion_installed_group_count > 0 per row.
 # PlainBitpackCoder rows are fused-versus-native only, not staged/fused pairs.
 name: fusion_standard_full_auto
-description: Full-f32-corpus Auto-specialized FZGM cuSZp1/2/3 and PFPL study.
+description: Full-f32-corpus Auto-specialized FZGM cuSZp2/3 and PFPL study.
 
 datasets:
   - CESM-2D
@@ -50,7 +50,6 @@ x-fzgm-tool: &fzgm_tool
   tool_patch_sha256: 21f8c98eeee200d1d3fda6078a0dfe33ec270c5acea2839fab3a0329957357ab
 
 runs:
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp1_plain_auto, pipeline: configs/pipelines/cuszp2_plainfused.toml}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_outlier_auto, pipeline: configs/pipelines/cuszp2_sp.toml}
 
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_auto, pipeline: configs/pipelines/cuszp3_plainfused.toml, only_datasets: [CESM-2D]}

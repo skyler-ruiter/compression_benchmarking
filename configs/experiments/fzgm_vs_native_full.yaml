@@ -2,14 +2,14 @@
 #
 # This is the full-corpus counterpart to fzgm_vs_native.yaml. That config runs one field
 # per shape class (4 fields, 210 cells, ~1 h) and is the right thing for a regression
-# check; this one runs the whole corpus (186 fields, ~9.8k cells, ~27 h on an H100) and is
+# check; this one runs the whole corpus (186 fields, ~10.8k cells, ~30 h on an H100) and is
 # the right thing for a paper table, where "we picked one field per dataset" is a
 # selection-bias question you do not want to have to answer.
 #
 # Same pairings, same error sweep, same methodology as fzgm_vs_native.yaml — the ONLY
 # difference is field coverage plus the four datasets that config never touched
 # (CESMATM-3D, MIRANDA, EXAALT, QMCPACK-3D). Cell-for-cell comparable with it on the
-# 4 fields they share.
+# 4 fields they share. This refreshed matrix also includes cuSZp3 fixed mode.
 #
 # ---------------------------------------------------------------------------
 # Runtime and disk
@@ -18,7 +18,7 @@
 # 4.8 s at 26 MB to 21.8 s at 1.1 GB (strongly sublinear — fixed per-cell overhead
 # dominates small fields), MINUS the quality-metric speedup landed 2026-07-28 (that
 # computation was 4.1 s of a 9.1 s cell and is now ~1.0 s; see benchkit/metrics.py).
-# Estimated ~27 h total (~31 h before that fix), of which CESMATM-3D alone is ~8 h
+# Estimated ~30 h total after adding the cuSZp3 fixed pair, of which CESMATM-3D alone is ~9 h
 # (33 fields x 674 MB) and CESM-2D another ~5.5 h (79 small fields, overhead-dominated).
 #
 # Note the GPU is NOT the bottleneck — it idles near 0% because per-cell kernel time is
@@ -70,7 +70,7 @@
 name: fzgm_vs_native_full
 description: >
   Full-corpus FZGM-vs-native validation across cuSZ, cuSZ-Hi (tp/cr),
-  cuSZp2 (plain/outlier), cuSZp3 (plain/outlier), FZ-GPU and PFPL — every field of
+  cuSZp2 (plain/outlier), cuSZp3 (fixed/plain/outlier), FZ-GPU and PFPL — every field of
   all 13 usable SDRBench datasets (186 fields), eb in {1e-2, 1e-3, 1e-4}, rel_range.
 
 # Every dataset takes all of its declared fields EXCEPT the one listed below — a
@@ -136,6 +136,21 @@ runs:
   - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
   - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
   - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  # cuSZp3 fixed — no predictor; dimension-specific native kernels against the
+  # supported FZGM Quantizer -> AdaptiveBitpack preset.
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:3d",
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: fixed,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
 
   # cuszp3 — 2-D preset
   - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d",

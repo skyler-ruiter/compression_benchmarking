@@ -1,18 +1,17 @@
 [pipeline]
-# SZp / fZ-light — the SUPPORTED modular expression of the SZp algorithm.
+# SZp / fZ-light-inspired modular composition.
 #   Quantizer(linear) -> Lorenzo(block_size=128) -> AdaptiveBitpack(block_size=128)
 #
-# SZp's inner loop is 1-D Lorenzo prediction + error-bound quantization + per-block
-# fixed-length residual packing, no entropy coder. That is exactly this three-stage
-# chain at SZp's default block size of 128. The monolithic SZpStage reference
-# implementation is quarantined under FZGPUModules
-# experimental/reference_compressors/szp/ and is NOT a supported module; use this
-# preset for the SZp algorithm.
+# This matches SZp's published high-level quantize -> 1-D Lorenzo -> sign-bit /
+# fixed-width packing structure, with no entropy coder. It is not exact upstream
+# behavior: CPU SZp truncates x/eb, stores a seed per OpenMP partition, and carries
+# prediction across its small-block boundaries. FZGM uses its generic
+# round(x/(2eb)) quantizer and resets Lorenzo per 128-value block.
 #
 # Under FZ_SPECIALIZE=auto the whole chain fuses into one warp-register kernel
 # (forward) and one warp-register-inverse kernel (decompress). There is no native
-# SZp CLI wired into this repo, so the fzgm row here is an FZGM-only showcase of
-# the specialization gain, not a vs-native pairing.
+# SZp CLI wired into this repo, so this is an FZGM-only specialization showcase,
+# not a native-parity or container-compatibility claim.
 memory_strategy = "PREALLOCATE"
 
 [[stage]]

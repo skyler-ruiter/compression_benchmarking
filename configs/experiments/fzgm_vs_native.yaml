@@ -11,6 +11,7 @@
 #   cuszhi (cr)        : configs/pipelines/cusz_hi_cr.toml    (-s cr, spline predictor)
 #   cuszp2 (outlier)   : configs/pipelines/cuszp2.toml         (Lorenzo block=32 + outlier)
 #   cuszp2 (plain)     : configs/pipelines/cuszp2_plain.toml   (Lorenzo block=32, no outlier)
+#   cuszp3 (fixed)     : configs/pipelines/cuszp3_fixed.toml   (no predictor)
 #   cuszp3 (plain)     : configs/pipelines/cuszp3.toml         (TiledLorenzo 8x8,   CESM-2D only)
 #                        configs/pipelines/cuszp3_3d.toml      (TiledLorenzo 4x4x4, HURR/NYX only)
 #                        configs/pipelines/cuszp3_1d.toml      (Lorenzo block=32,   HACC only)
@@ -47,7 +48,7 @@
 name: fzgm_vs_native
 description: >
   FZGM-vs-native validation across cuSZ, cuSZ-Hi (tp/cr), cuSZp2 (plain/outlier),
-  cuSZp3 (plain/outlier), FZ-GPU, and PFPL — one field per shape class,
+  cuSZp3 (fixed/plain/outlier), FZ-GPU, and PFPL — one field per shape class,
   eb in {1e-2, 1e-3, 1e-4}, rel_range.
 
 datasets:
@@ -87,6 +88,21 @@ runs:
   - {compressor: fzgm,   variant: cuszp2_outlier, pipeline: configs/pipelines/cuszp2.toml}
   - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
   - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
+
+  # cuSZp3 fixed has no predictor. Native uses its dimension-specific kernel;
+  # the supported FZGM preset uses 64-value AdaptiveBitpack blocks.
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:2d",
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:3d",
+     only_datasets: [HURR, NYX]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [HURR, NYX]}
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: fixed,
+     only_datasets: [HACC]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [HACC]}
 
   - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d",
      only_datasets: [CESM-2D]}

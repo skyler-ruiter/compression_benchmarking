@@ -1,6 +1,6 @@
 # Running the full-corpus sweep
 
-The full-corpus experiment (`configs/experiments/fzgm_vs_native_full.yaml`, ~9.8k cells
+The full-corpus experiment (`configs/experiments/fzgm_vs_native_full.yaml`, ~10.8k cells
 over 186 fields) replaces the 4-field `fzgm_vs_native.yaml` for paper-scale results.
 This page is the per-machine runbook.
 
@@ -113,7 +113,7 @@ nohup python -m benchkit run configs/experiments/fzgm_vs_native_full.yaml \
       > "$BENCHKIT_RESULTS_ROOT/_run_logs/fullcorpus.log" 2>&1 &
 ```
 
-~27 h. **Do not shard this across concurrent processes on the one GPU.** The GPU idles
+~30 h. **Do not shard this across concurrent processes on the one GPU.** The GPU idles
 near 0% (per-cell kernel time is milliseconds against seconds of host work), so it looks
 like free parallelism, but overlapping processes contend during the timed kernels and
 corrupt the throughput numbers the sweep exists to produce. Sharding is for separate

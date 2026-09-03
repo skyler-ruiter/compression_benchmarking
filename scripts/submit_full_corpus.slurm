@@ -2,7 +2,7 @@
 # SLURM job ARRAY template for the full-corpus sweep.
 #
 # Unlike scripts/submit_fzgm_vs_native.slurm (single task, 210 cells, ~1 h) this runs
-# ~9.8k cells and must be sharded: each array task takes cells where
+# ~10.8k cells and must be sharded: each array task takes cells where
 # index % N == SLURM_ARRAY_TASK_ID, writes its own runs.shard-k-of-N.jsonl (so tasks
 # never contend on a single file), and captures its own provenance (array tasks may
 # land on different nodes).

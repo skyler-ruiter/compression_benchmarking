@@ -27,10 +27,6 @@ x-fzgm-tool: &fzgm_tool
 runs:
   - <<: *fzgm_tool
     compressor: fzgm
-    variant: cuszp1_plain_auto
-    pipeline: configs/pipelines/cuszp2_plainfused.toml
-  - <<: *fzgm_tool
-    compressor: fzgm
     variant: cuszp2_outlier_auto
     pipeline: configs/pipelines/cuszp2_sp.toml
   - <<: *fzgm_tool

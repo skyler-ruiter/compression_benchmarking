@@ -119,14 +119,14 @@ python -m benchkit run <exp> --session-id "$SLURM_ARRAY_JOB_ID" --shard "$SLURM_
 
 ## Full-corpus sweep
 
-The paper-scale experiment is `configs/experiments/fzgm_vs_native_full.yaml` (~9.8k
-cells, 186 fields, ~27 h on an H100) with an FZGM-only counterpart
+The paper-scale experiment is `configs/experiments/fzgm_vs_native_full.yaml` (~10.8k
+cells, 186 fields, ~30 h on an H100) with an FZGM-only counterpart
 `fzgm_only_full.yaml` for machines without native builds. **Read
 `docs/running-the-full-corpus.md` before running it on any machine** — it covers the
 data prerequisites (two datasets need splitting before they are usable), the per-site
 commands, the sharding/resume workflow, and the memory ceilings.
 
-Don't re-run all ~9.8k cells for a one-stage FZGM change — ask which cells it affects:
+Don't re-run all ~10.8k cells for a one-stage FZGM change — ask which cells it affects:
 
 ```bash
 python -m benchkit stale <session>/                          # stage -> cells using it

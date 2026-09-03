@@ -4,7 +4,7 @@
 # Runs configs/experiments/specialization_vs_native_full.yaml as an off/auto A/B
 # (FZ_SPECIALIZE), verifies each session, prints the aggregated report. Run the
 # smoke (scripts/run-specialization-smoke.sh) FIRST and confirm it is clean on
-# this machine — this is ~46 h of GPU time on an H100 for the pair.
+# this machine — this is ~52 h of GPU time on an H100 for the pair.
 #
 #   scripts/run-specialization-full.sh <host-tag> [<site-env-script>]
 #
@@ -66,7 +66,8 @@ Gate checks (must hold):
   - per-cell CR identical off vs auto for every fzgm row (byte-identical payload)
   - fusion_installed_group_count / fusion_inverse_installed_group_count > 0 for
     every *_sp / pfpl / szp_composed row in AUTO, 0 in OFF
-  - cusz / fzgpu rows: auto == off exactly (controls — they never specialize)
+  - cusz / fzgpu / cuszp3_fixed rows: auto == off exactly
+    (controls — they never specialize)
   - f64 _sp rows (MIRANDA/S3D/NWCHEM/BROWN): confirm AUTO actually fused; a silent
     staged fallback is a finding to report, not a failure
 

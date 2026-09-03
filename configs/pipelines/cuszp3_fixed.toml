@@ -1,0 +1,25 @@
+[pipeline]
+# cuSZp3 fixed mode: quantization followed directly by per-block fixed-width
+# packing. There is no Lorenzo predictor. This mirrors the supported FZGM
+# preset and is used as the FZGM side of the native cuSZp3 fixed comparison.
+#
+# The current warp-register specialization requires
+# Quantizer -> block-local predictor -> AdaptiveBitpack, so this two-stage
+# chain is intentionally a non-specializing performance control.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "quant", port = "codes"}]

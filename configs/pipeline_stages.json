@@ -80,6 +80,32 @@
         "Zigzag"
       ]
     },
+    "cusz_hi_cr_hufbook_adaptive.toml": {
+      "compress": [
+        "GInterp",
+        "Huffman",
+        "Merge",
+        "RRE",
+        "Zigzag",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Zigzag",
+        "RRE",
+        "Merge",
+        "Huffman",
+        "GInterp"
+      ],
+      "stages": [
+        "GInterp",
+        "Huffman",
+        "Merge",
+        "RRE",
+        "RZE",
+        "Zigzag"
+      ]
+    },
     "cusz_hi_tp.toml": {
       "compress": [
         "GInterp",
@@ -208,6 +234,20 @@
         "LorenzoQuant"
       ]
     },
+    "cusz_nocolor.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Huffman"
+      ],
+      "decompress": [
+        "Huffman",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Huffman",
+        "LorenzoQuant"
+      ]
+    },
     "cuszp2.toml": {
       "compress": [
         "Quantizer",
@@ -243,6 +283,91 @@
       ]
     },
     "cuszp2_plain.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp2_plain_sp.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp2_plainfused.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp2_power2.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp2_sp.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "cuszp2_sp_nocolor.toml": {
       "compress": [
         "Quantizer",
         "Lorenzo",
@@ -344,7 +469,123 @@
         "TiledLorenzo"
       ]
     },
+    "cuszp3_3d_plain_sp.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_3d_plainfused.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_3d_sp.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_fixed.toml": {
+      "compress": [
+        "Quantizer",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer"
+      ]
+    },
     "cuszp3_outlier.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_outlier_sp.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_plain_sp.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Quantizer",
+        "TiledLorenzo"
+      ]
+    },
+    "cuszp3_plainfused.toml": {
       "compress": [
         "Quantizer",
         "TiledLorenzo",
@@ -653,6 +894,66 @@
         "RZE"
       ]
     },
+    "pfpl_clog.toml": {
+      "compress": [
+        "Quantizer",
+        "Difference",
+        "Bitshuffle",
+        "CLOG"
+      ],
+      "decompress": [
+        "CLOG",
+        "Bitshuffle",
+        "Difference",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "CLOG",
+        "Difference",
+        "Quantizer"
+      ]
+    },
+    "pfpl_hclog.toml": {
+      "compress": [
+        "Quantizer",
+        "Difference",
+        "Bitshuffle",
+        "HCLOG"
+      ],
+      "decompress": [
+        "HCLOG",
+        "Bitshuffle",
+        "Difference",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "Difference",
+        "HCLOG",
+        "Quantizer"
+      ]
+    },
+    "pfpl_inplace.toml": {
+      "compress": [
+        "Quantizer",
+        "Difference",
+        "Bitshuffle",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Bitshuffle",
+        "Difference",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "Difference",
+        "Quantizer",
+        "RZE"
+      ]
+    },
     "pfpl_minimal.toml": {
       "compress": [
         "Quantizer",
@@ -671,6 +972,37 @@
         "Difference",
         "Quantizer",
         "RZE"
+      ]
+    },
+    "pfpl_nocolor.toml": {
+      "compress": [
+        "Quantizer",
+        "Difference",
+        "Bitshuffle",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Bitshuffle",
+        "Difference",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "Difference",
+        "Quantizer",
+        "RZE"
+      ]
+    },
+    "quantizer_linear_accurate.toml": {
+      "compress": [
+        "Quantizer"
+      ],
+      "decompress": [
+        "Quantizer"
+      ],
+      "stages": [
+        "Quantizer"
       ]
     },
     "quantizer_lorenzo_bitpack.toml": {
@@ -710,6 +1042,221 @@
         "Bitpack",
         "Lorenzo",
         "Quantizer",
+        "Zigzag"
+      ]
+    },
+    "szp_composed.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "szp_composed_nocolor.toml": {
+      "compress": [
+        "Quantizer",
+        "Lorenzo",
+        "AdaptiveBitpack"
+      ],
+      "decompress": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "AdaptiveBitpack",
+        "Lorenzo",
+        "Quantizer"
+      ]
+    },
+    "x_ginterp_huffman_ans.toml": {
+      "compress": [
+        "GInterp",
+        "Huffman",
+        "Merge",
+        "RRE",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "RRE",
+        "Merge",
+        "Huffman",
+        "GInterp"
+      ],
+      "stages": [
+        "ANS",
+        "GInterp",
+        "Huffman",
+        "Merge",
+        "RRE"
+      ]
+    },
+    "x_lorenzoquant_lc_ans.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Bitshuffle",
+        "RRE",
+        "RZE",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "RZE",
+        "RRE",
+        "Bitshuffle",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "ANS",
+        "Bitshuffle",
+        "LorenzoQuant",
+        "RRE",
+        "RZE"
+      ]
+    },
+    "x_lorenzoquant_pfpl.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Bitshuffle",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Bitshuffle",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "LorenzoQuant",
+        "RZE"
+      ]
+    },
+    "x_lorenzoquant_pfpl_ans.toml": {
+      "compress": [
+        "LorenzoQuant",
+        "Bitshuffle",
+        "RZE",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "RZE",
+        "Bitshuffle",
+        "LorenzoQuant"
+      ],
+      "stages": [
+        "ANS",
+        "Bitshuffle",
+        "LorenzoQuant",
+        "RZE"
+      ]
+    },
+    "x_tiledlorenzo_pfpl_2d.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "Zigzag",
+        "Bitshuffle",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Bitshuffle",
+        "Zigzag",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "Quantizer",
+        "RZE",
+        "TiledLorenzo",
+        "Zigzag"
+      ]
+    },
+    "x_tiledlorenzo_pfpl_3d.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "Zigzag",
+        "Bitshuffle",
+        "RZE"
+      ],
+      "decompress": [
+        "RZE",
+        "Bitshuffle",
+        "Zigzag",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "Bitshuffle",
+        "Quantizer",
+        "RZE",
+        "TiledLorenzo",
+        "Zigzag"
+      ]
+    },
+    "x_tiledlorenzo_pfpl_ans_2d.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "Zigzag",
+        "Bitshuffle",
+        "RZE",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "RZE",
+        "Bitshuffle",
+        "Zigzag",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "ANS",
+        "Bitshuffle",
+        "Quantizer",
+        "RZE",
+        "TiledLorenzo",
+        "Zigzag"
+      ]
+    },
+    "x_tiledlorenzo_pfpl_ans_3d.toml": {
+      "compress": [
+        "Quantizer",
+        "TiledLorenzo",
+        "Zigzag",
+        "Bitshuffle",
+        "RZE",
+        "ANS"
+      ],
+      "decompress": [
+        "ANS",
+        "RZE",
+        "Bitshuffle",
+        "Zigzag",
+        "TiledLorenzo",
+        "Quantizer"
+      ],
+      "stages": [
+        "ANS",
+        "Bitshuffle",
+        "Quantizer",
+        "RZE",
+        "TiledLorenzo",
         "Zigzag"
       ]
     }

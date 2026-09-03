@@ -65,7 +65,7 @@ Done. Compare the off vs auto sessions:
 
   # per-row: fusion_installed_group_count / fusion_inverse_installed_group_count
   # must be > 0 for every *_sp / pfpl / szp_composed row in the AUTO session,
-  # and 0 in the OFF session and for every *_hp row.
+  # and 0 in the OFF session and for every *_hp / cuszp3_fixed row.
 
 Snapshot both sessions to results/baselines/<id>/ per results/baselines/README.md.
 EOF

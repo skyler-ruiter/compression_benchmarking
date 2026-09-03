@@ -60,8 +60,9 @@
 # ---------------------------------------------------------------------------
 # Structural notes
 # ---------------------------------------------------------------------------
-#   - cusz / fzgpu never specialize (Huffman entropy stage / FZ-GPU's bitshuffle
-#     shape). One fzgm row each; kept so the table has the full family.
+#   - cusz / fzgpu / cuszp3_fixed never specialize (Huffman entropy stage,
+#     FZ-GPU's bitshuffle shape, or no block-local predictor). One fzgm row each;
+#     kept so the table has the full family and explicit off/auto controls.
 #   - cuszp3 (TiledLorenzo) now specializes BOTH directions: the warp inverse
 #     reconstructs each tile by the separable prefix sum + scatters to natural
 #     row-major (fused_unpack_tiled_body). The 3-D gain is small (~1.05-1.12x
@@ -77,7 +78,8 @@
 name: specialization_vs_native_smoke
 description: >
   Pipeline Specialization vs native for cusz, cuszp2 (plain/outlier), cuszp3
-  (plain/outlier, dim-matched), fzgpu, pfpl, plus an FZGM-only szp_composed
+  (fixed/plain/outlier, dim-matched), fzgpu, pfpl, plus an FZGM-only
+  SZp-inspired szp_composed
   showcase — 4 shape-class fields, eb in {1e-2,1e-3,1e-4}, rel_range. Run twice
   (FZ_SPECIALIZE=off then auto).
 
@@ -126,6 +128,14 @@ runs:
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_hp, pipeline: configs/pipelines/cuszp2_plain.toml}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_sp, pipeline: configs/pipelines/cuszp2_plain_sp.toml}
 
+  # ── cuSZp3 fixed (no predictor; non-specializing performance control) ──────
+  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: "fixed:2d", only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml, only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: "fixed:3d", only_datasets: [HURR, NYX]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml, only_datasets: [HURR, NYX]}
+  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: fixed, only_datasets: [HACC]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml, only_datasets: [HACC]}
+
   # ── cuSZp3 plain (dimension-matched) ──────────────────────────────────────
   - {compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:2d", only_datasets: [CESM-2D]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_hp, pipeline: configs/pipelines/cuszp3.toml, only_datasets: [CESM-2D]}
@@ -156,5 +166,5 @@ runs:
   - {compressor: pfpl, variant: pfpl, pipeline: default}
   - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
 
-  # ── SZp composed — FZGM-only showcase (no native SZp CLI in this repo) ─────
+  # ── SZp-inspired composition — FZGM-only; not native/byte parity ───────────
   - {<<: *fzgm_tool, compressor: fzgm, variant: szp_composed, pipeline: configs/pipelines/szp_composed.toml}
