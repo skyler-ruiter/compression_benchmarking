@@ -6,10 +6,24 @@ fusion, specialization-aware buffer coloring). See `docs/DESIGN.md` D42 and
 `docs/adapters/fzgm.md`.
 
 Experiments (each launched twice — `FZ_SPECIALIZE=off` then `auto`):
-- `configs/experiments/specialization_vs_native_smoke.yaml`
-- `configs/experiments/specialization_memory_smoke.yaml`
-Driver: `scripts/run-specialization-smoke.sh <host-tag> [<env-script>]`
-(`SPEC_FZGM_ONLY=1` for machines with no native CUDA compressors).
+- `configs/experiments/specialization_vs_native_smoke.yaml` — 4 shape-class fields, preflight
+- `configs/experiments/specialization_memory_smoke.yaml` — peak-memory / buffer-coloring ablation
+- `configs/experiments/specialization_vs_native_full.yaml` — full 186-field corpus, `_sp` arms
+  only, ~46 h/pair on an H100. Run ONLY after the smoke is confirmed clean on the machine.
+
+Drivers:
+- `scripts/run-specialization-smoke.sh <host-tag> [<env-script>]`
+  (`SPEC_FZGM_ONLY=1` for machines with no native CUDA compressors)
+- `scripts/run-specialization-full.sh <host-tag> [<env-script>]`
+  (`SPEC_SHARD="k/N"` + `SPEC_DATE_TAG="$SLURM_ARRAY_JOB_ID"` for SLURM arrays)
+
+**Expected non-zero `benchkit verify` on a full run** (none are specialization bugs;
+all are identical off vs auto): native eb-bound misses (cuSZ on tight HACC bounds,
+native `cuszp3_outlier` on some CESM-2D / HURR fields — the smoke's were all 6
+native), auto-excluded by the validity gate; HPC timing `cv` flags on SLURM nodes
+(no locked clocks — use `--exclusive`); h3 reference-build provenance on a
+non-publication smoke. A **CR drift off↔auto on any fzgm row IS a bug** — the
+payload is byte-identical between the two sessions.
 
 ## Fleet
 
