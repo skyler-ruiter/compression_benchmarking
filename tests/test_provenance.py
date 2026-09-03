@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from benchkit.config import DatasetCatalog
 from benchkit.dataset_checksums import dump_checksum_lock
-from benchkit.provenance import assign_provenance_id, capture_git_state
+from benchkit.provenance import _software_env, assign_provenance_id, capture_git_state
 from benchkit.runner import verify_dataset_inputs
 from benchkit.schema import SchemaError, dumps_session
 from benchkit.site import Site
@@ -15,6 +15,15 @@ from benchkit.store import ResultStore
 
 
 class H3ProvenanceTests(unittest.TestCase):
+    def test_software_env_captures_portable_gpu_build_target(self):
+        with patch.dict("os.environ", {
+                "BENCHKIT_GPU_ARCH": "sm_89", "CUDA_ARCH": "89",
+                "FZGMOD_BACKEND": "CUDA"}, clear=False):
+            build = _software_env()["build_environment"]
+        self.assertEqual(build["BENCHKIT_GPU_ARCH"], "sm_89")
+        self.assertEqual(build["CUDA_ARCH"], "89")
+        self.assertEqual(build["FZGMOD_BACKEND"], "CUDA")
+
     def test_catalog_retains_exact_manifest_and_declared_digest(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

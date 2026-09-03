@@ -71,10 +71,11 @@
 #   - cuSZ-Hi is dropped entirely: its spline predictor (GInterpStage) is not a
 #     fusable shape, so there is no off<->auto story. Its standalone reference data
 #     is in fzgm_vs_native_full.yaml.
-#   - cuszp3 is dimension-matched end to end (D17): 2-D 8x8 for CESM-2D, 3-D 4x4x4
-#     for every 3-D dataset, block-32 Lorenzo for 1-D (HACC/EXAALT/NWCHEM/BROWN).
+#   - cuszp3 plain/outlier are dimension-matched end to end (D17): 2-D 8x8 for
+#     CESM-2D, 3-D 4x4x4 for every 3-D dataset, and block-32 Lorenzo for 1-D.
 #     There is no cuszp3_1d_*_sp preset — the block-32 cuszp2_*_sp chain IS the
 #     dimension-matched _sp equivalent for 1-D (identical predictor + coder).
+#     Predictor-free fixed mode uses native's flat kernel for every shape.
 #   - cuszp3 now specializes BOTH directions (096a5ba): the warp inverse
 #     reconstructs each tile by the separable prefix sum, then scatters to natural
 #     row-major (fused_unpack_tiled_body). 3-D decompress gain is small (~1.05-
@@ -141,9 +142,39 @@ retain_compressed: false   # non-negotiable at this scale — see the disk note 
 
 x-fzgm-tool: &fzgm_tool
   tool_version: 2.0.0-dev
-  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
-  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_source_commit: b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  tool_build_flags: Release;backend/GPU-arch/toolchain captured in session build_environment
   tool_patch_sha256: clean
+
+x-cusz-tool: &cusz_tool
+  tool_version: 0.17.3
+  tool_source_commit: e1c0135f2309921e13e7dac72c00101381e60c23
+  tool_build_flags: Release;PSZ_BACKEND=cuda;PSZ_BUILD_EXAMPLES=on;GPU-arch captured in session;recipe=compressors/build/cusz.sh
+  tool_patch_sha256: 0369a8d48e19f9102b01678571e52a42889444f35bfdd6da955f022614a45fd9
+
+x-cuszp2-tool: &cuszp2_tool
+  tool_version: 2.0.1
+  tool_source_commit: 240240b2f8cc3984236c6cea1f18658ef535a81c
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/cuszp2.sh
+  tool_patch_sha256: e0eec4a8fdef5c92f91fde9c4c3df1238ae1d872f2922b8fdc4660feac735c27
+
+x-cuszp3-tool: &cuszp3_tool
+  tool_version: 3.0.0
+  tool_source_commit: da90afb42770fcef6129cb586cf185c7d54c614c
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/cuszp3.sh
+  tool_patch_sha256: c55b20ff1477f0cbf76247da9a879f5d0a94aac6063e17beefd32340ebe633bb
+
+x-fzgpu-tool: &fzgpu_tool
+  tool_version: 0.1-3-g
+  tool_source_commit: c7e83f7614c8505e9b539190606b11589273696b
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/fz-gpu.sh
+  tool_patch_sha256: 5f2d0e9782a0e02cb392ad04e7eaf4b560e2f013c5445096eec7bd0e38dd46b1
+
+x-pfpl-tool: &pfpl_tool
+  tool_version: 36f5aaef
+  tool_source_commit: 36f5aaef42744ed78b4d1525b03a7fb2168b363c
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/pfpl.sh
+  tool_patch_sha256: 9e082a37372f894e6a8af3797cbe72f05412197569edd1a4f54e2f82fe1d70b6
 
 verification:
   accepted_failures:
@@ -163,61 +194,53 @@ verification:
 
 runs:
   # ── cuSZ (Lorenzo-Quant → Huffman; never specializes — CONTROL) ────────────
-  - {compressor: cusz, variant: cusz, pipeline: default}
+  - {<<: *cusz_tool, compressor: cusz, variant: cusz, pipeline: default}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cusz, pipeline: configs/pipelines/cusz.toml}
 
   # ── cuSZp2 outlier ────────────────────────────────────────────────────────
-  - {compressor: cuszp2, variant: cuszp2_outlier,    pipeline: outlier}
+  - {<<: *cuszp2_tool, compressor: cuszp2, variant: cuszp2_outlier,    pipeline: outlier}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml}
 
   # ── cuSZp2 plain ──────────────────────────────────────────────────────────
-  - {compressor: cuszp2, variant: cuszp2_plain,      pipeline: plain}
+  - {<<: *cuszp2_tool, compressor: cuszp2, variant: cuszp2_plain,      pipeline: plain}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_sp,   pipeline: configs/pipelines/cuszp2_plain_sp.toml}
 
   # ── cuSZp3 fixed (no predictor; non-specializing performance control) ──────
-  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: "fixed:2d", only_datasets: [CESM-2D]}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml, only_datasets: [CESM-2D]}
-  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: "fixed:3d",
-     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
-  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: fixed,
-     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_fixed, pipeline: fixed}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml}
 
   # ── cuSZp3 plain (dimension-matched) ──────────────────────────────────────
-  - {compressor: cuszp3, variant: cuszp3_plain,      pipeline: "plain:2d", only_datasets: [CESM-2D]}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_plain,      pipeline: "plain:2d", only_datasets: [CESM-2D]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp,   pipeline: configs/pipelines/cuszp3_plain_sp.toml, only_datasets: [CESM-2D]}
-  - {compressor: cuszp3, variant: cuszp3_plain,      pipeline: "plain:3d",
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_plain,      pipeline: "plain:3d",
      only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp,   pipeline: configs/pipelines/cuszp3_3d_plain_sp.toml,
      only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
-  - {compressor: cuszp3, variant: cuszp3_plain,      pipeline: plain,
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_plain,      pipeline: plain,
      only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_plain_sp,   pipeline: configs/pipelines/cuszp2_plain_sp.toml,
      only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
 
   # ── cuSZp3 outlier (dimension-matched) ────────────────────────────────────
-  - {compressor: cuszp3, variant: cuszp3_outlier,    pipeline: "outlier:2d", only_datasets: [CESM-2D]}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_outlier,    pipeline: "outlier:2d", only_datasets: [CESM-2D]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_outlier_sp.toml, only_datasets: [CESM-2D]}
-  - {compressor: cuszp3, variant: cuszp3_outlier,    pipeline: "outlier:3d",
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_outlier,    pipeline: "outlier:3d",
      only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_3d_sp.toml,
      only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
-  - {compressor: cuszp3, variant: cuszp3_outlier,    pipeline: outlier,
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_outlier,    pipeline: outlier,
      only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml,
      only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
 
   # ── FZ-GPU (bitshuffle shape; never specializes — CONTROL; f32 only) ───────
-  - {compressor: fzgpu, variant: fzgpu, pipeline: default,
+  - {<<: *fzgpu_tool, compressor: fzgpu, variant: fzgpu, pipeline: default,
      skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
   - {<<: *fzgm_tool, compressor: fzgm, variant: fzgpu, pipeline: configs/pipelines/fzgpu.toml,
      skip_datasets: [MIRANDA, S3D, NWCHEM, BROWN]}
 
   # ── PFPL (chunk-cooperative specialization; single preset) ────────────────
-  - {compressor: pfpl, variant: pfpl, pipeline: default}
+  - {<<: *pfpl_tool, compressor: pfpl, variant: pfpl, pipeline: default}
   - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
 
   # ── SZp-inspired composition — FZGM-only; not native/byte parity ───────────

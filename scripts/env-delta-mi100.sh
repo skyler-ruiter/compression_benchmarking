@@ -39,6 +39,8 @@ export CPATH="$(echo "$CPATH" | tr ':' '\n' | grep -v "nvidia/hpc_sdk" | paste -
 # No $SCRATCH env var on Delta; project scratch is /scratch/bdqz/$USER.
 export BENCHKIT_DATA_ROOT="/scratch/bdqz/${USER}/sdrbench_data"
 export BENCHKIT_RESULTS_ROOT="/scratch/bdqz/${USER}/benchkit-results"
+export BENCHKIT_GPU_ARCH="gfx908"
+export FZGMOD_BACKEND="HIP"
 
 # ── FZGM ─────────────────────────────────────────────────────────────────────
 # HIP (gfx908) Release build, verified on hardware: full compress/decompress

@@ -29,6 +29,9 @@ module load cmake/3.29.2 2>/dev/null || true
 # datasets, builds, and results (1TB quota, snapshotted, not backed up off-site).
 export BENCHKIT_DATA_ROOT="/data/user/sruiter/compression/sdrbench_data"
 export BENCHKIT_RESULTS_ROOT="/data/user/sruiter/compression/results"
+export BENCHKIT_GPU_ARCH="sm_89"
+export CUDA_ARCH="89"
+export FZGMOD_BACKEND="CUDA"
 
 if [ ! -d "${BENCHKIT_DATA_ROOT}" ]; then
     echo "env-lair.sh: BENCHKIT_DATA_ROOT=${BENCHKIT_DATA_ROOT} is missing." >&2

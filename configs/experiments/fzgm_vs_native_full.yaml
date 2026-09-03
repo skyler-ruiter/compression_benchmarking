@@ -60,9 +60,10 @@
 #     caught 132 guaranteed-fail cells. Unlike fzgpu this is asymmetric — FZGM's cuszhi
 #     handles f64 fine, so its MIRANDA/S3D rows are kept as FZGM-only f64 data. NOTE this
 #     changes the native-cuszhi row count vs. any run started before this date.
-#   - cuszp3 is dimension-matched end to end (D17): the 2-D 8x8 preset for CESM-2D, the
-#     3-D 4x4x4 preset for every 3-D dataset, the 1-D Lorenzo(block=32) preset for
-#     HACC/EXAALT. Mismatching these silently pairs different algorithms.
+#   - cuszp3 plain/outlier are dimension-matched end to end (D17): the 2-D 8x8
+#     preset for CESM-2D, the 3-D 4x4x4 preset for every 3-D dataset, and the 1-D
+#     Lorenzo(block=32) preset for HACC/EXAALT. Fixed mode is predictor-free and
+#     uses native's flat kernel for every shape to match FZGM's block layout.
 #   - QMCPACK (4-D) is excluded; QMCPACK-3D — the same data split along its slowest axis
 #     into independent 3-D orbitals — is used instead. See configs/datasets.yaml and
 #     scripts/extract_qmcpack_orbitals.py for why splitting beats flattening.
@@ -137,20 +138,10 @@ runs:
   - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
   - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
 
-  # cuSZp3 fixed — no predictor; dimension-specific native kernels against the
-  # supported FZGM Quantizer -> AdaptiveBitpack preset.
-  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:2d",
-     only_datasets: [CESM-2D]}
-  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [CESM-2D]}
-  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:3d",
-     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
-  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
-  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: fixed,
-     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
-  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
+  # cuSZp3 fixed — no predictor; flat native kernel against the supported FZGM
+  # Quantizer -> AdaptiveBitpack preset for every dataset shape.
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: fixed}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml}
 
   # cuszp3 — 2-D preset
   - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d",

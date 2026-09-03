@@ -1,6 +1,6 @@
 # Benchmark Run Ledger
 
-Last updated: 2026-08-28
+Last updated: 2026-09-03
 
 This is the canonical operational record for benchmark work: what we intend to
 run, what has actually run, on which machine, and what evidence is still
@@ -61,7 +61,7 @@ the short ID is only a human-readable join key.
 | ID | Campaign | Status | Machines with useful results | Next action |
 |---|---|---|---|---|
 | `EBLC-BASE` | FZGM vs matching native GPU EBLC, standard bounds | `COMPLETE` | H100, A100; FZGM-only H200/MI100 | Preserve as reference; rerun only for a material code/toolchain change |
-| `EBLC-SPEC` | Performance-first FZGM Pipeline Specialization vs native, including cuSZp3 fixed | `CONFIGURED` | Smoke evidence on H100; refreshed full matrix not run | Run off/auto smoke, then the 186-field full pair; retain no compressed or decompressed artifacts; use FZGM-only pool peaks for memory |
+| `EBLC-SPEC` | Performance-first FZGM Pipeline Specialization vs native, including cuSZp3 fixed | `PARTIAL` | Refreshed off/auto smoke complete on H100; full matrix status on other machines not yet reconciled here | Preserve the clean H100 gate, identify every remote full-session ID/shard, then merge and verify the 186-field pairs; retain no compressed or decompressed artifacts; use FZGM-only pool peaks for memory |
 | `EBLC-TIGHT` | GPU pairs plus FSZ at `1e-6` and `1e-7` | `COMPLETE-DIAGNOSTIC` | H100 | Preserve the 55 explicit refusals as failure evidence; accept four f64 `PRES` ratios of `1.000000080109` as marginal relative-mode boundary noise and continue to `EBLC-MODES` |
 | `EBLC-MODES` | `abs`, range-relative, max-absolute-relative comparisons | `IDEA` | Range-relative baseline only | Build a capability/semantics matrix before authoring configs |
 | `EBLC-LOG` | Positive-domain log transform plus EBLC | `BLOCKED` | None | Specify transform, zero/negative policy, inverse, and original-domain quality gates |
@@ -521,6 +521,28 @@ Full-f32 sessions are launched sequentially by
 `scripts/run-fusion-standard-full.sh`: staged controls first, then Auto. Native
 comparisons reuse `h100-jetstream2-20260808-fullcorpus-postfix` after its
 validity/provenance filters.
+
+### Pipeline specialization refresh (`EBLC-SPEC`)
+
+The refreshed H100 gate at FZGPUModules `6897f66` and Benchkit `808870e`
+completed on 2026-09-03. Sessions
+`specialization-vs-native-smoke-skyler-h100-{off,auto}-20260903` contain
+252/252 `status: ok` rows per arm; the memory sessions
+`specialization-memory-smoke-skyler-h100-{off,auto}-20260903` contain 96/96
+`status: ok` rows per arm. Across the FZGM pairs, compression ratio and
+reconstructed-output hashes are unchanged, every intended `_sp`, PFPL, and
+`szp_composed` arm installs one forward and one inverse group under Auto, and
+the non-specializing controls remain near 1x.
+
+This is a successful functional/performance gate, not yet the publication
+corpus. The Auto vs-native session has 12 known native error-bound exclusions,
+10 timing-unreliable rows, and incomplete native build provenance; the Auto
+memory session has 18 timing-unreliable rows because it is a low-repetition
+smoke. The Off memory arm alone passes all current verification checks. Do not
+pool these smoke rows into a headline aggregate. At the 2026-09-03 local audit,
+the H100 was idle and no full specialization session directory was present
+under `/home/exouser/benchkit-results`; remote machine/session status still
+needs reconciliation by exact session ID.
 
 ### Adaptive Huffman (`FEAT-HUFF`, deferred)
 

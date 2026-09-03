@@ -26,10 +26,11 @@
 #     — GInterpStage (the spline predictor both presets use) throws by design on 1-D
 #     input; this is a structural FZGM limitation, not a preset bug. Native cuszhi
 #     still runs against HACC as standalone reference data.
-#   - cuszp3 is now dimension-matched end to end (D17 scoping): CESM-2D gets the 2-D
-#     8x8 preset + native `plain:2d`/`outlier:2d`; HURR/NYX get the 3-D 4x4x4 preset +
-#     native `plain:3d`/`outlier:3d`; HACC gets the 1-D Lorenzo(block=32) preset +
-#     native's default 1-D-flatten mode. Previously HURR/NYX paired the 2-D preset
+#   - cuszp3 plain/outlier are dimension-matched end to end (D17 scoping): CESM-2D
+#     gets the 2-D 8x8 preset; HURR/NYX get the 3-D 4x4x4 preset; HACC gets the 1-D
+#     Lorenzo(block=32) preset. Fixed mode has no predictor and uses native's flat
+#     `fixed` kernel for every shape to match FZGM's 64-value AdaptiveBitpack blocks.
+#     Previously HURR/NYX paired the 2-D preset
 #     against native's 1-D-flatten default (E12 follow-up) — fixed together with the
 #     original HACC preset bug.
 #
@@ -89,20 +90,10 @@ runs:
   - {compressor: cuszp2, variant: cuszp2_plain,   pipeline: plain}
   - {compressor: fzgm,   variant: cuszp2_plain,   pipeline: configs/pipelines/cuszp2_plain.toml}
 
-  # cuSZp3 fixed has no predictor. Native uses its dimension-specific kernel;
-  # the supported FZGM preset uses 64-value AdaptiveBitpack blocks.
-  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:2d",
-     only_datasets: [CESM-2D]}
-  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [CESM-2D]}
-  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: "fixed:3d",
-     only_datasets: [HURR, NYX]}
-  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [HURR, NYX]}
-  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: fixed,
-     only_datasets: [HACC]}
-  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
-     only_datasets: [HACC]}
+  # cuSZp3 fixed has no predictor. Use the flat native kernel for every shape;
+  # it is the direct match for FZGM's 64-value AdaptiveBitpack blocks.
+  - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: fixed}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml}
 
   - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d",
      only_datasets: [CESM-2D]}

@@ -64,8 +64,8 @@ retain_compressed: false
 
 x-fzgm-tool: &fzgm_tool
   tool_version: 2.0.0-dev
-  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
-  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_source_commit: b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  tool_build_flags: Release;backend/GPU-arch/toolchain captured in session build_environment
   tool_patch_sha256: clean
 
 runs:

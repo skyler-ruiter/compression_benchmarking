@@ -20,7 +20,7 @@
 # Structural exclusions carried over from fzgm_vs_native.yaml (see docs/adapters/*.md):
 #   - fzgm:cuszhi_tp / fzgm:cuszhi_cr skip HACC — GInterpStage (the spline predictor
 #     both presets use) throws by design on 1-D input. Not a preset bug (D17).
-#   - cuszp3 is dimension-matched: CESM-2D -> 8x8 preset, HURR/NYX -> 4x4x4,
+#   - cuszp3 plain/outlier are dimension-matched: CESM-2D -> 8x8 preset, HURR/NYX -> 4x4x4,
 #     HACC -> 1-D Lorenzo(block=32).
 #
 # HIP note: every pipeline below is HIP-clean. None uses ANSStage, the one stage

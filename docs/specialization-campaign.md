@@ -48,8 +48,7 @@ payload is byte-identical between the two sessions.
 
 - **compression_benchmarking**: commit with `specialization_vs_native_smoke.yaml`
   (this file's introduction) or later. `git log --oneline -1`.
-- **FZGPUModules**: commit `6897f66` ("test: drop the fragile standalone-inverse
-  assertion...") or later — the `ed94548`/`096a5ba`/`6897f66` chain. Must be
+- **FZGPUModules**: commit `b90fdfe` or later. Must be
   **rebuilt** for the machine's arch — the specialization code is new.
   NOTE: FZGM history was rewritten on 2026-09-02 (Co-Authored-By trailer strip),
   so the old anchors `dc5c70c` / `4b0efdd` / `b57a333` / `8b1ea2a` are gone. A
@@ -77,8 +76,8 @@ and tell me what's wrong rather than trying to fix it.
    - cd ~/FZGPUModules && git fetch origin
      If the working tree is dirty, stop. Otherwise git reset --hard origin/main &&
      git log --oneline -1
-     Confirm HEAD is 6897f66 or a descendant (git merge-base --is-ancestor
-     6897f66 origin/main; echo $?  -> 0). If not, stop.
+     Confirm HEAD is b90fdfe or a descendant (git merge-base --is-ancestor
+     b90fdfe origin/main; echo $?  -> 0). If not, stop.
 
 2. FZGM BUILD (rebuild — the specialization code is new)
    - source ~/compression_benchmarking/<ENV_SCRIPT>  (sets FZGMOD_CLI, CUDA, venv)

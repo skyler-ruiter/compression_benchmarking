@@ -29,6 +29,9 @@ module swap craype-accel-nvidia80 craype-accel-nvidia90 2>&1
 # with the MI100 env script — same filesystem, same account.
 export BENCHKIT_DATA_ROOT="/scratch/bdqz/${USER}/sdrbench_data"
 export BENCHKIT_RESULTS_ROOT="/scratch/bdqz/${USER}/benchkit-results"
+export BENCHKIT_GPU_ARCH="sm_90"
+export CUDA_ARCH="90"
+export FZGMOD_BACKEND="CUDA"
 
 # ── FZGM ─────────────────────────────────────────────────────────────────────
 # CUDA (sm_90) Release build via the FZGPUModules 'cuda-h200' CMake preset,

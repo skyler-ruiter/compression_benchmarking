@@ -25,6 +25,9 @@ module load gcc-native/12.3   # 13.2 has ICE on cuSZ's complex template code (hf
 _BR_SCRATCH="${SCRATCH:-/N/scratch/sruiter}"
 export BENCHKIT_DATA_ROOT="${_BR_SCRATCH}/sdrbench_data"
 export BENCHKIT_RESULTS_ROOT="${_BR_SCRATCH}/benchkit-results"
+export BENCHKIT_GPU_ARCH="sm_80"
+export CUDA_ARCH="80"
+export FZGMOD_BACKEND="CUDA"
 unset _BR_SCRATCH
 
 # ── FZGM ─────────────────────────────────────────────────────────────────────

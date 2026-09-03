@@ -28,6 +28,9 @@ source "${HOME}/load-env"   # nvhpc 25.7 / CUDA 12.9; driver reports CUDA 13.2 (
 # cleaned per cell (D11/D25/D26).
 export BENCHKIT_DATA_ROOT="/media/volume/Compression_Data/sdrbench_data"
 export BENCHKIT_RESULTS_ROOT="${HOME}/benchkit-results"
+export BENCHKIT_GPU_ARCH="sm_90"
+export CUDA_ARCH="90"
+export FZGMOD_BACKEND="CUDA"
 
 # If the volume is not mounted, fail loudly here rather than 20 minutes into a sweep
 # with a confusing "field not found" from the dataset catalog.

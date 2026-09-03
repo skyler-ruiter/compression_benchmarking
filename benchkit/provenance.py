@@ -163,6 +163,14 @@ _SCHED_ENV = [
     "CUDA_VISIBLE_DEVICES", "GPU_DEVICE_ORDINAL",
 ]
 
+# Build-target inputs are set by each checked-in site environment. They belong in
+# session provenance rather than static experiment YAML: the same experiment is
+# intentionally portable across sm_80, sm_89, sm_90, and gfx908 machines.
+_BUILD_ENV = [
+    "BENCHKIT_GPU_ARCH", "CUDA_ARCH", "FZGMOD_BACKEND",
+    "CC", "CXX", "CUDA_ROOT", "ROCM_PATH",
+]
+
 
 def _scheduler_env() -> dict:
     present = {k: os.environ[k] for k in _SCHED_ENV if k in os.environ}
@@ -182,6 +190,8 @@ def _software_env() -> dict:
         "module_list": _sh(["bash", "-lc", "module list 2>&1"]),
         "spack_env": os.environ.get("SPACK_ENV"),
         "nvcc": _sh(["nvcc", "--version"]),
+        "build_environment": {k: os.environ[k] for k in _BUILD_ENV
+                              if k in os.environ},
     }
 
 

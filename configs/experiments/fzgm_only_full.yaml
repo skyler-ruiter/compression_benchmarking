@@ -32,7 +32,7 @@
 # from the HIP build).
 #
 # ---------------------------------------------------------------------------
-# All other scoping (dimension-matched cuszp3 presets, 1-D cuszhi exclusion, f64 fzgpu
+# All other scoping (dimension-matched cuszp3 plain/outlier presets, 1-D cuszhi exclusion, f64 fzgpu
 # exclusion, NWCHEM scoped to its one non-oversized field) is inherited verbatim from
 # fzgm_vs_native_full.yaml — see that file for the reasoning behind each.
 

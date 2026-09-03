@@ -139,6 +139,7 @@ Match native `pipeline:` strings to FZGM presets like this:
 |---|---|---|---|
 | `plain` (cuszp2) | all fields | `cuszp2_plain.toml` | `Lorenzo(block=32)`, no outlier |
 | `outlier` (cuszp2) | all fields | `cuszp2.toml` | `Lorenzo(block=32)` + outlier |
+| `fixed` (cuszp3) | all fields | `cuszp3_fixed.toml` | no predictor; flat 64-value blocks |
 | `plain:2d` (cuszp3) | CESM-2D | `cuszp3.toml` | `TiledLorenzo(8x8)`, no outlier |
 | `outlier:2d` (cuszp3) | CESM-2D | `cuszp3_outlier.toml` | `TiledLorenzo(8x8)` + outlier |
 | `plain:3d` (cuszp3) | HURR, NYX | `cuszp3_3d.toml` | `TiledLorenzo(4x4x4)`, no outlier |
@@ -146,9 +147,14 @@ Match native `pipeline:` strings to FZGM presets like this:
 | `plain` (cuszp3) | HACC | `cuszp3_1d.toml` | `Lorenzo(block=32)`, same stage chain as cuszp2 |
 | `outlier` (cuszp3) | HACC | `cuszp3_1d_outlier.toml` | `Lorenzo(block=32)` + outlier |
 
-cuSZp3 is dimension-matched end to end: `configs/experiments/fzgm_vs_native.yaml`
-scopes each native/FZGM pair to the fields whose true dimensionality they're
-built for, via `only_datasets` (D17, `docs/DESIGN.md`).
+cuSZp3 plain/outlier are dimension-matched end to end:
+`configs/experiments/fzgm_vs_native.yaml` scopes each native/FZGM pair to the
+fields whose true dimensionality they're built for, via `only_datasets` (D17,
+`docs/DESIGN.md`). Fixed is intentionally different: it has no predictor, and
+the native flat `fixed` kernel matches FZGM's 64-value AdaptiveBitpack layout.
+The native `fixed:2d`/`fixed:3d` tiled kernels produced severe pointwise-bound
+misses in the 2026-09-03 smoke; a direct flat-mode diagnostic restored the
+expected bound behavior on CLDHGH and HURR.
 
 **Why cuszp3 needs a 1-D preset (E12, fixed):** `cuszp3.toml`'s `TiledLorenzo(8x8)`
 is a 2-D preset; feeding it 1-D data (e.g. HACC, dims `[N,1,1]`) collapses tiles
