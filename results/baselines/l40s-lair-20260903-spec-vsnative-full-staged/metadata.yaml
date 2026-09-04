@@ -1,0 +1,167 @@
+# Baseline: L40S / LAIR (IU Luddy) — Pipeline Specialization vs native, FULL corpus,
+# STAGED arm (FZ_SPECIALIZE=off).
+# Pair with l40s-lair-20260903-spec-vsnative-full-auto (same matrix, specialization on).
+# First full-corpus (not smoke-scale) specialization baseline pair in this directory;
+# compare against the smoke-scale h100-jetstream2-20260901-spec-vsnative-staged/auto
+# pair, not the older non-specialization *-fullcorpus-* baselines (different experiment).
+# See results/baselines/README.md.
+
+baseline_id: l40s-lair-20260903-spec-vsnative-full-staged
+gpu: NVIDIA L40S (46068 MiB)
+site: LAIR (IU Luddy) SLURM cluster, node lair-g7, shared/multi-tenant (account yuxilab)
+driver: "570.195.03"
+cuda_toolkit: "12.8 (nvcc V12.8.93)"
+date: "2026-09-03"
+
+experiment_config: configs/experiments/specialization_vs_native_full.yaml
+clocks_locked: false   # /dev/nvidia0 not user-writable on this shared SLURM node;
+                       # scripts/run-specialization-full.sh's lock_clocks guard
+                       # correctly no-opped (D15 — --gres exclusivity is the isolation
+                       # lever here, not clock pinning). See known_issues re: timing CV.
+
+fzgm_build:
+  # Repo pins FZGPUModules at 6897f66 in this experiment's x-fzgm-tool anchor; the
+  # actual checkout used to build the binary was b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  # (6897f66..b90fdfe is docs-only — no source/CMake change — so the binary is identical
+  # either way; same "content identical" situation as the smoke pair's 8b1ea2a/6897f66 note).
+  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
+  tool_build_flags_declared: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9"
+  tool_build_flags_actual: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=89"
+  # ^ KNOWN CAVEAT: the experiment YAML's x-fzgm-tool anchor is a fixed string carried
+  # over from the JetStream2 H100 baseline (sm_90) and was not overridden per-site, so
+  # every session's *recorded* declared_build_provenance says sm_90/nvhpc even though
+  # this machine actually built and ran sm_89 (verified directly against
+  # ~/FZGPUModules/build/release/CMakeCache.txt: CMAKE_CUDA_ARCHITECTURES=89, and
+  # env-lair.sh's own comment that all compressors here are "built for L40S (sm_89) only").
+  # The label is cosmetic (doesn't affect what actually ran) but would mislead a strict
+  # provenance diff against another site — fix upstream by parameterizing the anchor.
+  tool_patch_sha256: clean
+  binary: ~/FZGPUModules/build/release/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=off (staged — one kernel per stage)"
+  harness_local_patch: >
+    benchkit/runner.py carries one local, uncommitted patch on top of
+    808870ef9fa929741213dcb5242110033cf84694: _cleanup_cell_artifacts retries on
+    NFS EBUSY ("silly rename") instead of crashing the run — an infrastructure fix
+    for LAIR's NFS-backed /data/user, no effect on any measured value. This makes
+    every row's recorded git dirty_identity_sha256 non-matching-HEAD by design;
+    see docs/DESIGN.md provenance notes before diffing this baseline's provenance
+    against a clean-HEAD session.
+
+reference_compressors:
+  # /data/user/sruiter/compression/compressors_set/ per env-lair.sh; built for sm_89
+  # (build_all.log, 2026-08-24). Not rebuilt for this session.
+  cusz: /data/user/sruiter/compression/compressors_set/cuSZ/build/cusz
+  cuszp2: /data/user/sruiter/compression/compressors_set/cuSZp-V2.0.1/build/examples/bin/cuSZp
+  cuszp3: /data/user/sruiter/compression/compressors_set/cuSZp-V3.0.0/build/examples/bin/cuSZp
+  fzgpu: /data/user/sruiter/compression/compressors_set/FZ-GPU/fz-gpu
+  pfpl: /data/user/sruiter/compression/compressors_set/PFPL/bin
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. Merged from a 4-way SLURM array shard (SPEC_SHARD=k/4, one exclusive L40S
+    GPU per task, all 4 landed on node lair-g7) via `benchkit merge`; runs.jsonl here
+    is the merged, deduplicated (by logical_cell_id) canonical output. Per-rep timing
+    arrays, stages[], gpu_sampling, checksums, compressed_bytes, peak_device_mb,
+    fusion_* all present. provenance.shard-{0..3}-of-4.json included (one per array
+    task) rather than a single provenance.json — session is genuinely 4-way sharded,
+    though all 4 shards happened to share one physical node this run.
+
+cells:
+  total: 9354
+  ok: 9339
+  failed: 15
+  failed_breakdown: >
+    14 of 15 are LorenzoQuantStage/QuantizerStage outlier-overflow SAFE REFUSALS —
+    the pipeline correctly declines to violate the declared error bound rather than
+    silently drop excess outliers. All 14 are bit-for-bit identical (same cells, same
+    reason) in the auto arm too: EXAALT vx/vy/vz/xx/yy/zz @ eb=1e-4 (cusz-preset and
+    fzgpu-preset fzgm rows — tight relative bound on 1-D MD particle velocities/
+    positions), and S3D N2/PRES @ several bounds (near-constant normalized fields,
+    value range ~1e-5 next to a ~0.7 offset — the pipeline's own error message
+    predicts "will always overflow" for this shape of field). The 15th
+    (CESM-2D/PSL, fzgm:pfpl, eb=1e-4) is a pre-declared accepted_failures policy in
+    the experiment YAML itself (verification.accepted_failures) with the written
+    assumption "identical off vs auto" — see known_issues, that assumption does NOT
+    hold on this run.
+  eb_satisfied_false: >
+    validity_exclusions: 558/9354 gating exclusions (~6%), matching the documented
+    historical base rate for this corpus (DESIGN.md D30). Mostly degenerate_field
+    (CESM-2D constant fields, matches D30's SFCLDICE/SFCLDLIQ precedent) and
+    eb_violated_severe (native cuSZ's known non-tuned-to-bound behavior on specific
+    fields/bounds, plus native cuszp3_fixed's tiled-kernel bug — see known_issues,
+    this is NOT merely "not tuned to bound", it's a confirmed correctness bug).
+
+controlled_ab: >
+  4,956 FZGM logical cells total. Excluding the one status-differing cell below:
+  4,941 cells ok in BOTH arms with ZERO CR mismatches (|cr_off - cr_auto| == 0 exactly,
+  checked every row, not a tolerance). 14 cells fail identically in both arms (see
+  failed_breakdown). Every *_sp / pfpl / szp_composed row installs fusion fwd AND
+  inverse (fusion_installed_group_count = fusion_inverse_installed_group_count = 1);
+  every cusz / *_hp / fzgpu / cuszp3_fixed row is 0/0 in both off and auto, confirming
+  they remain non-specializing controls as intended.
+
+known_issues:
+  - >
+    KNOWN-BROKEN NATIVE CONTROL, DO NOT TRUST cuszp3_fixed BOUND/CR NUMBERS: this
+    run's experiment config (compression_benchmarking @ 808870e, before this repo
+    was fast-forwarded to 4c1360a for the push) predates upstream commit 1542048
+    ("bench: correct fixed-mode campaign provenance"), which found native cuszp3's
+    `fixed:2d`/`fixed:3d` tiled kernels (used here for CESM-2D and every 3-D
+    dataset respectively) produce severe pointwise-bound misses, and replaced them
+    with a single flat `fixed` kernel for all shapes. Confirmed in this session's
+    own data: 217 eb_satisfied=false rows on (cuszp3, cuszp3_fixed) — 168 CESM-2D,
+    3 CESMATM-3D, 12 HURR, 33 S3D, 1 SCALE-LETKF (more datasets affected than the
+    a100-bigred200-20260903 pair's 184/2-datasets, because this run covers the
+    full 186-field corpus vs their 167). The paired `fzgm:cuszp3_fixed` control
+    (18 eb-violated rows) may also be affected since it's meant to match native
+    fixed-mode behavior. Every other compressor/variant in this session is
+    unaffected. Anyone comparing cuszp3_fixed across machines against this
+    baseline should either exclude it or re-run against
+    compression_benchmarking >= 1542048 first.
+  - >
+    ROOT-CAUSED REAL BUG (fzgm:pfpl / CESM-2D/PSL / eb=1e-4): fails safely under
+    OFF (outlier overflow, 99.9% of elements exceed PFPL's 10% quantizer capacity
+    — matches the experiment's pre-declared accepted_failures policy, whose
+    comment asserted "identical off vs auto"). Under AUTO the same logical cell
+    (logical-v1-97f9d21329baa48d0b4e71d6af3575736747230d90e438a3b228aad978d88708
+    — confirmed identical across this L40S/LAIR run and the independent
+    a100-bigred200-20260903 pair, i.e. this is an algorithm bug, not GPU-arch-
+    specific) does NOT refuse: status=ok, cr=4.99, eb_satisfied=False,
+    err_over_bound=162037x, max_abs_err≈the field's own raw magnitude (most
+    elements decoded to ~0). Root-caused by source inspection of FZGPUModules
+    @ b90fdfe (see the a100-bigred200-20260903-spec-vsnative-auto baseline's
+    metadata.yaml for the full writeup): PSL has a large absolute offset
+    (~97674-104098 Pa) relative to its range (~6424 Pa); the Quantizer stage's
+    code formula (modules/quantizers/quantizer/quantizer.cu:58) never subtracts a
+    baseline, so any field this shape overflows the radius regardless of
+    specialization. The staged path's capacity-limited outlier buffer correctly
+    hard-fails; the fused chunk-coop kernel instead uses unlimited inplace
+    raw-float-bits outliers with no equivalent capacity guard anywhere in
+    modules/fused/chunk_fusion/ or modules/fused/fused_block/ — so it never
+    hard-fails, but the round trip is actually wrong at this outlier rate, not
+    merely uncapped. Caught by this benchmark's own eb_satisfied gate (excluded
+    as eb_violated_severe), so it will not be mistaken for good data in a gated
+    report — but do not trust any pfpl/*_sp auto-session row for a field with a
+    large absolute baseline relative to its range until FZGM-side fixed.
+  - >
+    tool_build_flags declared vs actual mismatch (sm_90 declared, sm_89 actually
+    built/run) — see fzgm_build above. Cosmetic, but will confuse a strict
+    provenance diff against another site until the experiment YAML's x-fzgm-tool
+    anchor is parameterized per site.
+  - >
+    Every row's provenance git state is dirty by construction (see
+    harness_local_patch above) — expected for this run, not a corruption.
+  - >
+    Elevated timing_reliability failures (46/9354, ~0.5%) relative to the smoke-scale
+    single-tenant JetStream2 H100 baseline's near-zero rate — expected: LAIR is a
+    shared, multi-tenant SLURM node with unlocked clocks (clocks_locked: false above);
+    prefer *_device_ms_min over _median for any row flagged timing_reliable=false.
+  - >
+    h3_eligibility fails on native reference-tool build provenance (no git commit
+    declared for the hand-built cuSZ/cuSZp2/cuSZp3/FZ-GPU/PFPL binaries in
+    compressors_set/) — same known limitation as every other baseline in this
+    directory; this is a cross-machine comparison input, not a self-verifying
+    publication artifact (see results/baselines/README.md).
+
+related_decisions: [D13, D15, D24, D29, D30, D33, D41, D42]

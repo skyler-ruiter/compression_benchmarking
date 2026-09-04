@@ -1,0 +1,131 @@
+# Baseline: L40S / LAIR (IU Luddy) — Pipeline Specialization vs native, FULL corpus,
+# SPECIALIZED arm (FZ_SPECIALIZE=auto).
+# Pair with l40s-lair-20260903-spec-vsnative-full-staged (same matrix, specialization off).
+# First full-corpus (not smoke-scale) specialization baseline pair in this directory;
+# compare against the smoke-scale h100-jetstream2-20260901-spec-vsnative-staged/auto
+# pair, not the older non-specialization *-fullcorpus-* baselines (different experiment).
+# See results/baselines/README.md.
+
+baseline_id: l40s-lair-20260903-spec-vsnative-full-auto
+gpu: NVIDIA L40S (46068 MiB)
+site: LAIR (IU Luddy) SLURM cluster, node lair-g7, shared/multi-tenant (account yuxilab)
+driver: "570.195.03"
+cuda_toolkit: "12.8 (nvcc V12.8.93)"
+date: "2026-09-03"
+
+experiment_config: configs/experiments/specialization_vs_native_full.yaml
+clocks_locked: false   # see staged pair's metadata.yaml for the same note — shared
+                       # SLURM node, /dev/nvidia0 not user-writable, lock_clocks
+                       # correctly no-opped (D15).
+
+fzgm_build:
+  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
+  tool_build_flags_declared: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9"
+  tool_build_flags_actual: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=89"
+  # See the staged pair's metadata.yaml for the full explanation of this mismatch
+  # (experiment YAML's x-fzgm-tool anchor is a fixed H100-site string, not
+  # per-site-parameterized; the actual build here is sm_89, verified directly).
+  tool_patch_sha256: clean
+  binary: ~/FZGPUModules/build/release/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=auto (kernel fusion + single-pass decoupled-lookback, compress and decompress)"
+  harness_local_patch: >
+    Same benchkit/runner.py NFS-EBUSY-retry local patch as the staged pair; see its
+    metadata.yaml for detail. No effect on any measured value.
+
+reference_compressors: same trees as the staged pair (not rebuilt).
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. Same 4-way SLURM array shard structure as the staged pair (SPEC_SHARD=k/4,
+    node lair-g7); merged via `benchkit merge`. provenance.shard-{0..3}-of-4.json
+    included per array task.
+
+cells:
+  total: 9354
+  ok: 9340
+  failed: 14
+  failed_breakdown: >
+    All 14 are the same LorenzoQuantStage/QuantizerStage outlier-overflow safe
+    refusals as the staged pair's 14 matching failures (EXAALT vx/vy/vz/xx/yy/zz
+    @ eb=1e-4, S3D N2/PRES @ several bounds) — bit-for-bit identical reasoning to
+    the staged arm. The staged arm's 15th failure (CESM-2D/PSL, fzgm:pfpl,
+    eb=1e-4 — the experiment's own pre-declared accepted_failures policy) does
+    NOT reproduce here: this arm reports status=ok for that cell instead of
+    refusing. See known_issues — that is the real finding of this run, not a
+    better result.
+  eb_satisfied_false: >
+    validity_exclusions: 559/9354 (one more than the staged pair's 558 — the extra
+    one IS the CESM-2D/PSL cell below, now excluded as eb_violated_severe instead
+    of being a hard failure). Otherwise the same degenerate_field/eb_violated_severe
+    population as the staged pair, matching the documented historical base rate
+    (DESIGN.md D30) — see known_issues for the cuszp3_fixed native-kernel bug that
+    is the largest single contributor to this population.
+
+controlled_ab: >
+  4,956 FZGM logical cells total. Excluding the one status-differing cell: 4,941
+  cells ok in BOTH arms with ZERO CR mismatches (checked every row exactly, not a
+  tolerance). 14 cells fail identically in both arms. Every *_sp / pfpl /
+  szp_composed row installs fusion fwd AND inverse
+  (fusion_installed_group_count = fusion_inverse_installed_group_count = 1); every
+  cusz / *_hp / fzgpu / cuszp3_fixed row is 0/0, confirming they remain
+  non-specializing controls as intended.
+
+known_issues:
+  - >
+    KNOWN-BROKEN NATIVE CONTROL, DO NOT TRUST cuszp3_fixed BOUND/CR NUMBERS: same
+    issue as the staged pair — this run predates upstream commit 1542048 ("bench:
+    correct fixed-mode campaign provenance"), which found native cuszp3's
+    `fixed:2d`/`fixed:3d` tiled kernels produce severe pointwise-bound misses.
+    217 eb_satisfied=false rows on (cuszp3, cuszp3_fixed) in this session too —
+    168 CESM-2D, 3 CESMATM-3D, 12 HURR, 33 S3D, 1 SCALE-LETKF, identical counts
+    to the staged arm (expected: cuszp3_fixed is native, non-specializing). See
+    the staged pair's metadata.yaml for full detail.
+  - >
+    ROOT-CAUSED REAL BUG (fzgm:pfpl / CESM-2D/PSL / eb=1e-4): status=ok here,
+    cr=4.9877307980, but eb_satisfied=False, err_over_bound=162037.3068260863x,
+    max_abs_err=104098.34, max_rel_err=16.2037306826, psnr=-23.460284dB,
+    nrmse=14.894. The staged arm refuses this exact same logical cell
+    (logical-v1-97f9d21329baa48d0b4e71d6af3575736747230d90e438a3b228aad978d88708
+    — confirmed identical across this L40S/LAIR run and the independent
+    a100-bigred200-20260903 pair, i.e. an algorithm bug, not GPU-arch-specific)
+    safely (outlier overflow, matching the experiment's pre-declared
+    accepted_failures policy, which asserted "identical off vs auto" — that
+    assumption does not hold). Root-caused by source inspection of FZGPUModules
+    @ b90fdfe (full writeup in the a100-bigred200-20260903-spec-vsnative-auto
+    baseline's metadata.yaml): PSL's large absolute offset (~97674-104098 Pa)
+    relative to its range (~6424 Pa) overflows the Quantizer stage's radius
+    (modules/quantizers/quantizer/quantizer.cu:58 never subtracts a baseline)
+    regardless of specialization; the staged path's capacity-limited outlier
+    buffer correctly hard-fails, but the fused chunk-coop kernel's inplace
+    raw-float-bits outlier path has no equivalent capacity guard
+    (modules/fused/chunk_fusion/, modules/fused/fused_block/ — confirmed absent),
+    so it silently produces a wrong round trip instead of failing. Caught by this
+    benchmark's own eb_satisfied gate (excluded as eb_violated_severe here — does
+    NOT appear in the staged session's exclusions because staged's version is a
+    hard failure, not a gated exclusion), so it will not be mistaken for good
+    data in a gated report. Do not trust any pfpl/*_sp auto-session row for a
+    field with a large absolute baseline relative to its range until FZGM-side
+    fixed. Row detail:
+      execution_id (auto): execution-v1-1f7acad5495044f96be3b8efe6123de483345b9db0648bc80e701a1fc02e5d3f
+      execution_id (staged): execution-v1-df335adb64ab3b66b2ec6142bc6b6a12af4228548ac0f6e98214602cbcaeefa2
+      work log (staged refusal): results/specialization-vs-native-full-lair-GPU-off-20260903/work/specialization_vs_native_full-8399-4b032f2a4d2f/compress.log
+  - >
+    tool_build_flags declared-vs-actual mismatch (sm_90 declared, sm_89 actual) —
+    see staged pair's metadata.yaml.
+  - >
+    Every row's provenance git state is dirty by construction (local NFS-retry
+    patch) — expected, not a corruption.
+  - >
+    timing_reliability failures are much higher here than the staged arm: 1064/9354
+    (~11%) vs 46/9354 (~0.5%). Fused kernels do more work per launch than the
+    staged one-kernel-per-stage path, which plausibly makes them more sensitive to
+    the thermal/power-state variance of an unlocked, shared SLURM node — this
+    wasn't visible at smoke scale. Prefer *_device_ms_min over _median for any row
+    flagged timing_reliable=false; do not quote a throughput ratio from a
+    timing_reliable=false row without checking the _min columns agree in direction.
+  - >
+    h3_eligibility fails on native reference-tool build provenance — same known
+    limitation as every other baseline in this directory (see staged pair's note).
+
+related_decisions: [D13, D15, D24, D29, D30, D33, D41, D42]

@@ -1,0 +1,1979 @@
+{
+  "session_schema_version": 1,
+  "session_kind": "native",
+  "session_id": "specialization-vs-native-full-lair-GPU-off-20260903",
+  "timestamp": "2026-09-03T13:05:24.222717+00:00",
+  "shard": [
+    2,
+    4
+  ],
+  "gpu": {
+    "available": true,
+    "vendor": "nvidia",
+    "name": "NVIDIA L40S",
+    "driver": "570.195.03",
+    "memory_total": "46068 MiB",
+    "sm_clock": "210 MHz",
+    "sm_clock_max": "2520 MHz",
+    "mem_clock": "405 MHz",
+    "ecc": "Enabled",
+    "persistence": "Enabled"
+  },
+  "host": {
+    "node": "lair-g7",
+    "system": "Linux",
+    "release": "6.8.0-117-generic",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "scheduler": {
+    "SLURM_JOB_ID": "92732",
+    "SLURM_ARRAY_JOB_ID": "92729",
+    "SLURM_ARRAY_TASK_ID": "2",
+    "SLURM_NODELIST": "lair-g7",
+    "SLURM_JOB_PARTITION": "general",
+    "SLURM_JOB_GPUS": "5",
+    "CUDA_VISIBLE_DEVICES": "0",
+    "GPU_DEVICE_ORDINAL": "0",
+    "_scheduler": "slurm"
+  },
+  "software": {
+    "modules": "luddy.use.own:luddy:cmake/3.29.2",
+    "module_list": "Currently Loaded Modulefiles:\n 1) luddy.use.own <aL>   2) luddy   3) cmake/3.29.2(default)  \n\nKey:\n(symbolic-version)  <module-tag>  <aL>=auto-loaded",
+    "spack_env": null,
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0"
+  },
+  "harness": {
+    "git_sha": "808870ef9fa929741213dcb5242110033cf84694",
+    "git": {
+      "commit": "808870ef9fa929741213dcb5242110033cf84694",
+      "dirty": true,
+      "patch_sha256": "4459818a9cd890490656f8fa7534dfadfd23a35ed78a4325d2d5f3fdbeafddc9",
+      "untracked": [
+        {
+          "path": "Usage: dirname [OPTION] NAME...\nOutput each NAME with its last non-slash component and trailing slashes\nremoved; if NAME contains no /'s, output '.' (meaning the current directory).\n\n  -z, --zero     end each output line with NUL, not newline\n      --help     display this help and exit\n      --version  output version information and exit\n\nExamples:\n  dirname /usr/bin/          -> \"/usr\"\n  dirname dir1/str dir2/str  -> \"dir1\" followed by \"dir2\"\n  dirname stdio.h            -> \".\"\n\nGNU coreutils online help: <https:/www.gnu.org/software/coreutils/>\nFull documentation <https:/www.gnu.org/software/coreutils/dirname>\nor available locally via: info '(coreutils) dirname invocation'/sdrbench_tarballs/SDRBENCH-CESM-ATM-1800x3600.tar.gz",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "dirty_identity_sha256": "241f9059b356cc3316e4695e413100074928ee940e03b47a36695109e03b5c09"
+    },
+    "config_sha256": "018ab6d52f356d54a05377003b8f1ee096a6199f3474f280a8f23088d4d632e5",
+    "python": "3.12.3"
+  },
+  "compressors": {
+    "cusz:cusz": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/cuSZ/build/cusz",
+      "name": "cusz",
+      "timing_method": "cuda_event_device_only",
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:cusz": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "cuszp2:cuszp2_outlier": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/cuSZp-V2.0.1/build/examples/bin/cuSZp",
+      "name": "cuszp2",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "Mean of 100 back-to-back timed launches (single CUDA event pair) after 10 GPU warmup iterations, per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms.",
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:cuszp2_outlier_sp": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "cuszp2:cuszp2_plain": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/cuSZp-V2.0.1/build/examples/bin/cuSZp",
+      "name": "cuszp2",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "Mean of 100 back-to-back timed launches (single CUDA event pair) after 10 GPU warmup iterations, per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms.",
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:cuszp2_plain_sp": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "cuszp3:cuszp3_fixed": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/cuSZp-V3.0.0/build/examples/bin/cuSZp",
+      "name": "cuszp3",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "Mean of 100 back-to-back timed launches (single CUDA event pair) after 10 GPU warmup iterations, per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms.",
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:cuszp3_fixed": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "cuszp3:cuszp3_plain": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/cuSZp-V3.0.0/build/examples/bin/cuSZp",
+      "name": "cuszp3",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "Mean of 100 back-to-back timed launches (single CUDA event pair) after 10 GPU warmup iterations, per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms.",
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:cuszp3_plain_sp": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "cuszp3:cuszp3_outlier": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/cuSZp-V3.0.0/build/examples/bin/cuSZp",
+      "name": "cuszp3",
+      "timing_method": "cuda_events_device_only",
+      "timing_note": "Mean of 100 back-to-back timed launches (single CUDA event pair) after 10 GPU warmup iterations, per subprocess call. Printed as 'GB/s' but actually MiB/ms; adapter recovers ms.",
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:cuszp3_outlier_sp": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "fzgpu:fzgpu": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/FZ-GPU/fz-gpu",
+      "name": "fz-gpu",
+      "timing_method": "wall_clock_chrono_e2e",
+      "timing_note": "std::chrono::system_clock around kernel launches + cudaDeviceSynchronize. More variance than CUDA-event adapters; cv threshold still applies.",
+      "dtype": "f32 only",
+      "error_mode": "rel_range only (NOA: eb \u00d7 range)",
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:fzgpu": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "pfpl:pfpl": {
+      "cli_path": "/data/user/sruiter/compression/compressors_set/PFPL/bin",
+      "name": "pfpl",
+      "timing_method": "cuda_events_seconds",
+      "timing_reps_per_call": 9,
+      "declared_build_provenance": {
+        "version": null,
+        "source_commit": null,
+        "build_flags": null,
+        "local_patch_sha256": null
+      },
+      "build_provenance_complete": false
+    },
+    "fzgm:pfpl": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    },
+    "fzgm:szp_composed": {
+      "cli_path": "/u/sruiter/FZGPUModules/build/release/bin/fzgmod-cli",
+      "name": "fzgmod-cli",
+      "declared_build_provenance": {
+        "version": "2.0.0-dev",
+        "source_commit": "6897f66e946f7388020c0c84a103428f916ea2a7",
+        "build_flags": "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+        "local_patch_sha256": "clean"
+      },
+      "build_provenance_complete": true
+    }
+  },
+  "provenance_schema_version": 1,
+  "input_artifacts": {
+    "experiment": {
+      "path": "inputs/experiment.5d4083657b3af9805667a0314dd0c6ea3a2960cc9f5977c31d485933e82ef881.yaml",
+      "sha256": "5d4083657b3af9805667a0314dd0c6ea3a2960cc9f5977c31d485933e82ef881"
+    },
+    "datasets": {
+      "path": "inputs/datasets.d84b4720be7f079fba131f70c8b2a986c9cb0f253acbcf788d85d52d8e64ce72.yaml",
+      "sha256": "d84b4720be7f079fba131f70c8b2a986c9cb0f253acbcf788d85d52d8e64ce72"
+    },
+    "site": {
+      "path": "inputs/site.6e105a1069fd6c004b1c4f489d8348074b22db7efddeefb5b274f23df0cd4ef0.json",
+      "sha256": "6e105a1069fd6c004b1c4f489d8348074b22db7efddeefb5b274f23df0cd4ef0"
+    },
+    "resolved_datasets": {
+      "path": "inputs/resolved-datasets.64344428538fb59530911139a4014b2601dd0af2f3c975eaeba35cb9ba2674e7.json",
+      "sha256": "64344428538fb59530911139a4014b2601dd0af2f3c975eaeba35cb9ba2674e7"
+    },
+    "dataset_checksums": {
+      "path": "inputs/dataset-checksums.6d473cffe2f12dc604f6a9f21cb3e08c90a0c47f5ce3149d59abab84b3f8a2fb.yaml",
+      "sha256": "6d473cffe2f12dc604f6a9f21cb3e08c90a0c47f5ce3149d59abab84b3f8a2fb"
+    },
+    "harness_patch": {
+      "path": "inputs/harness.4459818a9cd890490656f8fa7534dfadfd23a35ed78a4325d2d5f3fdbeafddc9.patch",
+      "sha256": "4459818a9cd890490656f8fa7534dfadfd23a35ed78a4325d2d5f3fdbeafddc9"
+    }
+  },
+  "dataset_integrity": {
+    "policy": "required",
+    "all_verified": true,
+    "publication_grade": false,
+    "datasets": [
+      {
+        "dataset": "CESM-2D",
+        "field": "AEROD_v",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/AEROD_v_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "472f169e668049fa46b69698d8a47ce7d74c557e830344fced47b55c0a3829a4",
+        "observed_sha256": "472f169e668049fa46b69698d8a47ce7d74c557e830344fced47b55c0a3829a4",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "CLDLOW",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/CLDLOW_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "289f9196036e93e129b9c142444c225065740a783ec76877fc2d5b9fa13d0a3e",
+        "observed_sha256": "289f9196036e93e129b9c142444c225065740a783ec76877fc2d5b9fa13d0a3e",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "CLDMED",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/CLDMED_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "66b5d22ff38de01c89fa19e4d71039dbfc0ad92ae8b29bdbd35e8bf7c0cced3f",
+        "observed_sha256": "66b5d22ff38de01c89fa19e4d71039dbfc0ad92ae8b29bdbd35e8bf7c0cced3f",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "CLDTOT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/CLDTOT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "63642765eacdd0c7d9f9761c8fb074b37b08ce93e8b71c76cce5e084fc1131e3",
+        "observed_sha256": "63642765eacdd0c7d9f9761c8fb074b37b08ce93e8b71c76cce5e084fc1131e3",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLDSC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLDSC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "78df3f45a1609910a452b9791a6a338ef7335ffe3d2af67849ce2095cf307927",
+        "observed_sha256": "78df3f45a1609910a452b9791a6a338ef7335ffe3d2af67849ce2095cf307927",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLNS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLNS_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "0a683d1c2f04e5e0484a8e7871391436986c638dd7ee0f6983eb6ae6fd834430",
+        "observed_sha256": "0a683d1c2f04e5e0484a8e7871391436986c638dd7ee0f6983eb6ae6fd834430",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLNSC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLNSC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "e240d0f22e69a44dcfee642951e6926f025639865484a3ec108cdf2bacb6f68e",
+        "observed_sha256": "e240d0f22e69a44dcfee642951e6926f025639865484a3ec108cdf2bacb6f68e",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLNTC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLNTC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "efd91bc78ae04db0a5712853e878cf8a7f12bafddd1fbca2e33f1aa0c4a561e6",
+        "observed_sha256": "efd91bc78ae04db0a5712853e878cf8a7f12bafddd1fbca2e33f1aa0c4a561e6",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLUT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLUT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "ae23d14b411dd85db6a02d8846f1b436a2a9f679b48a603d4180fe2ee967ce5d",
+        "observed_sha256": "ae23d14b411dd85db6a02d8846f1b436a2a9f679b48a603d4180fe2ee967ce5d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLUTC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLUTC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "9e2fffcee69476180afd31b5454d65334b5c2aaf2266f9c951a237950f28c74d",
+        "observed_sha256": "9e2fffcee69476180afd31b5454d65334b5c2aaf2266f9c951a237950f28c74d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FREQZM",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FREQZM_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "679d2772ba3bbe9221083896887cf1bab701a7cb4df806d8ce53320be719a38d",
+        "observed_sha256": "679d2772ba3bbe9221083896887cf1bab701a7cb4df806d8ce53320be719a38d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSDS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSDS_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "4b89af52db1a06f17de49275c4520374ad48385f5e95c7c1ad1060aed02b494d",
+        "observed_sha256": "4b89af52db1a06f17de49275c4520374ad48385f5e95c7c1ad1060aed02b494d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSDSC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSDSC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "3023650f3261f442f59fd33fc9eb8eb7ccb2b1914fca01794f8eee3937dae06f",
+        "observed_sha256": "3023650f3261f442f59fd33fc9eb8eb7ccb2b1914fca01794f8eee3937dae06f",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSNS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSNS_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "114f9b8aec31768e480571f07cada05379c80dc7f8e437df1feea1e5a6b2d63d",
+        "observed_sha256": "114f9b8aec31768e480571f07cada05379c80dc7f8e437df1feea1e5a6b2d63d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSNSC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSNSC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "fa93c97cb3267ee2c42d2307763dd55eb8279715b835cd79494188d202a9de04",
+        "observed_sha256": "fa93c97cb3267ee2c42d2307763dd55eb8279715b835cd79494188d202a9de04",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSNT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSNT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "3ecc5ddf559d1ccd97617ca2baa95230d24598063f84ad698b14eeaa3fad870b",
+        "observed_sha256": "3ecc5ddf559d1ccd97617ca2baa95230d24598063f84ad698b14eeaa3fad870b",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSNTOA",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSNTOA_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "ca6fa4c63334f76ef1e5704c98b0c8a597e3bb319ac479e3baf89d786dab420c",
+        "observed_sha256": "ca6fa4c63334f76ef1e5704c98b0c8a597e3bb319ac479e3baf89d786dab420c",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSNTOAC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSNTOAC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "2c001352ea9622689fd0df4c10a0795a2120a0fb210ffd0eafdc4a97149b79f5",
+        "observed_sha256": "2c001352ea9622689fd0df4c10a0795a2120a0fb210ffd0eafdc4a97149b79f5",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSUTOA",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSUTOA_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "1eadd633d2a3511dde4a34fc98b4cd13d8e39f36007a634b82fc4c29690909d6",
+        "observed_sha256": "1eadd633d2a3511dde4a34fc98b4cd13d8e39f36007a634b82fc4c29690909d6",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "LANDFRAC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/LANDFRAC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "5a3246be29bcb8dd0c5b50a6eacce00305b1190405b4e8b860731a30c9cb47f8",
+        "observed_sha256": "5a3246be29bcb8dd0c5b50a6eacce00305b1190405b4e8b860731a30c9cb47f8",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "LHFLX",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/LHFLX_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "ae648f7a56b40f45a98f558e7ab3b118ad1b3a23001106ab44728f1f971f0233",
+        "observed_sha256": "ae648f7a56b40f45a98f558e7ab3b118ad1b3a23001106ab44728f1f971f0233",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "LWCF",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/LWCF_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "7909d892b8fbff0102b893f03afd0ea590cd59831f0e89b5508aed5b7504288c",
+        "observed_sha256": "7909d892b8fbff0102b893f03afd0ea590cd59831f0e89b5508aed5b7504288c",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_bcar1",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_bcar1_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "420159cb156ec12a287e97eb976aac2614f83e90ce379f5879c2b2a1b587aaee",
+        "observed_sha256": "420159cb156ec12a287e97eb976aac2614f83e90ce379f5879c2b2a1b587aaee",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_bcar2",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_bcar2_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "915749c02e607517f1e4927ca2090b372b8d498a994a619650b324e456114b6a",
+        "observed_sha256": "915749c02e607517f1e4927ca2090b372b8d498a994a619650b324e456114b6a",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_dust1",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_dust1_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "d2f3e5c5040045e2562864147c06cf045c237c55d67e30509b1bcb6382a12466",
+        "observed_sha256": "d2f3e5c5040045e2562864147c06cf045c237c55d67e30509b1bcb6382a12466",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_dust3",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_dust3_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "6abd527f2ee09ad3a0ae7caf87d1efe0d5d4eb6231650a92dfa4c76ad757e418",
+        "observed_sha256": "6abd527f2ee09ad3a0ae7caf87d1efe0d5d4eb6231650a92dfa4c76ad757e418",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_dust4",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_dust4_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "042f684b66daf347fd196142dbf409ca69fd8362c67b0326b8e28c0b07139c9d",
+        "observed_sha256": "042f684b66daf347fd196142dbf409ca69fd8362c67b0326b8e28c0b07139c9d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_ocar1",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_ocar1_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "d2844a184fddeb250c5b0d9820a7bbc99a2c64c2f3d3083c90b632fc54beefbc",
+        "observed_sha256": "d2844a184fddeb250c5b0d9820a7bbc99a2c64c2f3d3083c90b632fc54beefbc",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_SSLTA",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_SSLTA_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "8cb076dac8fdeed1fe1abe20c6ca53359375fc46d84c35001f8e97a7abfaf64b",
+        "observed_sha256": "8cb076dac8fdeed1fe1abe20c6ca53359375fc46d84c35001f8e97a7abfaf64b",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_SSLTC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_SSLTC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "0c766dc5ebb3ea4c507bd05a9548b6b21d9a9799985e09e8e3cb0e13c8291e4c",
+        "observed_sha256": "0c766dc5ebb3ea4c507bd05a9548b6b21d9a9799985e09e8e3cb0e13c8291e4c",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_sulf",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_sulf_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "d9b39e3ebaaf3f3a06cc67f94e3af82b4e9845ff529b427a32fd555d87b54d8a",
+        "observed_sha256": "d9b39e3ebaaf3f3a06cc67f94e3af82b4e9845ff529b427a32fd555d87b54d8a",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PCONVB",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PCONVB_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "e027f172d76bcbdbeaf3cdf95fef2b88c3174160520e473e0e4a99b84d3b1aab",
+        "observed_sha256": "e027f172d76bcbdbeaf3cdf95fef2b88c3174160520e473e0e4a99b84d3b1aab",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PCONVT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PCONVT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "b7d2a267361c134f796eeb6a7789df1e4437abd48452f73f9cc02c88c9ef6234",
+        "observed_sha256": "b7d2a267361c134f796eeb6a7789df1e4437abd48452f73f9cc02c88c9ef6234",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PHIS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PHIS_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "23df45df82812bc002d14d07f1aa3b457de36a87b0716b706c872c6ce5c8294b",
+        "observed_sha256": "23df45df82812bc002d14d07f1aa3b457de36a87b0716b706c872c6ce5c8294b",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PRECCDZM",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PRECCDZM_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "929ef28a23d3e12ef88eff4772e6e0564a6b1de9df2fbe5aef72f97f97a1e17f",
+        "observed_sha256": "929ef28a23d3e12ef88eff4772e6e0564a6b1de9df2fbe5aef72f97f97a1e17f",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PRECL",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PRECL_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "a101c9a7ec18c295e0afed5374c7643811ee1397a84af2e186cc5fb08e95d904",
+        "observed_sha256": "a101c9a7ec18c295e0afed5374c7643811ee1397a84af2e186cc5fb08e95d904",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PRECSC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PRECSC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "b119c24e214d39d1c26c0bc47c6a6cc7528066533bf991ea03a99e6ba1ec70b1",
+        "observed_sha256": "b119c24e214d39d1c26c0bc47c6a6cc7528066533bf991ea03a99e6ba1ec70b1",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PRECSL",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PRECSL_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "05d852099d6c01bd93688f8875c15b72c59d49265fb07b18a493dfe8db45d81e",
+        "observed_sha256": "05d852099d6c01bd93688f8875c15b72c59d49265fb07b18a493dfe8db45d81e",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PRECT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PRECT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "08ccec199272572ac61406022e1a191970715e674c806fcac14ad913d58c3b96",
+        "observed_sha256": "08ccec199272572ac61406022e1a191970715e674c806fcac14ad913d58c3b96",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PS_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "0c8c46dce36dc5719e7ec05df3cfb75e2d1828bfba643c37c96e0d592fc2efbb",
+        "observed_sha256": "0c8c46dce36dc5719e7ec05df3cfb75e2d1828bfba643c37c96e0d592fc2efbb",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "QFLX",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/QFLX_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "5c042ac682e4297062f645aff046a9f83fad002c218f44c383013511073a862d",
+        "observed_sha256": "5c042ac682e4297062f645aff046a9f83fad002c218f44c383013511073a862d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "QREFHT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/QREFHT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "514eb41d84ea7d308f9be77ab450c54a3a4f6c48d5f082e9d77d5b7d99bb998c",
+        "observed_sha256": "514eb41d84ea7d308f9be77ab450c54a3a4f6c48d5f082e9d77d5b7d99bb998c",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "RHREFHT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/RHREFHT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "e7c9385aa006ecc5d2d941274e4b1dfa3b313b87a4e2c406cc459e05c1b5a16d",
+        "observed_sha256": "e7c9385aa006ecc5d2d941274e4b1dfa3b313b87a4e2c406cc459e05c1b5a16d",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SFCLDLIQ",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SFCLDLIQ_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "70b59838caa0f3626e47ea1bc89036750d9038839c502bd1eb88eda130fb8cba",
+        "observed_sha256": "70b59838caa0f3626e47ea1bc89036750d9038839c502bd1eb88eda130fb8cba",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SHFLX",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SHFLX_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "87143804c46b2c9ca5234ef6624f894b47520ec03c4823b1ed8fdf83e5393d57",
+        "observed_sha256": "87143804c46b2c9ca5234ef6624f894b47520ec03c4823b1ed8fdf83e5393d57",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SNOWHICE",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SNOWHICE_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "7b6eb571d6728723ca049f347f882653c312652346141b9657fa2a70c8e3d153",
+        "observed_sha256": "7b6eb571d6728723ca049f347f882653c312652346141b9657fa2a70c8e3d153",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SOLIN",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SOLIN_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "13b6d8e0fce292e18d80ef46a48b9b9f1f4902d9fa3538431c3518270a2796b4",
+        "observed_sha256": "13b6d8e0fce292e18d80ef46a48b9b9f1f4902d9fa3538431c3518270a2796b4",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SRFRAD",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SRFRAD_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "2b80f90faeed540e8beb5088779f0d643bd76510982759ded14eca7da45a676e",
+        "observed_sha256": "2b80f90faeed540e8beb5088779f0d643bd76510982759ded14eca7da45a676e",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SWCF",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SWCF_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "8b51dfa2e9ae91e45ddde1db646f366c3b64057c2ea606c77d103da18c5feff3",
+        "observed_sha256": "8b51dfa2e9ae91e45ddde1db646f366c3b64057c2ea606c77d103da18c5feff3",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TAUY",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TAUY_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "913e97f138064b9e4d1486fea363834a51676cd710809c8e27db2a824feba1d9",
+        "observed_sha256": "913e97f138064b9e4d1486fea363834a51676cd710809c8e27db2a824feba1d9",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TGCLDIWP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TGCLDIWP_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "e7f033aadb1b4ba8813c7ea1a7a57086504730c5cfb3e5ba7b0a7808bb8e1c78",
+        "observed_sha256": "e7f033aadb1b4ba8813c7ea1a7a57086504730c5cfb3e5ba7b0a7808bb8e1c78",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TGCLDLWP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TGCLDLWP_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "1da876a87d0692bad1ceadc9360ae6b2b14f5698c935db8785fc671e37528e2a",
+        "observed_sha256": "1da876a87d0692bad1ceadc9360ae6b2b14f5698c935db8785fc671e37528e2a",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TREFHT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TREFHT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "bd2d0543890adea3a1cb47ac14eef92ebfba7568ebc1da1cd53e8d37172fbb26",
+        "observed_sha256": "bd2d0543890adea3a1cb47ac14eef92ebfba7568ebc1da1cd53e8d37172fbb26",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TREFMNAV",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TREFMNAV_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "6397cb32f81dce3f1ca9b42a7b648a440995935dc32d82595b2fa5472744ad72",
+        "observed_sha256": "6397cb32f81dce3f1ca9b42a7b648a440995935dc32d82595b2fa5472744ad72",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TREFMXAV",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TREFMXAV_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "5791d7ec1b2ccaca7cce6486f6d25e2e9340b3feabe97ccbd32713530e016f6f",
+        "observed_sha256": "5791d7ec1b2ccaca7cce6486f6d25e2e9340b3feabe97ccbd32713530e016f6f",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TROP_T",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TROP_T_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "266feea3e456d126dc8781651b864867495671e52b1001b9465db4ece7d452b4",
+        "observed_sha256": "266feea3e456d126dc8781651b864867495671e52b1001b9465db4ece7d452b4",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TROP_Z",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TROP_Z_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "2eedbc8c5ec9bc54eda340deb09959493742cd52fabc3e03351c5f2093071593",
+        "observed_sha256": "2eedbc8c5ec9bc54eda340deb09959493742cd52fabc3e03351c5f2093071593",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TS_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "6792d5cc508eabecfe5a9b8b9a26c211c5f45235c7a6c6355faf9caab5a4774e",
+        "observed_sha256": "6792d5cc508eabecfe5a9b8b9a26c211c5f45235c7a6c6355faf9caab5a4774e",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TSMX",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TSMX_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "23b2c46c21c60956184ca04d311c6c080f9c8e322513b444b27f0e97b8bade9f",
+        "observed_sha256": "23b2c46c21c60956184ca04d311c6c080f9c8e322513b444b27f0e97b8bade9f",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "CLDICE",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/CLDICE_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "c646421e0911e37706cd86be69a1fb48f5cbc1ea9d6919a1bdc67469c25c6566",
+        "observed_sha256": "c646421e0911e37706cd86be69a1fb48f5cbc1ea9d6919a1bdc67469c25c6566",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "CLDLIQ",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/CLDLIQ_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "a08901446eb2abcaf15e89ab7349ed26ad0940fbb4d1652476d00b0d8e5fd685",
+        "observed_sha256": "a08901446eb2abcaf15e89ab7349ed26ad0940fbb4d1652476d00b0d8e5fd685",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "CMFDQ",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/CMFDQ_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "7cb428706054f4b8e89426ec93624ab7570ad087885724bd1c23fbffb5c05e6c",
+        "observed_sha256": "7cb428706054f4b8e89426ec93624ab7570ad087885724bd1c23fbffb5c05e6c",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "CMFDQR",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/CMFDQR_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "33d4acd4532e299f5bc016a80c977bdaa5a302dee1bfe5150266329129bb361f",
+        "observed_sha256": "33d4acd4532e299f5bc016a80c977bdaa5a302dee1bfe5150266329129bb361f",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "CMFDT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/CMFDT_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "1b44912bcaae72918ef4cd25918134123b99509b3c3d06b6282f0f943543e632",
+        "observed_sha256": "1b44912bcaae72918ef4cd25918134123b99509b3c3d06b6282f0f943543e632",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "DCQ",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/DCQ_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "a01fd233505c633df5c4b5a536594865a11573b346cd1fa5ae74fd6813321d99",
+        "observed_sha256": "a01fd233505c633df5c4b5a536594865a11573b346cd1fa5ae74fd6813321d99",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "DTCOND",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/DTCOND_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "c02e01b7a2221f2d65cf58aa420fe1ed919366da2747f5d16c5ae07a82d1bff7",
+        "observed_sha256": "c02e01b7a2221f2d65cf58aa420fe1ed919366da2747f5d16c5ae07a82d1bff7",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "DTV",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/DTV_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "46c85e636bef9139321987e01d0b0d2ec98ec74fb7e2cd52a3157446086f9a36",
+        "observed_sha256": "46c85e636bef9139321987e01d0b0d2ec98ec74fb7e2cd52a3157446086f9a36",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "GCLDLWP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/GCLDLWP_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "10f7bb67b33bd3859488b0cb4c09e5d8abbe2c4503d34dccb700df2492c6861d",
+        "observed_sha256": "10f7bb67b33bd3859488b0cb4c09e5d8abbe2c4503d34dccb700df2492c6861d",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "ICIMR",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/ICIMR_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "d5d181c893499ad87c1a6866dce0c6b7b51002d02a1d1c1ad4493a44bba67318",
+        "observed_sha256": "d5d181c893499ad87c1a6866dce0c6b7b51002d02a1d1c1ad4493a44bba67318",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "ICLDIWP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/ICLDIWP_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "9b67787c284a223f10789426eb94d864d6e3f64abd7c4c6f1fe826859d28c2a7",
+        "observed_sha256": "9b67787c284a223f10789426eb94d864d6e3f64abd7c4c6f1fe826859d28c2a7",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "ICWMR",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/ICWMR_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "742331426a279ed11db3638b05cb5823cabe10446349ce139fcc2955670c96fc",
+        "observed_sha256": "742331426a279ed11db3638b05cb5823cabe10446349ce139fcc2955670c96fc",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "OMEGA",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/OMEGA_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "e6ab8b425c19e3b6eac14ada0962c5f018f44cb320d9cb293d7f8d0776a9e30b",
+        "observed_sha256": "e6ab8b425c19e3b6eac14ada0962c5f018f44cb320d9cb293d7f8d0776a9e30b",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "OMEGAT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/OMEGAT_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "803b929a4baf530e758f7bed35fde9c67daa44f5a6d46da19c7518fc41b20dda",
+        "observed_sha256": "803b929a4baf530e758f7bed35fde9c67daa44f5a6d46da19c7518fc41b20dda",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "QC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/QC_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "93b1eebcdba3ac2de7750c189d038300b31c2f8f7e5586e3550fce159888993b",
+        "observed_sha256": "93b1eebcdba3ac2de7750c189d038300b31c2f8f7e5586e3550fce159888993b",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "QRL",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/QRL_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "60c5f9330b6b3cd80a4d723ae7e1ab63f497c08df0d5bdb3c0b03bd2f4463024",
+        "observed_sha256": "60c5f9330b6b3cd80a4d723ae7e1ab63f497c08df0d5bdb3c0b03bd2f4463024",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "QRS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/QRS_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "b494fcc17b5fbeecb06384a062368b460194cbedaa1f0adbff470ff469534d12",
+        "observed_sha256": "b494fcc17b5fbeecb06384a062368b460194cbedaa1f0adbff470ff469534d12",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "T",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/T_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "d085a137cadcb70c9bf0dc1fb2d3348dfda0d87076ad3948639133d61466a4d7",
+        "observed_sha256": "d085a137cadcb70c9bf0dc1fb2d3348dfda0d87076ad3948639133d61466a4d7",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "U",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/U_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "aac46ef926817dee11b74a8383f8c4c79533b48de627886f1a2574bc44617da4",
+        "observed_sha256": "aac46ef926817dee11b74a8383f8c4c79533b48de627886f1a2574bc44617da4",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "UU",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/UU_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "7449231b6f096358b7a993be6961e799ad4e46a54ec4f013248523cc538de326",
+        "observed_sha256": "7449231b6f096358b7a993be6961e799ad4e46a54ec4f013248523cc538de326",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "VD01",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/VD01_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "6a580f0a059cad55d8169a648dc78738c2cf9b6868e000e694e5c55604eb8bd3",
+        "observed_sha256": "6a580f0a059cad55d8169a648dc78738c2cf9b6868e000e694e5c55604eb8bd3",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "VQ",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/VQ_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "47e4fb6f2f29488d5a8afeb37a38329c4518cc38202b6f1ef7037b5ff1764ee6",
+        "observed_sha256": "47e4fb6f2f29488d5a8afeb37a38329c4518cc38202b6f1ef7037b5ff1764ee6",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "VT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/VT_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "608d8a5e2a077e606c70969aa43b9d89a02462b82a681458e12111a80b855bda",
+        "observed_sha256": "608d8a5e2a077e606c70969aa43b9d89a02462b82a681458e12111a80b855bda",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "VV",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/VV_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "f15d5281aa8d0ac988b64c6affe8cd672590102e3912196bbbb052a85d135b08",
+        "observed_sha256": "f15d5281aa8d0ac988b64c6affe8cd672590102e3912196bbbb052a85d135b08",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "Z3",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/Z3_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "770d802aba8a053e44a8bed7911ccb81dac0cd048e26b8e0be6c8976b325c844",
+        "observed_sha256": "770d802aba8a053e44a8bed7911ccb81dac0cd048e26b8e0be6c8976b325c844",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "CLOUD",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/CLOUDf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "c0300b207e87948f183226a0fb93d83924946ae34ae53015d7bfb667724d5000",
+        "observed_sha256": "c0300b207e87948f183226a0fb93d83924946ae34ae53015d7bfb667724d5000",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "PRECIP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/PRECIPf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "686d0a49910e21b80e026bcb4221daae4cb93668f3c844e1653f574a5c8980c4",
+        "observed_sha256": "686d0a49910e21b80e026bcb4221daae4cb93668f3c844e1653f574a5c8980c4",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "QCLOUD",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/QCLOUDf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "2f7eb21465e72c18fa5e2e0401c4e84aa1fd516e8d8b128aa88eeae1f667acef",
+        "observed_sha256": "2f7eb21465e72c18fa5e2e0401c4e84aa1fd516e8d8b128aa88eeae1f667acef",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "QGRAUP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/QGRAUPf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "489a8bc038820148e8a83d7ae54cbf6cdfacb9a0224295f53c91432f800a1fd6",
+        "observed_sha256": "489a8bc038820148e8a83d7ae54cbf6cdfacb9a0224295f53c91432f800a1fd6",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "QRAIN",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/QRAINf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "9722f3bf9b7588ee5d44e2dbae0b61242500b853762395dfcbc39b4d26dc60ab",
+        "observed_sha256": "9722f3bf9b7588ee5d44e2dbae0b61242500b853762395dfcbc39b4d26dc60ab",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "QSNOW",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/QSNOWf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "1bfe64d657b9d452684059b1f74b805e99f47242602bad273a130dad74a013fb",
+        "observed_sha256": "1bfe64d657b9d452684059b1f74b805e99f47242602bad273a130dad74a013fb",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "QVAPOR",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/QVAPORf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "586c88340b2c33407aa45a7f0c63debdf1e34762eb1fa8b7bb41116d7257f14d",
+        "observed_sha256": "586c88340b2c33407aa45a7f0c63debdf1e34762eb1fa8b7bb41116d7257f14d",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "U",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/Uf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "d60dc2722819be5fb40afd115185de6aeca8b49281129a03dd50f26755285b37",
+        "observed_sha256": "d60dc2722819be5fb40afd115185de6aeca8b49281129a03dd50f26755285b37",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "V",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/Vf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "87da5ec5b9fa1bafdf05aaf71e5acec6b619e31a625920aa9414ab3111dd218f",
+        "observed_sha256": "87da5ec5b9fa1bafdf05aaf71e5acec6b619e31a625920aa9414ab3111dd218f",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "W",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/Wf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "194414b8a66446b7f5e105c2e855ccf62132de5621a5b068f150a272759aec01",
+        "observed_sha256": "194414b8a66446b7f5e105c2e855ccf62132de5621a5b068f150a272759aec01",
+        "verified": true
+      },
+      {
+        "dataset": "NYX",
+        "field": "dark_matter_density",
+        "path": "/data/user/sruiter/compression/sdrbench_data/NYX_512x512x512/dark_matter_density.f32",
+        "bytes_consumed": 536870912,
+        "expected_sha256": "d7cd7ad513afc8b31867e7cab58df8bf28f6e44314e340b8483dbd2057bbe438",
+        "observed_sha256": "d7cd7ad513afc8b31867e7cab58df8bf28f6e44314e340b8483dbd2057bbe438",
+        "verified": true
+      },
+      {
+        "dataset": "NYX",
+        "field": "temperature",
+        "path": "/data/user/sruiter/compression/sdrbench_data/NYX_512x512x512/temperature.f32",
+        "bytes_consumed": 536870912,
+        "expected_sha256": "805895e894603952a156605e5b1ffae0bd37f349daa089036a49b8a4a5ed90bd",
+        "observed_sha256": "805895e894603952a156605e5b1ffae0bd37f349daa089036a49b8a4a5ed90bd",
+        "verified": true
+      },
+      {
+        "dataset": "NYX",
+        "field": "velocity_x",
+        "path": "/data/user/sruiter/compression/sdrbench_data/NYX_512x512x512/velocity_x.f32",
+        "bytes_consumed": 536870912,
+        "expected_sha256": "8796f3bbb05f4b203799f8daba6f5c05258efb769179dcc2b231d2f058fde86b",
+        "observed_sha256": "8796f3bbb05f4b203799f8daba6f5c05258efb769179dcc2b231d2f058fde86b",
+        "verified": true
+      },
+      {
+        "dataset": "NYX",
+        "field": "velocity_z",
+        "path": "/data/user/sruiter/compression/sdrbench_data/NYX_512x512x512/velocity_z.f32",
+        "bytes_consumed": 536870912,
+        "expected_sha256": "619553bbe1222743c22cac4da57e64d79659cf3cd1c10a7137aadba9156158b9",
+        "observed_sha256": "619553bbe1222743c22cac4da57e64d79659cf3cd1c10a7137aadba9156158b9",
+        "verified": true
+      },
+      {
+        "dataset": "MIRANDA",
+        "field": "density",
+        "path": "/data/user/sruiter/compression/sdrbench_data/MIRANDA_256x384x384/density.d64",
+        "bytes_consumed": 301989888,
+        "expected_sha256": "efa4b4120f8dd63734b026538e1cc6ea4fadc7fc2d7b8d14ae1ba81629eb6237",
+        "observed_sha256": "efa4b4120f8dd63734b026538e1cc6ea4fadc7fc2d7b8d14ae1ba81629eb6237",
+        "verified": true
+      },
+      {
+        "dataset": "MIRANDA",
+        "field": "diffusivity",
+        "path": "/data/user/sruiter/compression/sdrbench_data/MIRANDA_256x384x384/diffusivity.d64",
+        "bytes_consumed": 301989888,
+        "expected_sha256": "e9dcc33948c8857d3325c42c8ea610325d6065976392d1e191230ae2e8c42a89",
+        "observed_sha256": "e9dcc33948c8857d3325c42c8ea610325d6065976392d1e191230ae2e8c42a89",
+        "verified": true
+      },
+      {
+        "dataset": "MIRANDA",
+        "field": "velocityx",
+        "path": "/data/user/sruiter/compression/sdrbench_data/MIRANDA_256x384x384/velocityx.d64",
+        "bytes_consumed": 301989888,
+        "expected_sha256": "a33607c82c1f25f7c79c4d30e2d6167e9de6269c397cb9f3568577a61da7e696",
+        "observed_sha256": "a33607c82c1f25f7c79c4d30e2d6167e9de6269c397cb9f3568577a61da7e696",
+        "verified": true
+      },
+      {
+        "dataset": "MIRANDA",
+        "field": "velocityy",
+        "path": "/data/user/sruiter/compression/sdrbench_data/MIRANDA_256x384x384/velocityy.d64",
+        "bytes_consumed": 301989888,
+        "expected_sha256": "9c049cc842d007eaf50fd54576918eaf4a91a121b5a2b4b0c4f9b817dc8436ed",
+        "observed_sha256": "9c049cc842d007eaf50fd54576918eaf4a91a121b5a2b4b0c4f9b817dc8436ed",
+        "verified": true
+      },
+      {
+        "dataset": "MIRANDA",
+        "field": "velocityz",
+        "path": "/data/user/sruiter/compression/sdrbench_data/MIRANDA_256x384x384/velocityz.d64",
+        "bytes_consumed": 301989888,
+        "expected_sha256": "6bea47311c6755e413e1fd20f6ec1caa7819eefae1e86f7680244d74856868d0",
+        "observed_sha256": "6bea47311c6755e413e1fd20f6ec1caa7819eefae1e86f7680244d74856868d0",
+        "verified": true
+      },
+      {
+        "dataset": "HACC",
+        "field": "vx",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HACCM_280953867/vx.f32",
+        "bytes_consumed": 1123815468,
+        "expected_sha256": "8840d13c000283eb0a9d5dbbb4a89b8e6a4cd74b3cf4e7c529a668631c1c62b9",
+        "observed_sha256": "8840d13c000283eb0a9d5dbbb4a89b8e6a4cd74b3cf4e7c529a668631c1c62b9",
+        "verified": true
+      },
+      {
+        "dataset": "HACC",
+        "field": "vy",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HACCM_280953867/vy.f32",
+        "bytes_consumed": 1123815468,
+        "expected_sha256": "3157be746c7c8247ebdca60ff688eeaaa6ce3fffe7d9475b41a1f298e036c234",
+        "observed_sha256": "3157be746c7c8247ebdca60ff688eeaaa6ce3fffe7d9475b41a1f298e036c234",
+        "verified": true
+      },
+      {
+        "dataset": "HACC",
+        "field": "vz",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HACCM_280953867/vz.f32",
+        "bytes_consumed": 1123815468,
+        "expected_sha256": "fb0a8d2222e6dd9bf0b54f74b8224943c70fb931c9f8c19cb6df3dc8ba67bf01",
+        "observed_sha256": "fb0a8d2222e6dd9bf0b54f74b8224943c70fb931c9f8c19cb6df3dc8ba67bf01",
+        "verified": true
+      },
+      {
+        "dataset": "HACC",
+        "field": "yy",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HACCM_280953867/yy.f32",
+        "bytes_consumed": 1123815468,
+        "expected_sha256": "e4a8e8820438ffc6a8c71b8610d12b43fbc17fc1929136ece4f8e9e645f5838d",
+        "observed_sha256": "e4a8e8820438ffc6a8c71b8610d12b43fbc17fc1929136ece4f8e9e645f5838d",
+        "verified": true
+      },
+      {
+        "dataset": "HACC",
+        "field": "zz",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HACCM_280953867/zz.f32",
+        "bytes_consumed": 1123815468,
+        "expected_sha256": "3ce7a96dab9dd8bce87e4ba9ad2cadfb2e8a2884f188a0db3f8c937c3c5745cb",
+        "observed_sha256": "3ce7a96dab9dd8bce87e4ba9ad2cadfb2e8a2884f188a0db3f8c937c3c5745cb",
+        "verified": true
+      },
+      {
+        "dataset": "EXAALT",
+        "field": "vx",
+        "path": "/data/user/sruiter/compression/sdrbench_data/EXAALT_2869440/vx.f32",
+        "bytes_consumed": 11477760,
+        "expected_sha256": "c4794e65e9f51444241806dc4a77f19ec1fdc36c4d485b07901dd1cad209dd35",
+        "observed_sha256": "c4794e65e9f51444241806dc4a77f19ec1fdc36c4d485b07901dd1cad209dd35",
+        "verified": true
+      },
+      {
+        "dataset": "EXAALT",
+        "field": "vz",
+        "path": "/data/user/sruiter/compression/sdrbench_data/EXAALT_2869440/vz.f32",
+        "bytes_consumed": 11477760,
+        "expected_sha256": "5b2d9e1a4433425568d400cfab383866725eca12ab78d865f09daeb2e49be72c",
+        "observed_sha256": "5b2d9e1a4433425568d400cfab383866725eca12ab78d865f09daeb2e49be72c",
+        "verified": true
+      },
+      {
+        "dataset": "EXAALT",
+        "field": "xx",
+        "path": "/data/user/sruiter/compression/sdrbench_data/EXAALT_2869440/xx.f32",
+        "bytes_consumed": 11477760,
+        "expected_sha256": "ba223cb24eece46711f4c9acf83ae4e6ec37669e8c879e70867c2bea7068f5a6",
+        "observed_sha256": "ba223cb24eece46711f4c9acf83ae4e6ec37669e8c879e70867c2bea7068f5a6",
+        "verified": true
+      },
+      {
+        "dataset": "EXAALT",
+        "field": "yy",
+        "path": "/data/user/sruiter/compression/sdrbench_data/EXAALT_2869440/yy.f32",
+        "bytes_consumed": 11477760,
+        "expected_sha256": "51541e1ae9e7a4dbffd7ba54821f513789930f1e98bb31a4063d7ffe38210308",
+        "observed_sha256": "51541e1ae9e7a4dbffd7ba54821f513789930f1e98bb31a4063d7ffe38210308",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_000",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_000.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "27b10bc62fb14e1b3f9b508be7f2959537e3274dae8fd952a044e60b8d79f469",
+        "observed_sha256": "27b10bc62fb14e1b3f9b508be7f2959537e3274dae8fd952a044e60b8d79f469",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_041",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_041.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "ef9eb349d5971c131591ef5a09feddf466c6914a90c31c0ce0a671931ec22628",
+        "observed_sha256": "ef9eb349d5971c131591ef5a09feddf466c6914a90c31c0ce0a671931ec22628",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_082",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_082.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "175f49f57a257296707e871978647834d6d9020ddb6bf8f44f16c25e24af5d8b",
+        "observed_sha256": "175f49f57a257296707e871978647834d6d9020ddb6bf8f44f16c25e24af5d8b",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_164",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_164.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "e583e903892e708b71e775458b9ee975c21806536dedd3d3763801a157284da0",
+        "observed_sha256": "e583e903892e708b71e775458b9ee975c21806536dedd3d3763801a157284da0",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_205",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_205.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "018ff558471522458c331838f3eb4486bfb034f91c893b494b4436ea1daac533",
+        "observed_sha256": "018ff558471522458c331838f3eb4486bfb034f91c893b494b4436ea1daac533",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_246",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_246.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "4510807760bc006cc89da9bf049cd89e95aa63811bd19543b33ae1b6a7997386",
+        "observed_sha256": "4510807760bc006cc89da9bf049cd89e95aa63811bd19543b33ae1b6a7997386",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "PRES",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/PRES-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "e294cdaf938ce6f376c5543995ffd41909c2b2819cebc32341a96184d78175f9",
+        "observed_sha256": "e294cdaf938ce6f376c5543995ffd41909c2b2819cebc32341a96184d78175f9",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "QC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/QC-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "7b9e06cf1bc19fd5bce2fd20fd5e3fb9b4088b297f7a898a91bbac6286a43bb6",
+        "observed_sha256": "7b9e06cf1bc19fd5bce2fd20fd5e3fb9b4088b297f7a898a91bbac6286a43bb6",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "QG",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/QG-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "497034146f753ffd757984b49a4fc66393e47225561a6ae9269f8eea3e176a57",
+        "observed_sha256": "497034146f753ffd757984b49a4fc66393e47225561a6ae9269f8eea3e176a57",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "QR",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/QR-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "5c839f71bd8d84ec7658503472778e649801594bcfc56d2c84521d99a04f0952",
+        "observed_sha256": "5c839f71bd8d84ec7658503472778e649801594bcfc56d2c84521d99a04f0952",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "QS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/QS-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "50cf7235dce099783a8346a588b45a4ac5b1186b42420dce74bb1a63af6d3090",
+        "observed_sha256": "50cf7235dce099783a8346a588b45a4ac5b1186b42420dce74bb1a63af6d3090",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "QV",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/QV-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "e9d231ff97c12af1212413b7f959e7301bad4df182475432a2a78443c2b9545d",
+        "observed_sha256": "e9d231ff97c12af1212413b7f959e7301bad4df182475432a2a78443c2b9545d",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "T",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/T-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "3c1d60a034dea48dcf279c8509434f2ec54a126c167a718767c98c0abb2290b0",
+        "observed_sha256": "3c1d60a034dea48dcf279c8509434f2ec54a126c167a718767c98c0abb2290b0",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "U",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/U-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "e37754f24730c2e020340b56e793690a14bf4fa2ff1a3cc0b964d804a54b9f62",
+        "observed_sha256": "e37754f24730c2e020340b56e793690a14bf4fa2ff1a3cc0b964d804a54b9f62",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "V",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/V-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "476c8de794ae30791b2f7f1e33813ad59666c56ad1e8adeae18f9b0616c352ab",
+        "observed_sha256": "476c8de794ae30791b2f7f1e33813ad59666c56ad1e8adeae18f9b0616c352ab",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "CH4",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/CH4.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "0cada23634ed59c6e0cf27bcba61105af1d15664f3fb2e6ecdf0382253a7423d",
+        "observed_sha256": "0cada23634ed59c6e0cf27bcba61105af1d15664f3fb2e6ecdf0382253a7423d",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "O2",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/O2.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "d3b4f958386f43737d7ecdf2abe803277f5c57ac7b68d19a27226b948ff445c5",
+        "observed_sha256": "d3b4f958386f43737d7ecdf2abe803277f5c57ac7b68d19a27226b948ff445c5",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "CO",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/CO.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "b6c41a036d998902a334b5f05dcc377945156c25870e9478bf92b2bb93b5354d",
+        "observed_sha256": "b6c41a036d998902a334b5f05dcc377945156c25870e9478bf92b2bb93b5354d",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "H2O",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/H2O.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "2fdf7b1b78f2fd0e42bae57baa4302160993e155009c1e2edd09afbc471f3385",
+        "observed_sha256": "2fdf7b1b78f2fd0e42bae57baa4302160993e155009c1e2edd09afbc471f3385",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "N2",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/N2.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "ba1333e2adf2044edb166ad408678543863d03320d67986649bec5e3d8e2100f",
+        "observed_sha256": "ba1333e2adf2044edb166ad408678543863d03320d67986649bec5e3d8e2100f",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "TEMP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/TEMP.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "a5e1508ccd0836984ec2dbccb5adfbeaed52abada698431db51364da63e3dbc2",
+        "observed_sha256": "a5e1508ccd0836984ec2dbccb5adfbeaed52abada698431db51364da63e3dbc2",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "U",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/U.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "cc2729c35256faa582130cd04420ecf54f996f29866ef1e0024059e6980b7860",
+        "observed_sha256": "cc2729c35256faa582130cd04420ecf54f996f29866ef1e0024059e6980b7860",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "V",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/V.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "96b3376684d708828d28c0a16266e53a21a9bb23d7248eb68e7c3031fb216826",
+        "observed_sha256": "96b3376684d708828d28c0a16266e53a21a9bb23d7248eb68e7c3031fb216826",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "W",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/W.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "769a94296a07831aff754d970628c5a3f3825e07dd6ca1840d8c700154500aad",
+        "observed_sha256": "769a94296a07831aff754d970628c5a3f3825e07dd6ca1840d8c700154500aad",
+        "verified": true
+      },
+      {
+        "dataset": "BROWN",
+        "field": "sample_B_0p5",
+        "path": "/data/user/sruiter/compression/sdrbench_data/BROWN_33554433/sample_r_B_0.5_26.d64",
+        "bytes_consumed": 268435464,
+        "expected_sha256": "b49febf6cf65b7e6da03ec1bda2034efb674ea4341d648d7840bda37f19f6df4",
+        "observed_sha256": "b49febf6cf65b7e6da03ec1bda2034efb674ea4341d648d7840bda37f19f6df4",
+        "verified": true
+      },
+      {
+        "dataset": "BROWN",
+        "field": "sample_B_1p0",
+        "path": "/data/user/sruiter/compression/sdrbench_data/BROWN_33554433/sample_r_B_1.0_26.d64",
+        "bytes_consumed": 268435464,
+        "expected_sha256": "46e1176aba8828d65a7c7b8ba3546378d2f0c7a9a1ede1f473e6afc77cae2c79",
+        "observed_sha256": "46e1176aba8828d65a7c7b8ba3546378d2f0c7a9a1ede1f473e6afc77cae2c79",
+        "verified": true
+      },
+      {
+        "dataset": "BROWN",
+        "field": "sample_B_1p5",
+        "path": "/data/user/sruiter/compression/sdrbench_data/BROWN_33554433/sample_r_B_1.5_26.d64",
+        "bytes_consumed": 268435464,
+        "expected_sha256": "b10151304f8fb54e307cca7f7949870c08bed1d395202217b8ad83412dbbf63e",
+        "observed_sha256": "b10151304f8fb54e307cca7f7949870c08bed1d395202217b8ad83412dbbf63e",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "CLDHGH",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/CLDHGH_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "2f05bb17391c00a6d5948ef062537fafd44b27fc09e47c06c3f0112718be65d8",
+        "observed_sha256": "2f05bb17391c00a6d5948ef062537fafd44b27fc09e47c06c3f0112718be65d8",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLDS",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLDS_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "8b3125216af7f60fb90d9ae38bdd9bc36b56fd7cf7efe79e0775bfe0aa3b9c97",
+        "observed_sha256": "8b3125216af7f60fb90d9ae38bdd9bc36b56fd7cf7efe79e0775bfe0aa3b9c97",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FLNT",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FLNT_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "4c283426c3c38bdd26107d4a531a7ef2472db10af7c5ded98524880ee83d9865",
+        "observed_sha256": "4c283426c3c38bdd26107d4a531a7ef2472db10af7c5ded98524880ee83d9865",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FREQSH",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FREQSH_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "2e3e95da67197a7f154186397abf9854a6bf62b2f7f534319cd3428834846bbb",
+        "observed_sha256": "2e3e95da67197a7f154186397abf9854a6bf62b2f7f534319cd3428834846bbb",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSDTOA",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSDTOA_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "13b6d8e0fce292e18d80ef46a48b9b9f1f4902d9fa3538431c3518270a2796b4",
+        "observed_sha256": "13b6d8e0fce292e18d80ef46a48b9b9f1f4902d9fa3538431c3518270a2796b4",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "FSNTC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/FSNTC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "76c232b3d01c48752c1d4e701bd900cab15b348fb0812018a266f7d53b33155f",
+        "observed_sha256": "76c232b3d01c48752c1d4e701bd900cab15b348fb0812018a266f7d53b33155f",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ICEFRAC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ICEFRAC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "67559bf9472231982cc6e1082f3a63972b357c8c876da304ec7c8c2ca370ad52",
+        "observed_sha256": "67559bf9472231982cc6e1082f3a63972b357c8c876da304ec7c8c2ca370ad52",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "OCNFRAC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/OCNFRAC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "6937088b3d6eeac4ae2e0bf711f5b492b8de192394959ec9477f7bcca5349df9",
+        "observed_sha256": "6937088b3d6eeac4ae2e0bf711f5b492b8de192394959ec9477f7bcca5349df9",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_dust2",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_dust2_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "3cff9ea11b9173ece3d1770a7147f5714fd6ef3de58dce547e86e2c1de0502b5",
+        "observed_sha256": "3cff9ea11b9173ece3d1770a7147f5714fd6ef3de58dce547e86e2c1de0502b5",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "ODV_ocar2",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/ODV_ocar2_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "ef5a4607969f9f0deac0f3a2fd8d4188894b4f86b95b8e6e5ec32e33aafff9a2",
+        "observed_sha256": "ef5a4607969f9f0deac0f3a2fd8d4188894b4f86b95b8e6e5ec32e33aafff9a2",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PBLH",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PBLH_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "88a9075f1ba8e490f16fb3c3da3cc9123900d23d6482daa4d709678b05bd300f",
+        "observed_sha256": "88a9075f1ba8e490f16fb3c3da3cc9123900d23d6482daa4d709678b05bd300f",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PRECC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PRECC_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "f89c1c7fc2204c2c3faf9ee4afd0aa6607b538befddd7fe86c39cc18287abac9",
+        "observed_sha256": "f89c1c7fc2204c2c3faf9ee4afd0aa6607b538befddd7fe86c39cc18287abac9",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PRECSH",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PRECSH_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "428b531be2b78bf8a3841cec0f535e98df570286d4d773752ebacb41a95a3d2a",
+        "observed_sha256": "428b531be2b78bf8a3841cec0f535e98df570286d4d773752ebacb41a95a3d2a",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "PSL",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/PSL_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "1bcbea5a5599baa8446aadc760e27d25dc0ff5e46e28640a76049ea9de5e389f",
+        "observed_sha256": "1bcbea5a5599baa8446aadc760e27d25dc0ff5e46e28640a76049ea9de5e389f",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SFCLDICE",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SFCLDICE_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "70b59838caa0f3626e47ea1bc89036750d9038839c502bd1eb88eda130fb8cba",
+        "observed_sha256": "70b59838caa0f3626e47ea1bc89036750d9038839c502bd1eb88eda130fb8cba",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "SNOWHLND",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/SNOWHLND_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "51791563f1edd59eacfb2cef9e408380060ebc77d92a3f76725a995c62bb36de",
+        "observed_sha256": "51791563f1edd59eacfb2cef9e408380060ebc77d92a3f76725a995c62bb36de",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TAUX",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TAUX_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "57c11905d32b24eff5911c7f91e5b17c95ec6e26acdaf4ad3724c43b7cdf9ab1",
+        "observed_sha256": "57c11905d32b24eff5911c7f91e5b17c95ec6e26acdaf4ad3724c43b7cdf9ab1",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TMQ",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TMQ_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "0377d5ddb4abe425b80472b75dd9b96065d542aa90e3288d8be1094ec91ee3fa",
+        "observed_sha256": "0377d5ddb4abe425b80472b75dd9b96065d542aa90e3288d8be1094ec91ee3fa",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TROP_P",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TROP_P_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "8d4e7ff2a12e733bf07723873d3a2cbdf8094a533740c1de7cb82f7c0d6d4ed1",
+        "observed_sha256": "8d4e7ff2a12e733bf07723873d3a2cbdf8094a533740c1de7cb82f7c0d6d4ed1",
+        "verified": true
+      },
+      {
+        "dataset": "CESM-2D",
+        "field": "TSMN",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESM_1800x3600/TSMN_1_1800_3600.f32",
+        "bytes_consumed": 25920000,
+        "expected_sha256": "b096c970cafd9d453c9aaf77423df40a4b6f3c05f47f2e7b54a4e89597bcf1e7",
+        "observed_sha256": "b096c970cafd9d453c9aaf77423df40a4b6f3c05f47f2e7b54a4e89597bcf1e7",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "CLOUD",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/CLOUD_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "522ffacdb8c863c5ab6e8fdf29925bac04e7cae72e8545616d220ec3a5c112d6",
+        "observed_sha256": "522ffacdb8c863c5ab6e8fdf29925bac04e7cae72e8545616d220ec3a5c112d6",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "CONCLD",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/CONCLD_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "e970a6e589164df7266501e6b64eb734f9df527bb458e661974259cf76f2c7e0",
+        "observed_sha256": "e970a6e589164df7266501e6b64eb734f9df527bb458e661974259cf76f2c7e0",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "FICE",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/FICE_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "29a0594ab405c2d457cd2738c3ad7f27138c22b9836bd83ed08060eaf81c8c5c",
+        "observed_sha256": "29a0594ab405c2d457cd2738c3ad7f27138c22b9836bd83ed08060eaf81c8c5c",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "ICLDTWP",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/ICLDTWP_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "1e36133794b558641a6f1e305749e6d55d9962f80b3f1c15e618439e235200ba",
+        "observed_sha256": "1e36133794b558641a6f1e305749e6d55d9962f80b3f1c15e618439e235200ba",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "Q",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/Q_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "57b8a95902780252022a57d518ed4dab4aa27d119620155498a4a47728b26a3d",
+        "observed_sha256": "57b8a95902780252022a57d518ed4dab4aa27d119620155498a4a47728b26a3d",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "RELHUM",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/RELHUM_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "728364faf056a30f9ed030404c65c24be2faadedd03e78038402bb6bc9905d3f",
+        "observed_sha256": "728364faf056a30f9ed030404c65c24be2faadedd03e78038402bb6bc9905d3f",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "V",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/V_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "8b106e6facb97be10d34160e382ffe64f5b1f34cba38bac3c5ef4cfef5d0d878",
+        "observed_sha256": "8b106e6facb97be10d34160e382ffe64f5b1f34cba38bac3c5ef4cfef5d0d878",
+        "verified": true
+      },
+      {
+        "dataset": "CESMATM-3D",
+        "field": "VU",
+        "path": "/data/user/sruiter/compression/sdrbench_data/CESMATM_26x1800x3600/VU_1_26_1800_3600.f32",
+        "bytes_consumed": 673920000,
+        "expected_sha256": "908bc04801785a31856090eacbfa5513655d845e821d88a9a53c73a789bea7a2",
+        "observed_sha256": "908bc04801785a31856090eacbfa5513655d845e821d88a9a53c73a789bea7a2",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "P",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/Pf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "aeab396bf9c565544880ddeb665a4d98f9aeb65619a869adfea3936b46c2aff3",
+        "observed_sha256": "aeab396bf9c565544880ddeb665a4d98f9aeb65619a869adfea3936b46c2aff3",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "QICE",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/QICEf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "6ba078572910623422f9cbe38b12af2c8c993f43ff937e654602c3ffba1eae6c",
+        "observed_sha256": "6ba078572910623422f9cbe38b12af2c8c993f43ff937e654602c3ffba1eae6c",
+        "verified": true
+      },
+      {
+        "dataset": "HURR",
+        "field": "TC",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HURR_100x500x500/TCf48.bin.f32",
+        "bytes_consumed": 100000000,
+        "expected_sha256": "d170a0ce36a3eeb2f86598726d60cb1b5cc84cabdc76e036203eda994b213e31",
+        "observed_sha256": "d170a0ce36a3eeb2f86598726d60cb1b5cc84cabdc76e036203eda994b213e31",
+        "verified": true
+      },
+      {
+        "dataset": "NYX",
+        "field": "baryon_density",
+        "path": "/data/user/sruiter/compression/sdrbench_data/NYX_512x512x512/baryon_density.f32",
+        "bytes_consumed": 536870912,
+        "expected_sha256": "352856560d319c207622662484d358bce2198282de4a50c7d5963b97a4f2986d",
+        "observed_sha256": "352856560d319c207622662484d358bce2198282de4a50c7d5963b97a4f2986d",
+        "verified": true
+      },
+      {
+        "dataset": "NYX",
+        "field": "velocity_y",
+        "path": "/data/user/sruiter/compression/sdrbench_data/NYX_512x512x512/velocity_y.f32",
+        "bytes_consumed": 536870912,
+        "expected_sha256": "1adf59dd2bf1b2a79b3ebbac99a547f448a423f4e30c170fb331adb948318eff",
+        "observed_sha256": "1adf59dd2bf1b2a79b3ebbac99a547f448a423f4e30c170fb331adb948318eff",
+        "verified": true
+      },
+      {
+        "dataset": "MIRANDA",
+        "field": "pressure",
+        "path": "/data/user/sruiter/compression/sdrbench_data/MIRANDA_256x384x384/pressure.d64",
+        "bytes_consumed": 301989888,
+        "expected_sha256": "48ee10b5f7925bf969906aa919b330a856262f281f813b35e41fc634ab79ac5a",
+        "observed_sha256": "48ee10b5f7925bf969906aa919b330a856262f281f813b35e41fc634ab79ac5a",
+        "verified": true
+      },
+      {
+        "dataset": "MIRANDA",
+        "field": "viscocity",
+        "path": "/data/user/sruiter/compression/sdrbench_data/MIRANDA_256x384x384/viscocity.d64",
+        "bytes_consumed": 301989888,
+        "expected_sha256": "ad2258f2276d0eeccd2493a8d172c4d1e006e0f28326677a094eea660f0d739c",
+        "observed_sha256": "ad2258f2276d0eeccd2493a8d172c4d1e006e0f28326677a094eea660f0d739c",
+        "verified": true
+      },
+      {
+        "dataset": "HACC",
+        "field": "xx",
+        "path": "/data/user/sruiter/compression/sdrbench_data/HACCM_280953867/xx.f32",
+        "bytes_consumed": 1123815468,
+        "expected_sha256": "4919e1afb89a256f6bebfa545f27c9867a77d8e6f79df81d8d4c29e45c8c6384",
+        "observed_sha256": "4919e1afb89a256f6bebfa545f27c9867a77d8e6f79df81d8d4c29e45c8c6384",
+        "verified": true
+      },
+      {
+        "dataset": "EXAALT",
+        "field": "vy",
+        "path": "/data/user/sruiter/compression/sdrbench_data/EXAALT_2869440/vy.f32",
+        "bytes_consumed": 11477760,
+        "expected_sha256": "c0cb3ac89c607bbdfe64c2263db041ac0c82174e928483424bbff928d144f794",
+        "observed_sha256": "c0cb3ac89c607bbdfe64c2263db041ac0c82174e928483424bbff928d144f794",
+        "verified": true
+      },
+      {
+        "dataset": "EXAALT",
+        "field": "zz",
+        "path": "/data/user/sruiter/compression/sdrbench_data/EXAALT_2869440/zz.f32",
+        "bytes_consumed": 11477760,
+        "expected_sha256": "3fe0ba131760bf547770083926481aabe9734ad2959ed4468ce21dd08b548133",
+        "observed_sha256": "3fe0ba131760bf547770083926481aabe9734ad2959ed4468ce21dd08b548133",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_123",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_123.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "f3df5d780df15718eb0b46def3e8fdbebdddfb5474285673592c91da0daed843",
+        "observed_sha256": "f3df5d780df15718eb0b46def3e8fdbebdddfb5474285673592c91da0daed843",
+        "verified": true
+      },
+      {
+        "dataset": "QMCPACK-3D",
+        "field": "orbital_287",
+        "path": "/data/user/sruiter/compression/sdrbench_data/QMCPACK/orbitals_69x69x115/orbital_287.f32",
+        "bytes_consumed": 2190060,
+        "expected_sha256": "b50d3ba0b9486dc09d3cbbb92cef77405ab4415fee153d80e41b2e6ad5f4c73c",
+        "observed_sha256": "b50d3ba0b9486dc09d3cbbb92cef77405ab4415fee153d80e41b2e6ad5f4c73c",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "QI",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/QI-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "f89b0c40db48d1cf8b4fc67e4a54e8f1ff32ea698a0aece4064ba51882785bfd",
+        "observed_sha256": "f89b0c40db48d1cf8b4fc67e4a54e8f1ff32ea698a0aece4064ba51882785bfd",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "RH",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/RH-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "b4bb2e2b1a59c4f9addc9beff7a53819f99db1ebd04af3522ff0639afe6d3d3a",
+        "observed_sha256": "b4bb2e2b1a59c4f9addc9beff7a53819f99db1ebd04af3522ff0639afe6d3d3a",
+        "verified": true
+      },
+      {
+        "dataset": "SCALE-LETKF",
+        "field": "W",
+        "path": "/data/user/sruiter/compression/sdrbench_data/SCALE_98x1200x1200/W-98x1200x1200.f32",
+        "bytes_consumed": 564480000,
+        "expected_sha256": "fb4bea3baa5ccd05f149aba1d29c13d84d8b57832d7622380a19acd95c61cbef",
+        "observed_sha256": "fb4bea3baa5ccd05f149aba1d29c13d84d8b57832d7622380a19acd95c61cbef",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "CO2",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/CO2.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "5ff6e93027fba7c728c3330625234fe40c37f69bcb01c5654b24b1b28677fe31",
+        "observed_sha256": "5ff6e93027fba7c728c3330625234fe40c37f69bcb01c5654b24b1b28677fe31",
+        "verified": true
+      },
+      {
+        "dataset": "S3D",
+        "field": "PRES",
+        "path": "/data/user/sruiter/compression/sdrbench_data/S3D_500x500x500/vars_500x500x500/PRES.d64",
+        "bytes_consumed": 1000000000,
+        "expected_sha256": "bbe5ff8d5520d7f7bf59389d495dfae102014db54c41736478d9ba78d9101429",
+        "observed_sha256": "bbe5ff8d5520d7f7bf59389d495dfae102014db54c41736478d9ba78d9101429",
+        "verified": true
+      },
+      {
+        "dataset": "NWCHEM",
+        "field": "t631",
+        "path": "/data/user/sruiter/compression/sdrbench_data/NWCHEM_102953248/631-tst.bin.d64",
+        "bytes_consumed": 823625984,
+        "expected_sha256": "d18dd140846d17035444dbf445863987f4b71bcbbc8af728bbc49bc4ed655ddf",
+        "observed_sha256": "d18dd140846d17035444dbf445863987f4b71bcbbc8af728bbc49bc4ed655ddf",
+        "verified": true
+      },
+      {
+        "dataset": "EXAFEL",
+        "field": "data",
+        "path": "/data/user/sruiter/compression/sdrbench_data/EXAFEL_130x1480x1552/SDRBENCH-EXAFEL-data-130x1480x1552.f32",
+        "bytes_consumed": 1194419200,
+        "expected_sha256": "e38b12da6547016cae608d7f50302bab25995506fe71f1778e397a0bfb7508b7",
+        "observed_sha256": "e38b12da6547016cae608d7f50302bab25995506fe71f1778e397a0bfb7508b7",
+        "verified": true
+      }
+    ]
+  },
+  "nvidia_smi": "Thu Sep  3 09:05:24 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.195.03             Driver Version: 570.195.03     CUDA Version: 12.8     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA L40S                    On  |   00000000:C1:00.0 Off |                    0 |\n| N/A   27C    P8             32W /  350W |       0MiB /  46068MiB |      0%      Default |\n|                                         |                        |                  N/A |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+",
+  "provenance_id": "provenance-v1-53a130120fb79d14e163d684e0307f93132bc5bfc99454c3bb1878c1e398bd63"
+}
