@@ -1,0 +1,128 @@
+# Baseline: A100 / BigRed200 — Pipeline Specialization vs native, SPECIALIZED arm, full corpus.
+# Pair with a100-bigred200-20260903-spec-vsnative-staged (same matrix, specialization off).
+# See results/baselines/README.md.
+
+baseline_id: a100-bigred200-20260903-spec-vsnative-auto
+gpu: NVIDIA A100-SXM4-40GB
+site: BigRed200 (Indiana University, SLURM, shared partition `gpu`, --exclusive --gpus=1)
+driver: "595.71.05"
+cuda_toolkit: "12.6 (nvcc V12.6.77, cudatoolkit/24.11_12.6 module)"
+date: "2026-09-03"
+
+experiment_config: configs/experiments/specialization_vs_native_full.local-no-qmcpack-s3d.yaml
+clocks_locked: false  # SLURM shared node; --exclusive used instead (see D15)
+
+fzgm_build:
+  tool_source_commit: b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  tool_build_flags: Release;CMAKE_CUDA_ARCHITECTURES=80 (build_bench/, per CMakeCache.txt)
+  tool_patch_sha256: clean
+  binary: build_bench/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=auto (kernel fusion + single-pass decoupled-lookback, compress and decompress)"
+  compression_benchmarking_commit: 808870ef9fa929741213dcb5242110033cf84694
+
+reference_compressors: same trees as the staged pair (not rebuilt between sessions).
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full per-cell data (runs.jsonl has per-rep timing, stages[], fusion install
+    counts). Sharded 8-way (SLURM array 8142237, tasks 0-7, each --exclusive
+    --gpus=1, 8h wall cap per shard -- all 8 finished within the cap, no
+    resubmission needed). Only ONE representative provenance.provenance-v1-*.json
+    manifest per shard is checked in here (8 total, one per shard/node) rather
+    than every raw artifact; full session directories remain under
+    /N/scratch/sruiter/benchkit-results/ on BigRed200 if deeper provenance is
+    ever needed.
+
+cells:
+  total: 8451
+  ok: 8439
+  failed: 12
+  eb_satisfied_false: >
+    502 validity-gate exclusions (degenerate_field / eb_violated_severe),
+    symmetric with the staged session -- native-compressor tight-bound behavior,
+    not a specialization effect.
+  failure_breakdown: >
+    9 native cuSZ segfaults (exit -11) on EXAALT/{vx,vy,vz,zz} at eb=0.001,
+    identical to the staged session -- a native cuSZ crash bug unrelated to
+    specialization. 3 FZGM outlier-overflow rejections on EXAALT/{vy,vz} at
+    eb=0.0001 (fzgm:cusz, fzgm:fzgpu variants), identical to the staged session.
+    The staged session has one ADDITIONAL failure this session does not: see
+    known_issues.
+
+controlled_ab: >
+  Checked all FZGM rows across the full corpus for CR identity against the
+  paired staged session: 0 CR/compressed_bytes mismatches on the 8438 cells
+  that succeeded in both sessions. fusion_installed_group_count AND
+  fusion_inverse_installed_group_count > 0 on every row for cuszp2_outlier_sp,
+  cuszp2_plain_sp, cuszp3_outlier_sp, cuszp3_plain_sp, pfpl, and szp_composed;
+  0 for cusz, fzgpu, cuszp3_fixed, and every *_hp row -- matches the smoke
+  gate's controls exactly.
+
+known_issues:
+  - >
+    OFF/AUTO DIVERGENCE (not yet root-caused, HIGH PRIORITY): fzgm:pfpl on
+    CESM-2D/PSL at eb=0.0001 SUCCEEDS in this (auto/specialized) session
+    (cr=4.99) but FAILS in the paired staged session with a
+    "QuantizerStage: outlier overflow" rejection (99.9% of elements outside the
+    quantizer radius vs 10% capacity). Since the two sessions are supposed to
+    run byte-identical arithmetic (staged vs fused, same quantizer), a case
+    where specialization changes whether the run succeeds at all -- not just
+    its timing -- means either (a) the fused path is silently more permissive
+    about outlier handling than the staged path (a correctness gap the staged
+    path is right to catch), or (b) the staged path has a bug that
+    over-rejects a field the fused path handles correctly. Needs the two
+    compress.log files compared cell-by-cell before trusting any pfpl number
+    near this field's regime. Logs:
+      staged: .../specialization-vs-native-full-bigred200-a100-off-20260903/work/specialization_vs_native_full-7610-2757822f7cdb/compress.log
+      auto:   this session, same field, cr=4.99 (search runs.jsonl for
+              dataset=CESM-2D field=PSL compressor=fzgm variant=pfpl)
+  - >
+    TIMING RELIABILITY IS NOT SYMMETRIC (HIGH PRIORITY): this (auto) session
+    has 479/8451 rows flagged timing_reliable=false vs only 1/8451 in the
+    staged session. Not generic shared-node noise (which would hit both
+    sessions evenly) -- concentrated: 383 in fzgm:pfpl, 94 more across the
+    *_sp specialized rows (cuszp2/cuszp3 outlier_sp/plain_sp), almost none
+    elsewhere. Per-row compress_cv stays low (~0.001-0.01) while decompress_cv
+    is high (0.15-0.76) for the flagged rows -- points at the fused DECOMPRESS
+    kernel specifically being timing-unstable on this machine/build, not a
+    correctness issue (CR is unaffected). Spread across all datasets, heaviest
+    in CESM-2D (208) and CESMATM-3D (147). Needs investigation before citing
+    auto-session decompress throughput for pfpl or the *_sp rows as reliable;
+    compress throughput and all CR/PSNR numbers are unaffected.
+  - >
+    FZGM's self-reported tool_source_commit in some provenance blocks may lag
+    behind compression_benchmarking's actual checked-out FZGPUModules commit
+    (b90fdfe) if the binary wasn't reconfigured (only `cmake --build`, not a
+    fresh `cmake -S -B`) after the fast-forward from 6897f66 -- that fast-
+    forward was docs-only (no C++/CUDA source changed), so this does not affect
+    the actual measured binary, only the self-reported version string.
+  - >
+    `harness.git.dirty=true` in provenance is due to two untracked, uncommitted
+    local files used to run this launch (a QMCPACK-3D/S3D-excluded copy of the
+    full experiment config, and an ad hoc SLURM array submit script) -- not
+    modified tracked files. Neither is committed to the repo.
+  - >
+    QMCPACK-3D (8 fields) and S3D (11 fields) are NOT in this corpus. SDRBench
+    shipped them as single combined multi-field arrays (QMCPACK: one
+    115x69x69x288 float array; S3D: one 11x500x500x500 double array per
+    timestep) rather than the pre-split per-field files configs/datasets.yaml
+    expects -- splitting them correctly requires care with axis/interleave
+    order that wasn't done for this run. 167/186 fields ran (8451 cells vs the
+    documented ~9,354/arm for the complete corpus).
+  - >
+    `benchkit verify` exits non-zero (expected, not publication-grade):
+    validity_exclusions 0/502, timing_reliability 0/479 (see above),
+    h3_eligibility incomplete (this is a cross-machine comparison input, not a
+    publication artifact build).
+
+result_summary: >
+  Aggregate compress-throughput ratios (auto vs native reference, GB/s) for
+  the specialization-ready arms: fzgm:pfpl ~3.5-3.9x median across error
+  bounds, fzgm:szp_composed ~2.3-3.1x, fzgm:fzgpu ~2.3-2.6x -- consistent with
+  the smoke gate and the H100 baselines' expected specialization gain. Given
+  the decompress-timing-reliability finding above, decompress-side ratios for
+  pfpl/*_sp specifically should be treated as provisional pending
+  investigation, not cited yet.
+
+related_decisions: [D15, D24, D33, D41, D42]
