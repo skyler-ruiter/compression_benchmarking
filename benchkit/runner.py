@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 import os
+import time
 import yaml
 
 from . import metrics
@@ -49,7 +50,22 @@ def _cleanup_cell_artifacts(workdir: Path) -> None:
     """
     for leftover in workdir.iterdir():
         if leftover.is_file() and leftover.suffix not in _DIAGNOSTIC_SUFFIXES:
-            leftover.unlink(missing_ok=True)
+            _unlink_with_nfs_retry(leftover)
+
+
+def _unlink_with_nfs_retry(path: Path, attempts: int = 5, delay_s: float = 0.5) -> None:
+    # NFS clients "silly-rename" a file to .nfsXXXXXXXX instead of deleting it when a
+    # handle is still briefly open elsewhere, which raises EBUSY here even though the
+    # file is otherwise gone (observed repeatedly on LAIR's /data/user). missing_ok=True
+    # only swallows ENOENT, so retry past the transient EBUSY instead of crashing the run.
+    for attempt in range(attempts):
+        try:
+            path.unlink(missing_ok=True)
+            return
+        except OSError as e:
+            if e.errno != 16 or attempt == attempts - 1:
+                raise
+            time.sleep(delay_s)
 
 
 def cell_key(entry, dataset: str, field: str, mode: str, eb) -> str:
