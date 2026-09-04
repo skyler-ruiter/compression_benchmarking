@@ -116,18 +116,34 @@ known_issues:
       auto row: this session, logical_cell_id
                 logical-v1-97f9d21329baa48d0b4e71d6af3575736747230d90e438a3b228aad978d88708
   - >
-    TIMING RELIABILITY IS NOT SYMMETRIC (HIGH PRIORITY): this (auto) session
-    has 479/8451 rows flagged timing_reliable=false vs only 1/8451 in the
-    staged session. Not generic shared-node noise (which would hit both
-    sessions evenly) -- concentrated: 383 in fzgm:pfpl, 94 more across the
-    *_sp specialized rows (cuszp2/cuszp3 outlier_sp/plain_sp), almost none
-    elsewhere. Per-row compress_cv stays low (~0.001-0.01) while decompress_cv
-    is high (0.15-0.76) for the flagged rows -- points at the fused DECOMPRESS
-    kernel specifically being timing-unstable on this machine/build, not a
-    correctness issue (CR is unaffected). Spread across all datasets, heaviest
-    in CESM-2D (208) and CESMATM-3D (147). Needs investigation before citing
-    auto-session decompress throughput for pfpl or the *_sp rows as reliable;
-    compress throughput and all CR/PSNR numbers are unaffected.
+    TIMING RELIABILITY IS TIED EXCLUSIVELY TO FUSION INSTALLING, NOT TO
+    COMPRESSOR/DATASET/PHASE (HIGH PRIORITY): this (auto) session has
+    479/8451 rows flagged timing_reliable=false vs only 1/8451 in the staged
+    session. Precisely characterized: of the 2808 FZGM rows where
+    fusion_installed_group_count > 0 in this session, 477 (17%) are
+    unreliable; of the 1668 FZGM rows where it did NOT install (the *_hp /
+    plain controls), 0 are unreliable; of 3975 native rows, 2 are unreliable.
+    This rules out generic shared-node/clock noise (would hit everything
+    evenly), dataset size, and compressor family -- the only variable that
+    predicts instability is whether specialization actually fused a kernel
+    group for that cell. Of the 479 flagged rows, 384 spike on compress_cv,
+    95 on decompress_cv, and 0 spike on both in the same cell -- a per-launch
+    stochastic effect on whichever fused kernel ran (compress OR decompress),
+    not a systemic per-cell environment problem. Plausible mechanism (not yet
+    confirmed against the kernel source): the "chunk-cooperative decompress
+    fusion" and "single-pass decoupled-lookback" designs this campaign
+    documents typically rely on grid-wide inter-block synchronization
+    (spin-wait/atomic prefix propagation across thread blocks), which is
+    known to have higher launch-to-launch scheduling variance than ordinary
+    independent-block kernels -- and this machine has clocks_locked=false
+    (shared SLURM node, --exclusive only, no admin clock pinning -- see D15),
+    unlike the H100/JetStream2 baselines which lock clocks and show far fewer
+    timing-reliability flags. CR/PSNR/correctness are unaffected either way.
+    Needs confirming against the actual fusion kernel source (and ideally a
+    clock-locked exclusive node) before citing any auto-session throughput
+    number -- compress OR decompress -- for a fused row as reliable; use
+    *_device_ms_min per the campaign's own stated policy for those cells in
+    the meantime.
   - >
     FZGM's self-reported tool_source_commit in some provenance blocks may lag
     behind compression_benchmarking's actual checked-out FZGPUModules commit
