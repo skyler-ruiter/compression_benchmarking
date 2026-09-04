@@ -61,6 +61,23 @@ controlled_ab: >
 
 known_issues:
   - >
+    KNOWN-BROKEN NATIVE CONTROL, DO NOT TRUST cuszp3_fixed BOUND/CR NUMBERS:
+    this run predates upstream commit 1542048 ("bench: correct fixed-mode
+    campaign provenance", compression_benchmarking, 2026-09-03T18:00Z -- landed
+    minutes after this session's shards finished) which found that native
+    cuszp3's `fixed:2d`/`fixed:3d` tiled kernels (used here for CESM-2D and the
+    3-D datasets respectively) "produced severe pointwise-bound misses" and
+    replaced them with a single flat `fixed` kernel for all shapes. Confirmed
+    in the paired staged session's own data: 184 eb_satisfied=false rows on
+    (cuszp3, cuszp3_fixed) -- 168 on CESM-2D, 12 on HURR -- with
+    err_over_bound up to ~8192x the requested bound (native rows are unaffected
+    by FZ_SPECIALIZE so this session's numbers match). The paired FZGM
+    `fzgm:cuszp3_fixed` control may also be affected since it's meant to match
+    native fixed-mode behavior. Every OTHER compressor/variant in this session
+    is unaffected by this bug. Anyone comparing cuszp3_fixed across machines
+    against this baseline should either exclude it or re-run this session's
+    cuszp3_fixed rows against compression_benchmarking >= 1542048 first.
+  - >
     OFF/AUTO DIVERGENCE (not yet root-caused, HIGH PRIORITY): fzgm:pfpl on
     CESM-2D/PSL at eb=0.0001 SUCCEEDS in this (auto/specialized) session
     (cr=4.99) but FAILS in the paired staged session with a
