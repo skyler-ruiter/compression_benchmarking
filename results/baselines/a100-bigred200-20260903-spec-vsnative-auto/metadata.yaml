@@ -78,22 +78,43 @@ known_issues:
     against this baseline should either exclude it or re-run this session's
     cuszp3_fixed rows against compression_benchmarking >= 1542048 first.
   - >
-    OFF/AUTO DIVERGENCE (not yet root-caused, HIGH PRIORITY): fzgm:pfpl on
-    CESM-2D/PSL at eb=0.0001 SUCCEEDS in this (auto/specialized) session
-    (cr=4.99) but FAILS in the paired staged session with a
-    "QuantizerStage: outlier overflow" rejection (99.9% of elements outside the
-    quantizer radius vs 10% capacity). Since the two sessions are supposed to
-    run byte-identical arithmetic (staged vs fused, same quantizer), a case
-    where specialization changes whether the run succeeds at all -- not just
-    its timing -- means either (a) the fused path is silently more permissive
-    about outlier handling than the staged path (a correctness gap the staged
-    path is right to catch), or (b) the staged path has a bug that
-    over-rejects a field the fused path handles correctly. Needs the two
-    compress.log files compared cell-by-cell before trusting any pfpl number
-    near this field's regime. Logs:
-      staged: .../specialization-vs-native-full-bigred200-a100-off-20260903/work/specialization_vs_native_full-7610-2757822f7cdb/compress.log
-      auto:   this session, same field, cr=4.99 (search runs.jsonl for
-              dataset=CESM-2D field=PSL compressor=fzgm variant=pfpl)
+    OFF/AUTO DIVERGENCE, ROOT-CAUSED, REAL BUG (HIGH PRIORITY): fzgm:pfpl on
+    CESM-2D/PSL at eb=0.0001 does NOT succeed in this (auto/specialized)
+    session -- it returns status=ok but eb_satisfied=false, err_over_bound=
+    162037x, max_abs_err=104098.34 (approximately the field's own raw
+    magnitude -- most elements decoded to ~0). The paired staged session
+    instead hard-fails with "QuantizerStage: outlier overflow -- 99.9% of
+    elements outside the quantizer radius, capacity 10%" and never produces
+    output at all. Root cause (confirmed by source inspection,
+    FZGPUModules @ b90fdfe): PSL has a huge baseline offset (values
+    97674-104098 Pa) but a small range (6424 Pa); the Quantizer stage's
+    ABS/NOA code formula is `code = round(value/step) + quant_radius`
+    (modules/quantizers/quantizer/quantizer.cu:58) -- it never subtracts a
+    baseline/reference, so any field with a large absolute magnitude
+    overflows the radius regardless of specialization. The STAGED reference
+    implementation (same file) tracks a capacity-limited outlier buffer
+    (outlier_capacity=0.1 here) and hard-fails when that capacity is
+    exceeded -- the correct, safe behavior for a field this formula can't
+    handle. The fused "chunk-coop" kernel that specialization installs for
+    the Quantizer->Difference->Bitshuffle->RZE group instead encodes
+    out-of-radius elements as unlimited inplace raw-float-bits outliers
+    (modules/fused/chunk_fusion/chunk_fusion.h:34, "out-of-radius -> inplace
+    raw-float-bits outlier") with NO equivalent capacity guard anywhere in
+    modules/fused/chunk_fusion/ or modules/fused/fused_block/ (grepped,
+    absent) -- so it never hard-fails, but at this cell's near-100%-outlier
+    rate the round trip is actually WRONG, not just uncapped. This is
+    correctly caught by this benchmark's own eb_satisfied validity check (so
+    it will not be mistaken for good data by anyone reading validity-gated
+    results), but it means: (1) specialization silently changes a hard
+    compress-time failure into a decode-time garbage result for any field
+    this formula can't represent, and (2) the fused inplace-outlier
+    encode/decode path itself has a real correctness bug at high outlier
+    rates that needs a FZGM-side fix, independent of the missing capacity
+    guard. Do not trust any pfpl/*_sp auto-session row for a field with a
+    large absolute baseline relative to its range until this is fixed.
+      staged compress.log: .../specialization-vs-native-full-bigred200-a100-off-20260903/work/specialization_vs_native_full-7610-2757822f7cdb/compress.log
+      auto row: this session, logical_cell_id
+                logical-v1-97f9d21329baa48d0b4e71d6af3575736747230d90e438a3b228aad978d88708
   - >
     TIMING RELIABILITY IS NOT SYMMETRIC (HIGH PRIORITY): this (auto) session
     has 479/8451 rows flagged timing_reliable=false vs only 1/8451 in the

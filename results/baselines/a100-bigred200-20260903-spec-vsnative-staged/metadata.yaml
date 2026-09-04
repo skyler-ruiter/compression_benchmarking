@@ -82,15 +82,21 @@ known_issues:
     either exclude it or re-run this session's cuszp3_fixed rows against
     compression_benchmarking >= 1542048 first.
   - >
-    OFF/AUTO DIVERGENCE (not yet root-caused): fzgm:pfpl on CESM-2D/PSL at
-    eb=0.0001 fails in this (staged) session with
+    OFF/AUTO DIVERGENCE, ROOT-CAUSED, REAL BUG: fzgm:pfpl on CESM-2D/PSL at
+    eb=0.0001 correctly hard-fails in this (staged) session with
     "QuantizerStage: outlier overflow -- 6480000 of 6483968 elements (99.9%)
-    fell outside the quantizer radius, but outlier_capacity reserves only 10.0%"
-    but SUCCEEDS in the auto/specialized session (cr=4.99). This is the one
-    logical cell in the whole 8451-cell corpus where staged and specialized
-    differ in outcome, not just timing -- worth root-causing before trusting
-    pfpl numbers near this field's error-bound regime. See the paired auto
-    baseline's known_issues for the follow-up.
+    fell outside the quantizer radius, but outlier_capacity reserves only
+    10.0%" -- PSL has a huge baseline offset (97674-104098 Pa) but a small
+    range (6424 Pa), and the Quantizer stage's code formula never subtracts a
+    baseline before dividing by step, so this field structurally cannot fit
+    the radius. This is the CORRECT, safe outcome. The paired auto/specialized
+    session does NOT hit the same guard (the fused chunk-coop kernel has no
+    equivalent capacity check) and returns status=ok with eb_satisfied=false,
+    err_over_bound=162037x -- a real decode-correctness bug in the fused
+    path's unlimited inplace-outlier encoding at this near-100%-outlier rate,
+    not a case of specialization "succeeding" where staged is overly strict.
+    See the paired auto baseline's known_issues for the full root-cause
+    writeup and source references.
   - >
     FZGM's self-reported tool_source_commit in some provenance blocks may lag
     behind compression_benchmarking's actual checked-out FZGPUModules commit
