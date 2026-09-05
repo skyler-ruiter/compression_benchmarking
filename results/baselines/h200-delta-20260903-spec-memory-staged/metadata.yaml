@@ -1,0 +1,43 @@
+# Baseline: H200 / Delta — specialization-aware buffer-coloring peak-memory
+# ablation, STAGED arm. Pair with h200-delta-20260903-spec-memory-auto.
+# Cross-machine counterpart to h100-jetstream2-20260901-spec-memory-staged.
+# See results/baselines/README.md.
+
+baseline_id: h200-delta-20260903-spec-memory-staged
+gpu: NVIDIA H200 (143771 MiB)
+site: NCSA Delta gpuH200x8 (SLURM, shared node, non-exclusive — 1 of 8 GPUs)
+driver: "595.71.05"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 26.5 bundle"
+date: "2026-09-04"
+
+experiment_config: configs/experiments/specialization_memory_smoke.yaml
+clocks_locked: false
+
+fzgm_build:
+  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
+  tool_patch_sha256: clean
+  specialization_policy: "FZ_SPECIALIZE=off"
+  commit_note: >
+    See h200-delta-20260903-spec-vsnative-staged/metadata.yaml — the committed
+    YAML pin (b57a333...) and the H100 sibling baselines' pin (8b1ea2a4...) are
+    both unresolvable in FZGPUModules today; this records the actual verified
+    HEAD (6897f66, ctest 58/58 on H200 hardware, 2026-09-04).
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. From /scratch/bdqz/sruiter/benchkit-results/
+    specialization-memory-smoke-delta-h200-off-20260903/.
+
+cells: {total: 96, ok: 96, failed: 0}
+
+result_summary: >
+  Paired with the auto baseline below; see that file for the staged-vs-auto
+  reading (this session alone is one half of the A/B).
+
+verification: >
+  `benchkit verify` PASSES fully on this session (the only one of the 4 in this
+  campaign to do so) — publication-grade schema/provenance/coverage, and this
+  is the one session where timing_reliability also comes back 0/0 unreliable.
+
+related_decisions: [D15, D24, D42]

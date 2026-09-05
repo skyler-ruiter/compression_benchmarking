@@ -138,13 +138,42 @@ python -m benchkit report $BENCHKIT_RESULTS_ROOT/<session>/ --aggregate --by-dat
 
 The submit script's BigRed200 block is uncommented by default.
 
-### NCSA Delta H200 and MI100 — FZGM-only
+### NCSA Delta — H200 is now full vs-native; MI100 stays FZGM-only
 
-The native references are **not built** on Delta, and on the MI100 they cannot be:
-cuSZ / cuSZ-Hi / cuSZp / FZ-GPU / PFPL are CUDA-only codebases, so an FZGM-vs-native
-matrix there is structurally impossible, not merely absent. Both Delta GPUs therefore run
-`configs/experiments/fzgm_only_full.yaml`, which is the `fzgm` half of the vs-native
-config, verified 1:1 (4,860 cells).
+**MI100: FZGM-only, permanently.** cuSZ / cuSZ-Hi / cuSZp / FZ-GPU / PFPL are CUDA-only
+codebases, so an FZGM-vs-native matrix there is structurally impossible, not merely
+absent. The MI100 runs `configs/experiments/fzgm_only_full.yaml`, which is the `fzgm`
+half of the vs-native config, verified 1:1 (4,860 cells).
+
+**H200: the full reference set is built as of 2026-08-31** (it was FZGM-only before,
+because nothing had been built there — not because it couldn't be). All 19 entries in
+`compressors/manifest.toml` were bootstrapped with `compressors/bootstrap.py`, so the
+H200 can run `fzgm_vs_native_full.yaml` and the `fsz_vs_native_*` /
+`third_party_eblc_*` campaigns. `scripts/env-delta-h200.sh` exports every CLI path.
+
+Two toolchain facts matter when rebuilding there:
+
+- **Pin CUDA 12.9, not Delta's 13.2 default.** CUDA 13 moved Thrust/CUB under
+  `include/cccl/`, so host `.cc` files that `#include <thrust/...>` no longer compile —
+  cuSZ-Hi fails outright on `utils/analyzer.hh`. The env script does the module swap;
+  12.9 also matches the JetStream2 reference builds, keeping the numbers comparable.
+- **FZGM's `cuda-h200` preset leaves `BUILD_TESTING=OFF`.** A bare
+  `ctest --test-dir build/cuda-h200` prints "No tests were found!!!" *and exits 0* —
+  it looks like a pass but verifies nothing. Configure with `-DBUILD_TESTING=ON`
+  first (58/58 pass on hardware, 2026-08-31).
+
+Two things that will bite a non-`--exclusive` Delta job:
+
+- **Request host memory explicitly.** A job that only asks for `--gpus-per-node=1
+  --cpus-per-task=16` gets ~16 GB, and cuSZ-Hi is then SIGKILLed by the OOM killer
+  (`exit -9`) on the larger fields — HACC/vx (1.1 GB) and NYX/temperature (537 MB)
+  both died at a 15.6 GB peak RSS. It looks like a compressor bug and is not one.
+  `--mem=200G` cleared it; the node has 2 TB. `submit_delta_multigpu.slurm` is
+  `--exclusive` so it is unaffected.
+- **MGARD needs `lib64` *and* `lib` on `LD_LIBRARY_PATH` on RHEL.** Its own
+  `libmgard.so.1` installs to `lib64/` while the vendored nvcomp/zstd/protobuf land
+  in `lib/`. The Ubuntu JetStream2 node puts everything in `lib/`, so copying that
+  env script's single path gives `exit 127` on every MGARD cell.
 
 **Do not use `scripts/submit_full_corpus.slurm` here** — its `--array=0-7 --exclusive`
 geometry is wrong for Delta, because both of that script's premises fail:

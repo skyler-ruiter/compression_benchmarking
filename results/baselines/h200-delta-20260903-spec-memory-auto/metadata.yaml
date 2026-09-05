@@ -1,0 +1,60 @@
+# Baseline: H200 / Delta — specialization-aware buffer-coloring peak-memory
+# ablation, SPECIALIZED arm. Pair with h200-delta-20260903-spec-memory-staged.
+# Cross-machine counterpart to h100-jetstream2-20260901-spec-memory-auto.
+# See results/baselines/README.md.
+
+baseline_id: h200-delta-20260903-spec-memory-auto
+gpu: NVIDIA H200 (143771 MiB)
+site: NCSA Delta gpuH200x8 (SLURM, shared node, non-exclusive — 1 of 8 GPUs)
+driver: "595.71.05"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 26.5 bundle"
+date: "2026-09-04"
+
+experiment_config: configs/experiments/specialization_memory_smoke.yaml
+clocks_locked: false
+
+fzgm_build:
+  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
+  tool_patch_sha256: clean
+  specialization_policy: "FZ_SPECIALIZE=auto"
+  commit_note: >
+    Same pin discrepancy as the staged pair — see that file and
+    h200-delta-20260903-spec-vsnative-staged/metadata.yaml for detail.
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. From /scratch/bdqz/sruiter/benchkit-results/
+    specialization-memory-smoke-delta-h200-auto-20260903/.
+
+cells: {total: 96, ok: 96, failed: 0}
+
+result_summary: >
+  peak_device_mb at eb=1e-3, staged_color / staged_nocolor / auto_color /
+  auto_nocolor (auto's two columns are byte-identical everywhere — coloring
+  becomes a no-op once specialization fuses the span, exactly as the H100
+  baseline shows):
+    szp_composed  CLDHGH  131/157/79/79      HURR/TC 506/606/305/305
+                  NYX/tmp 2719/3256/1637/1637 HACC/vx 5692/6815/3426/3426
+    cuszp2_sp     CLDHGH  134/160/81/81      HURR/TC 517/617/311/311
+                  NYX/tmp 2777/3314/1837/1837 HACC/vx 5812/6936/3846/3846
+    pfpl          CLDHGH  215/267/137/137    HURR/TC 827/1027/526/526
+                  NYX/tmp 4414/5488/2803/2803 HACC/vx 9414/11662/6043/6043
+    cusz(control) CLDHGH  112/112/112/112 (flat across all 4 arms, as expected
+                  — cusz never specializes)   HURR/TC 431 (flat)
+                  NYX/tmp 2306 (flat)          HACC/vx 4947 (flat)
+  Specialization's fused-internal buffer elision cuts peak ~35-45% vs
+  staged+coloring across every variant and field, matching the H100 baseline's
+  qualitative finding (~40% there) — the H200 numbers run somewhat higher in
+  absolute terms since it's a different corpus/error-bound sweep than directly
+  overlaying, but the coloring-becomes-a-no-op result and the roughly 35-45%
+  cut both replicate cross-machine.
+
+verification: >
+  `benchkit verify` exits non-zero: timing_reliability 0/26 (concentrated in
+  cuszp2_sp_color/nocolor — 1 each — and pfpl_color/pfpl_nocolor — 12 each, i.e.
+  every pfpl cell in this session). Peak memory itself is a deterministic
+  pool-tracker measurement, unaffected by the unlocked-clock timing noise —
+  the numbers above are trustworthy regardless of the timing flag.
+
+related_decisions: [D15, D24, D42]

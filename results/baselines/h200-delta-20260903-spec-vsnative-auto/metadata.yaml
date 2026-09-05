@@ -1,0 +1,92 @@
+# Baseline: H200 / Delta — Pipeline Specialization vs native, SPECIALIZED arm.
+# Pair with h200-delta-20260903-spec-vsnative-staged (same matrix, specialization off).
+# Cross-machine counterpart to h100-jetstream2-20260901-spec-vsnative-auto.
+# See results/baselines/README.md.
+
+baseline_id: h200-delta-20260903-spec-vsnative-auto
+gpu: NVIDIA H200 (143771 MiB)
+site: NCSA Delta gpuH200x8 (SLURM, shared node, non-exclusive — 1 of 8 GPUs)
+driver: "595.71.05"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 26.5 bundle"
+date: "2026-09-04"
+
+experiment_config: configs/experiments/specialization_vs_native_smoke.yaml
+clocks_locked: false
+
+fzgm_build:
+  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: clean
+  binary: build/cuda-h200/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=auto (kernel fusion + single-pass decoupled-lookback, compress and decompress)"
+  commit_note: >
+    Same pin discrepancy as the staged pair (see that file): the committed YAML
+    pins a since-unresolvable SHA (b57a333...) and the H100 sibling baselines
+    pin a different, also-unresolvable SHA (8b1ea2a4...). This baseline records
+    the actual FZGM HEAD the binary was verified against (6897f66, ctest 58/58
+    on H200 hardware, 2026-09-04).
+
+reference_compressors: same trees as the staged pair (not rebuilt).
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. From /scratch/bdqz/sruiter/benchkit-results/
+    specialization-vs-native-smoke-delta-h200-auto-20260903/. Ran to completion
+    in the second (resumed) SLURM job, 21806821.
+
+cells:
+  total: 228
+  ok: 228
+  failed: 0
+  eb_satisfied_false: >
+    Same 6 native cells as the staged pair, bit-for-bit identical cell keys —
+    confirms specialization changed nothing about which cells fail.
+
+controlled_ab: >
+  Zero CR drift on any fzgm variant between the off and auto sessions across
+  all 144 fzgm rows in each session (checked: off.cr == auto.cr for every
+  matched logical cell). Every fzgm *_sp / pfpl / szp_composed row installs
+  fusion both directions: fusion_installed_group_count = 1,
+  fusion_inverse_installed_group_count = 1 — including cuszp3_*_sp, where the
+  sibling H100 baseline and the FZGM docs note inverse-fusion as a KNOWN
+  limitation (expected 0 there). It is not 0 here (1/1 for both
+  cuszp3_outlier_sp and cuszp3_plain_sp, all 4 datasets x 3 error bounds).
+  Flagged for the FZGM side to confirm whether this is a genuine fix since
+  that note was written, or a discrepancy worth investigating.
+  Every *_hp / cusz / fzgpu row is 0/0, as expected.
+
+result_summary: >
+  off -> auto (this = the auto session), compress / decompress GB/s / peak MB,
+  all at eb=1e-3 (representative; pattern holds at 1e-2 and 1e-4):
+    szp_composed        CLDHGH  85->179  / 87->389   / 131->79
+                        HURR/TC 118->332 / 86->599   / 506->305
+                        NYX/tmp 186->720 / 130->1325 / 2719->1637
+                        HACC/vx 161->576 / 66->878   / 5692->3426
+    cuszp2_outlier_sp   CLDHGH  19->144  / 45->344   / 134->81
+                        HURR/TC 23->243  / 59->525   / 517->311
+                        NYX/tmp 26->307  / 76->661   / 2777->1904
+                        HACC/vx 25->280  / 65->568   / 5812->3986
+    pfpl (fzgm variant) CLDHGH  123->138 / 118->232  / 215->137
+                        HURR/TC 188->266 / 155->307  / 827->526
+                        NYX/tmp 243->402 / 179->350  / 4414->2803
+                        HACC/vx 228->364 / 179->338  / 9414->6043
+  Direction is unambiguous everywhere: fusion cuts peak device memory ~35-40%
+  and improves both compress and decompress throughput on every field for all
+  three variants. Magnitudes are noisier than the H100 baseline (see
+  known_issues — clocks are not locked on Delta), so read ratios, not exact
+  multipliers, when comparing sites.
+
+known_issues:
+  - >
+    `benchkit verify` timing_reliability fails 20/228 in this (auto) session —
+    concentrated entirely in fzgm cuszp2_plain_sp (2), cuszp3_plain_sp (3),
+    cuszp3_outlier_sp (4), and pfpl (11, i.e. ALL 12 pfpl cells). Every
+    cuszp2_outlier_sp / szp_composed cell in the result_summary above is
+    timing-reliable in this session; every pfpl cell is NOT — the pfpl
+    absolute numbers above should be treated as directionally correct, not
+    precise. See the staged baseline's note for the root cause (no clock lock).
+  - Same eb_satisfied_false / h3_eligibility notes as the staged pair.
+  - Same job-timeout / oversized-SLURM-request note as the staged pair.
+
+related_decisions: [D15, D24, D33, D41, D42]

@@ -178,13 +178,13 @@ notes      = "present on disk, no benchkit adapter yet."
 
 [compressor.fsz]
 repo       = "https://github.com/JiajunHuang1999/FSZ.git"
-commit     = "43240ed1149ff4c48b52e74c9d8ba998ca5bcf8c"   # v1.0.0
+commit     = "e6363645b5881b90b2dae174e9b4bb4e97c600b9"   # v1.0.0 (dated 2026-08-07)
 submodules = false
 patches    = []
 build      = "fsz.sh"
 cli        = "build/fsz"
 clone_dir  = "FSZ"
-notes      = "repo-owned host/device timing harness is tools/fsz_hosttime/ in benchkit, built separately."
+notes      = "repo-owned host/device timing harness is tools/fsz_hosttime/ in benchkit, built separately. Re-pinned 2026-08-31: upstream rewrote history, and the previous pin 43240ed1149ff4c48b52e74c9d8ba998ca5bcf8c is gone from the remote ('unable to read tree'), so it can no longer be fetched or diffed against. Both pins are/were tag v1.0.0; the repo is now a single squashed commit. Content equivalence with the JetStream2 FSZ build could not be verified against the old object."
 
 
 # ─────────────────────────────────────────────────────────────────────────────

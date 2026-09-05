@@ -1,0 +1,91 @@
+# Baseline: H200 / Delta — Pipeline Specialization vs native, STAGED arm.
+# Pair with h200-delta-20260903-spec-vsnative-auto (same matrix, specialization on).
+# Cross-machine counterpart to h100-jetstream2-20260901-spec-vsnative-staged.
+# See results/baselines/README.md.
+
+baseline_id: h200-delta-20260903-spec-vsnative-staged
+gpu: NVIDIA H200 (143771 MiB)
+site: NCSA Delta gpuH200x8 (SLURM, shared node, non-exclusive — 1 of 8 GPUs)
+driver: "595.71.05"
+cuda_toolkit: "12.9 (nvcc V12.9.86), nvhpc 26.5 bundle"
+date: "2026-09-04"
+
+experiment_config: configs/experiments/specialization_vs_native_smoke.yaml
+clocks_locked: false
+
+fzgm_build:
+  tool_source_commit: 6897f66e946f7388020c0c84a103428f916ea2a7
+  tool_build_flags: Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: clean
+  binary: build/cuda-h200/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=off (one kernel per stage)"
+  commit_note: >
+    The experiment YAML as committed to origin/main pins tool_source_commit to
+    b57a3330310740b3c9b691e141a65ebb5b45e080, which does not exist in
+    FZGPUModules (git cat-file: bad object) — presumably a casualty of the
+    2026-09-02 commit-trailer-strip history rewrite mentioned for this repo.
+    This baseline instead records the actual verified FZGM HEAD this binary was
+    built from (6897f66, confirmed via ctest 58/58 on H200 hardware same day).
+    Note the sibling h100-jetstream2-20260901-spec-* baselines record a THIRD
+    hash, 8b1ea2a4d61f750d816c660595782433d9846e5a, which *also* does not
+    resolve in this FZGPUModules clone (post-rewrite, current on origin/main).
+    All three hashes disagree; none but 6897f66 is independently verified
+    reachable today. Reconcile before treating any cross-machine SHA match/
+    mismatch here as meaningful — the specialization *feature* is present and
+    behaves consistently in both baselines regardless.
+
+reference_compressors:
+  cusz, cuszp2, cuszp3, fzgpu, pfpl — bootstrapped fresh via
+  compressors/bootstrap.py on 2026-08-31/09-01 (CUDA 12.9, sm_90); see
+  docs/running-the-full-corpus.md "NCSA Delta" section.
+
+source:
+  kind: benchkit_native_output
+  fidelity: >
+    Full. From /scratch/bdqz/sruiter/benchkit-results/
+    specialization-vs-native-smoke-delta-h200-off-20260903/. Session spans two
+    SLURM jobs (21739902, timed out at 2:30:22 mid-run; 21806821, resumed and
+    completed) — resume is by stable logical_cell_id, not by job, so the merged
+    runs.jsonl here is a single coherent run.
+
+cells:
+  total: 228
+  ok: 228
+  failed: 0
+  eb_satisfied_false: >
+    6 native cells, identical to the auto session bit-for-bit: cusz/cusz on
+    HACC/vx (err_over_bound ~266086x — badly wrong, pre-existing native-tool
+    issue) and cuszp3_outlier on CESM-2D/CLDHGH + HURR/TC at tight error bounds.
+    Unrelated to specialization — same cells fail regardless of FZ_SPECIALIZE.
+
+result_summary: >
+  Paired with the auto baseline below; see that file for the off->auto deltas.
+
+known_issues:
+  - >
+    Not clock-locked: scripts/lock_clocks.sh requires sudo, unavailable on this
+    shared SLURM cluster (same constraint as BigRed200, D15) — run-specialization
+    -smoke.sh's own [ -w /dev/nvidia0 ] guard correctly no-ops here. Consequence:
+    `benchkit verify` timing_reliability fails 133/228 in THIS (staged) session —
+    every cusz/cuszp2/cuszp3 variant (native and fzgm-staged) has all 12 of its
+    cells (4 datasets x 3 error bounds) flagged unreliable. The auto (fused)
+    session is far more timing-stable at 20/228 unreliable, plausibly because
+    fewer/larger kernel launches are less exposed to unlocked-clock jitter.
+    Trust device_ms_min over median for any row quoted from this baseline; peak
+    memory numbers are unaffected (deterministic pool-tracker measurement, not
+    timing-based).
+  - >
+    `benchkit verify` also fails h3_eligibility ("build incomplete") for every
+    native compressor in this session — expected, full build provenance was not
+    captured for this smoke.
+  - >
+    Job-level: this session's SLURM job (21739902) first timed out at 2h30m
+    requesting --exclusive --gpus-per-node=8 for what is a single-GPU serial
+    driver (run-specialization-smoke.sh does not shard across GPUs) — that
+    over-request queued 32+ hours waiting for an all-8-idle node that never
+    materialized under production Delta load. Resubmitted as
+    --gpus-per-node=1, non-exclusive (21806821), started within a minute,
+    resumed the 133 already-completed cells, and finished the remainder plus
+    both memory-smoke sessions in 1h09m total.
+
+related_decisions: [D15, D24, D33, D41, D42]
