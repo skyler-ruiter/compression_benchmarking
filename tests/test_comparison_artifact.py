@@ -76,3 +76,33 @@ class ComparisonArtifactFieldKeyTests(TestCase):
 
         with self.assertRaises(ValueError):
             build_data(base_a, base_b)
+
+    def test_default_omits_gated_rows_and_withholds_unreliable_throughput(self):
+        good = _row("CLDHGH", "cusz", 2.0)
+        unreliable = _row("CLDLOW", "cusz", 3.0)
+        unreliable["timing_reliable"] = False
+        invalid = _row("TS", "cusz", 4.0)
+        invalid["eb_satisfied"] = False
+        invalid["err_over_bound"] = 2.0
+
+        indexed = index_rows([good, unreliable, invalid])
+
+        self.assertEqual(set(indexed), {
+            ("cusz", "CESM-2D", "CLDHGH", "0.001"),
+            ("cusz", "CESM-2D", "CLDLOW", "0.001"),
+        })
+        self.assertIsNone(
+            indexed[("cusz", "CESM-2D", "CLDLOW", "0.001")]["native"]["cgbs"]
+        )
+        self.assertTrue(
+            indexed[("cusz", "CESM-2D", "CLDHGH", "0.001")]["native"]["tok"]
+        )
+
+    def test_variant_can_be_explicitly_excluded_for_incompatible_baselines(self):
+        fixed = _row("CLDHGH", "cusz", 2.0)
+        fixed["variant"] = "cuszp3_fixed"
+        comparable = _row("CLDLOW", "cusz", 3.0)
+
+        indexed = index_rows([fixed, comparable], excluded_variants=["cuszp3_fixed"])
+
+        self.assertEqual(set(indexed), {("cusz", "CESM-2D", "CLDLOW", "0.001")})

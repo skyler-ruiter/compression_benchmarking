@@ -1,0 +1,80 @@
+# Baseline: H100 / JetStream2 — Pipeline Specialization vs native, full corpus,
+# specialized arm. Pair with h100-jetstream2-20260905-spec-vsnative-full-staged.
+baseline_id: h100-jetstream2-20260905-spec-vsnative-full-auto
+gpu: NVIDIA H100 80GB HBM3 (81559 MiB)
+site: JetStream2, node skyler-h100, single-tenant VM
+driver: "595.84"
+cuda_toolkit: "12.9 (nvcc V12.9.86)"
+date: "2026-09-05"
+
+experiment_config: configs/experiments/specialization_vs_native_full.yaml
+clocks_locked: true
+
+fzgm_build:
+  tool_source_commit: b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  tool_build_flags: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9"
+  tool_patch_sha256: clean
+  binary: /home/exouser/FZGPUModules-benchmark-b90fdfe/build_benchmarking/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=auto (forward and inverse specialization)"
+  post_run_pfpl_fix: >-
+    FZGPUModules commit b08c406 restores the staged outlier-capacity refusal in
+    the fused split-outlier runner. It was committed and regression-tested after
+    this baseline completed, so it is not part of this baseline's measured binary.
+
+source:
+  kind: benchkit_native_output
+  fidelity: >-
+    Full, unsharded native session copied without rewriting from
+    specialization-vs-native-full-skyler-h100-auto-20260903-r2. runs.jsonl has
+    all 9,354 canonical measurements, per-repetition timing, FZGM stage/fusion
+    provenance, input checksums, and retained artifact checksums (payloads were
+    intentionally not retained).
+
+cells:
+  total: 9354
+  ok: 9336
+  failed: 18
+  validity_gated: 343
+  timing_unreliable: 236
+  usable_after_validity_gate: 8993
+
+controlled_ab: >-
+  Across 8,993 shared valid cells, all 4,887 shared valid FZGM cells have exactly
+  identical compressed bytes and CR in staged versus Auto. Auto installs forward
+  specialization on 2,915 FZGM cells and inverse specialization on all 2,915;
+  1,972 FZGM rows remain intentional non-specializing controls. The one
+  status-diverging PFPL PSL cell is excluded by the validity gate; it is the
+  pre-fix fused capacity-overflow bug, not a performance result.
+
+known_issues:
+  - >-
+    Native tight-bound rows are validity-gated rather than used in aggregates:
+    12 cuSZ, 115 native cuSZp3-outlier, 29 native cuSZp3-plain, and 84 native
+    FZ-GPU rows have severe pointwise bound violations. These families recur on
+    the independent A100/L40S baselines and are not attributed to specialization.
+  - >-
+    CESM-2D/SFCLDICE and CESM-2D/SFCLDLIQ are constant fields. Their 102
+    cross-compressor rows are excluded as degenerate rather than inflating CR or
+    PSNR aggregates.
+  - >-
+    The pre-fix fzgm:pfpl CESM-2D/PSL rel_range=1e-4 row reports status=ok but
+    violates the bound by 162037x. It is excluded. The staged arm safely refuses
+    it; b08c406 now makes the fused path refuse it too.
+  - >-
+    Eighteen hard failures are retained as capability evidence: four native cuSZ
+    EXAALT segfaults at 1e-3; eight FZGM cuSZ/FZ-GPU EXAALT outlier-capacity
+    refusals at 1e-4; and six FZGM PFPL S3D N2/PRES capacity refusals.
+  - >-
+    236 timing-unreliable rows are kept for size/quality evidence but excluded
+    from throughput comparisons by the comparison artifact. The H100 clocks were
+    locked; these flags remain an observed launch-variance diagnostic.
+
+verification_status: >-
+  Mechanical integrity, schema, provenance, coverage, merge, and dataset joins
+  pass (9/12 checks). The original immutable session experiment did not declare
+  its known failures, validity exclusions, or unreliable timing as accepted policy,
+  so benchkit verify remains non-zero. This curated baseline does not relabel that
+  historical session publication-grade; its comparison artifact applies the
+  validity gate and withholds unreliable throughput explicitly.
+
+related_decisions: [D15, D24, D29, D30, D33, D41, D42, D43]

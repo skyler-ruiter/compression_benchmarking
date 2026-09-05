@@ -1,0 +1,54 @@
+# Baseline: H100 / JetStream2 — Pipeline Specialization vs native, full corpus,
+# staged arm. Pair with h100-jetstream2-20260905-spec-vsnative-full-auto.
+baseline_id: h100-jetstream2-20260905-spec-vsnative-full-staged
+gpu: NVIDIA H100 80GB HBM3 (81559 MiB)
+site: JetStream2, node skyler-h100, single-tenant VM
+driver: "595.84"
+cuda_toolkit: "12.9 (nvcc V12.9.86)"
+date: "2026-09-05"
+
+experiment_config: configs/experiments/specialization_vs_native_full.yaml
+clocks_locked: true
+
+fzgm_build:
+  tool_source_commit: b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  tool_build_flags: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9"
+  tool_patch_sha256: clean
+  binary: /home/exouser/FZGPUModules-benchmark-b90fdfe/build_benchmarking/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=off (staged control)"
+
+source:
+  kind: benchkit_native_output
+  fidelity: >-
+    Full, unsharded native session copied without rewriting from
+    specialization-vs-native-full-skyler-h100-off-20260903-r2. runs.jsonl has
+    all 9,354 canonical measurements and complete per-cell provenance.
+
+cells:
+  total: 9354
+  ok: 9335
+  failed: 19
+  validity_gated: 342
+  timing_unreliable: 54
+  usable_after_validity_gate: 8993
+
+known_issues:
+  - >-
+    The same native severe-bound and two constant-field populations as the Auto
+    baseline are validity-gated. They are not input to CR, quality, or throughput
+    aggregates.
+  - >-
+    Nineteen hard failures include the six capacity-limited FZGM PFPL S3D N2/PRES
+    refusals, eight FZGM cuSZ/FZ-GPU EXAALT refusals, four native cuSZ EXAALT
+    segfaults, and the safe fzgm:pfpl CESM-2D/PSL refusal at rel_range=1e-4.
+  - >-
+    Fifty-four timing-unreliable rows are retained for size/quality only and have
+    throughput withheld by the comparison artifact.
+
+verification_status: >-
+  Nine of twelve mechanical verification checks pass. The immutable experiment
+  archive lacks explicit acceptance selectors for its known capability failures,
+  validity exclusions, and timing flags; this baseline remains a transparent
+  cross-machine comparison input, not a retroactively publication-grade session.
+
+related_decisions: [D15, D24, D29, D30, D33, D41, D42, D43]

@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from benchkit.identity import logical_cell_id_from_row  # noqa: E402
 from benchkit.schema import load_result_file, load_session_text  # noqa: E402
+from benchkit import validity  # noqa: E402
 
 try:
     import yaml
@@ -54,17 +55,27 @@ def load_baseline(path: Path):
     return {"rows": rows, "meta": meta, "provenance": prov, "label": label, "dir": path.name}
 
 
-def index_rows(rows):
+def index_rows(rows, *, include_gated=False, excluded_variants=()):
     """Index true benchmark cells as key -> {native|fzgm: row}.
 
     ``field`` is part of the key.  Without it, fields after the first in a
     multi-field dataset overwrite their predecessors.
+
+    By default the artifact is a comparison of valid measurements: failed,
+    degenerate, and severe-bound-violation rows are omitted.  A timing-unreliable
+    row remains useful for CR and quality, but has its throughput fields withheld
+    so it cannot enter a cross-machine performance claim accidentally.
     """
     idx = {}
-    for r in rows:
+    excluded_variants = set(excluded_variants)
+    for r in validity.annotate(rows):
         if r.get("status") != "ok":
             continue
+        if not include_gated and r.get("_exclusions"):
+            continue
         variant = r.get("variant")
+        if variant in excluded_variants:
+            continue
         dataset = r.get("dataset")
         field = r.get("field")
         eb = r.get("error_bound")
@@ -72,15 +83,16 @@ def index_rows(rows):
             continue
         side = "fzgm" if r.get("compressor") == "fzgm" else "native"
         key = (variant, dataset, field, str(eb))
+        timing_reliable = r.get("timing_reliable") is not False
         idx.setdefault(key, {})[side] = {
             "logical_cell_id": logical_cell_id_from_row(r),
             "status": "ok",
             "cr": r.get("cr"),
             "psnr": r.get("psnr"),
-            "cgbs": r.get("compress_throughput_gbs"),
-            "dgbs": r.get("decompress_throughput_gbs"),
+            "cgbs": r.get("compress_throughput_gbs") if timing_reliable else None,
+            "dgbs": r.get("decompress_throughput_gbs") if timing_reliable else None,
             "eb_ok": r.get("eb_satisfied"),
-            "tok": r.get("timing_reliable"),
+            "tok": timing_reliable,
         }
     return idx
 
@@ -93,9 +105,12 @@ DEFAULT_LABELS = {
 }
 
 
-def build_data(base_a, base_b, anomaly_psnr_db=5.0, anomaly_cr_pct=0.2):
-    idx_a = index_rows(base_a["rows"])
-    idx_b = index_rows(base_b["rows"])
+def build_data(base_a, base_b, anomaly_psnr_db=5.0, anomaly_cr_pct=0.2,
+               include_gated=False, excluded_variants=()):
+    idx_a = index_rows(base_a["rows"], include_gated=include_gated,
+                       excluded_variants=excluded_variants)
+    idx_b = index_rows(base_b["rows"], include_gated=include_gated,
+                       excluded_variants=excluded_variants)
     all_keys = set(idx_a) | set(idx_b)
 
     variants = sorted({k[0] for k in all_keys})
@@ -459,15 +474,23 @@ def main():
                      help="flag a cell if PSNR differs by more than this many dB between baselines (default 5.0)")
     ap.add_argument("--anomaly-cr-pct", type=float, default=0.2,
                      help="flag a cell if CR differs by more than this fraction between baselines (default 0.2 = 20%%)")
+    ap.add_argument("--include-gated", action="store_true",
+                    help="include degenerate and severe-bound-violation rows (default: omit them)")
+    ap.add_argument("--exclude-variant", action="append", default=[],
+                    help="omit a variant whose configuration differs between baselines (repeatable)")
     args = ap.parse_args()
 
     base_a = load_baseline(args.baseline_a)
     base_b = load_baseline(args.baseline_b)
-    payload, anomalies = build_data(base_a, base_b, args.anomaly_psnr_db, args.anomaly_cr_pct)
+    payload, anomalies = build_data(base_a, base_b, args.anomaly_psnr_db, args.anomaly_cr_pct,
+                                    include_gated=args.include_gated,
+                                    excluded_variants=args.exclude_variant)
 
     title = f"{base_a['label']} vs. {base_b['label']} — Compressor Comparison"
     subtitle = (f"Comparing {payload['meta']['matched_cells']} matched cells between "
                 f"<code>{base_a['dir']}</code> and <code>{base_b['dir']}</code>. "
+                "Failed, degenerate, and severe-bound-violation rows are omitted; "
+                "timing-unreliable rows retain CR/PSNR but have throughput withheld. "
                 "CR/PSNR are checked for agreement before charting throughput.")
 
     if anomalies:
