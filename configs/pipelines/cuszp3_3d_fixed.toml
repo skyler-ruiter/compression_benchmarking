@@ -1,0 +1,38 @@
+[pipeline]
+# cuSZp3 FIXED mode, 3-D — faithful port.
+#   Quantizer(linear) -> TiledLorenzo(4x4x4, predict=false) -> AdaptiveBitpack(64)
+#
+# Native cuSZp3 `-m fixed -d 3` is quantize -> per-4x4x4-cube fixed-rate pack, NO
+# Lorenzo delta (cuSZp_kernels_3D_f32.cu). The flat cuszp3_fixed.toml (1-D 64-runs)
+# is 20-27% larger than native on 3-D data because a 64-long row segment breaks the
+# 4x4x4 spatial locality the cube captures. TiledLorenzo(predict=false) supplies the
+# cube geometry (tile-major reorder + zero-pad, no delta); AdaptiveBitpack(64) packs
+# each cube as one fixed-rate block. Standard single-precision quantizer to match
+# native cuSZp numerics. cuSZp3: Huang et al., SC'25.
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "quant"
+type = "Quantizer"
+input_type = "float32"
+code_type = "uint32"
+error_bound = 1e-3
+error_bound_mode = "ABS"
+linear_mode = true
+
+[[stage]]
+name = "tl"
+type = "TiledLorenzo"
+data_type = "int32"
+tile_x = 4
+tile_y = 4
+tile_z = 4
+predict = false
+inputs = [{from = "quant", port = "codes"}]
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 64
+inputs = [{from = "tl"}]

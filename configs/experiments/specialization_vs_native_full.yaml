@@ -40,10 +40,12 @@
 # The _hp arm (linear_high_precision quant, used for tight-bound CR parity in
 # fzgm_vs_native_full.yaml) is NOT included: high-precision quant is gated out of
 # fusion, so its auto numbers == its off numbers — nothing to learn at corpus
-# scale. cusz / fzgpu / cuszp3_fixed keep ONE fzgm row each: they never
-# specialize (Huffman entropy stage, FZ-GPU bitshuffle shape, or fixed mode's
-# lack of a block-local predictor), so those are controls — auto MUST
+# scale. cusz / fzgpu keep ONE fzgm row each: they never specialize (Huffman
+# entropy stage, FZ-GPU bitshuffle shape), so those are controls — auto MUST
 # equal off exactly, and a difference there is a bug in the env plumbing.
+# cuSZp3 fixed is now dimension-routed: 2-D/3-D use the identity tiled predictor
+# and DO specialize (auto > off expected); only the 1-D flat fixed remains a
+# non-specializing control (auto == off).
 #
 # Every row captures compress AND decompress throughput, CR, PSNR, eb-satisfaction,
 # and peak device memory (decompress_throughput_gbs / peak_device_mb are
@@ -176,6 +178,12 @@ x-pfpl-tool: &pfpl_tool
   tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/pfpl.sh
   tool_patch_sha256: 9e082a37372f894e6a8af3797cbe72f05412197569edd1a4f54e2f82fe1d70b6
 
+x-fsz-tool: &fsz_tool
+  tool_version: 1.0.0
+  tool_source_commit: 43240ed1149ff4c48b52e74c9d8ba998ca5bcf8c
+  tool_build_flags: Release;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9
+  tool_patch_sha256: clean
+
 verification:
   accepted_failures:
     - match:
@@ -205,9 +213,15 @@ runs:
   - {<<: *cuszp2_tool, compressor: cuszp2, variant: cuszp2_plain,      pipeline: plain}
   - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp2_plain_sp,   pipeline: configs/pipelines/cuszp2_plain_sp.toml}
 
-  # ── cuSZp3 fixed (no predictor; non-specializing performance control) ──────
+  # ── cuSZp3 fixed (dimension-matched; 2-D/3-D now SPECIALIZE via the identity ──
+  #    tiled predictor, 1-D stays a non-specializing control) ──────────────────
   - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_fixed, pipeline: fixed}
-  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_2d_fixed.toml,
+     only_datasets: [CESM-2D]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_3d_fixed.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
 
   # ── cuSZp3 plain (dimension-matched) ──────────────────────────────────────
   - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_plain,      pipeline: "plain:2d", only_datasets: [CESM-2D]}
@@ -242,6 +256,11 @@ runs:
   # ── PFPL (chunk-cooperative specialization; single preset) ────────────────
   - {<<: *pfpl_tool, compressor: pfpl, variant: pfpl, pipeline: default}
   - {<<: *fzgm_tool, compressor: fzgm, variant: pfpl, pipeline: configs/pipelines/pfpl.toml}
+
+  # ── FSZ (SC'26): AdaptiveLorenzo has no warp-fusion policy yet, so the FZGM port is
+  #    a non-specializing control here (auto == off) — like cusz/fzgpu. Faithful CR. ──
+  - {<<: *fsz_tool, compressor: fsz, variant: fsz, pipeline: default}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: fsz, pipeline: configs/pipelines/fsz.toml}
 
   # ── SZp-inspired composition — FZGM-only; not native/byte parity ───────────
   - {<<: *fzgm_tool, compressor: fzgm, variant: szp_composed, pipeline: configs/pipelines/szp_composed.toml}

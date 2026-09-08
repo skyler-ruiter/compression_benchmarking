@@ -141,7 +141,16 @@ runs:
   # cuSZp3 fixed — no predictor; flat native kernel against the supported FZGM
   # Quantizer -> AdaptiveBitpack preset for every dataset shape.
   - {compressor: cuszp3, variant: cuszp3_fixed,   pipeline: fixed}
-  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml}
+  # FZGM fixed is dimension-routed to reproduce native's tile geometry (8x8 in 2-D,
+  # 4x4x4 in 3-D, no delta) — see cuszp3_{2d,3d}_fixed.toml. The old flat
+  # cuszp3_fixed.toml (1-D 64-run) is kept for 1-D data, where it already matches
+  # native's 1-D 64-element fixed-rate blocks. 2-D/3-D fixed now also specialize.
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_2d_fixed.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_3d_fixed.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}
+  - {compressor: fzgm,   variant: cuszp3_fixed,   pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [HACC, EXAALT, NWCHEM, BROWN]}
 
   # cuszp3 — 2-D preset
   - {compressor: cuszp3, variant: cuszp3_plain,   pipeline: "plain:2d",
@@ -179,3 +188,10 @@ runs:
 
   - {compressor: pfpl,   variant: pfpl,           pipeline: default}
   - {compressor: fzgm,   variant: pfpl,           pipeline: configs/pipelines/pfpl.toml}
+
+  # FSZ (SC'26): native fuses prediction+quant+encoding in one kernel; the FZGM port
+  # is Quantizer -> AdaptiveLorenzo -> AdaptiveBitpack. Faithful on CR/quality (the
+  # small CR gap is FSZ's modes side channel), but AdaptiveLorenzo has no warp-fusion
+  # policy yet, so the port runs staged — a non-fused throughput comparison.
+  - {compressor: fsz,    variant: fsz,             pipeline: default}
+  - {compressor: fzgm,   variant: fsz,             pipeline: configs/pipelines/fsz.toml}
