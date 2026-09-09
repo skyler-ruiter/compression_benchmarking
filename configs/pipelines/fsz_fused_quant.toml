@@ -1,0 +1,29 @@
+[pipeline]
+# FSZ, M1 partial fusion — FusedQuantAdaptiveLorenzo(linear) → AdaptiveBitpack
+#
+# Same math as fsz.toml (Quantizer(linear) -> AdaptiveLorenzo -> AdaptiveBitpack),
+# but the upstream linear Quantizer is folded into AdaptiveLorenzo's forward
+# kernel (2026-09-09, FZGPUModules memory/quant_al_partial_fusion_probe.md
+# "Lever 1: ship M1 for real") -- deletes the Quantizer kernel and its `codes`
+# DRAM round-trip on COMPRESS ONLY (decompress still runs two kernels: the
+# existing cross-warp inverse scan, then a plain elementwise dequant).
+#
+# Verified byte-for-byte identical reconstruction to fsz.toml on the same
+# input/bound (FusedQuantAdaptiveLorenzoStage.MatchesStagedByteIdentical).
+memory_strategy = "PREALLOCATE"
+
+[[stage]]
+name = "alrz"
+type = "FusedQuantAdaptiveLorenzo"
+blocks_per_tile = 8
+enable_order2 = true
+enable_centering = true
+error_bound = 1e-3
+error_bound_mode = "NOA"
+
+[[stage]]
+name = "ab"
+type = "AdaptiveBitpack"
+input_type = "int32"
+block_size = 32
+inputs = [{from = "alrz"}]
