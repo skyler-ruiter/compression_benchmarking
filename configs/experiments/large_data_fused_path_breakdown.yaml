@@ -1,0 +1,47 @@
+# Fused-execution-path breakdown on the large-field corpus: same fields/bound as
+# large_data_ti_check.yaml, but this file is meant to be run FOUR times, distinguished
+# only by environment, to pin down which of FZGM's fused kernels ("thread_independent" /
+# warp-cooperative single-pass / warp-cooperative two-pass) is actually fastest per field
+# — instead of trusting the runtime adaptive probe's choice implicitly.
+#
+#   FZGM_FUSED_PATH=adaptive   python -m benchkit run configs/experiments/large_data_fused_path_breakdown.yaml --session-id fused_path_adaptive     # default probe (no env needed, but tag it for clarity)
+#   FZ_TI=1                    python -m benchkit run configs/experiments/large_data_fused_path_breakdown.yaml --session-id fused_path_ti           # force thread-independent
+#   FZ_ADAPTIVE=0              python -m benchkit run configs/experiments/large_data_fused_path_breakdown.yaml --session-id fused_path_singlepass  # force warp-cooperative single-pass
+#   FZ_ADAPTIVE=0 FZ_SINGLEPASS=0 python -m benchkit run configs/experiments/large_data_fused_path_breakdown.yaml --session-id fused_path_twopass   # force warp-cooperative two-pass
+#
+# execution_path recorded per row (from fzgmod-cli --report-json) confirms which kernel
+# actually ran, independent of which env forced it.
+
+name: large_data_fused_path_breakdown
+description: >
+  cuSZp2/cuSZp3 plain+outlier on the large-field corpus (>=50M elems), rel_range 1e-3,
+  run under forced FZ_TI / FZ_ADAPTIVE / FZ_SINGLEPASS env combinations to separate
+  each fused kernel's real throughput from the adaptive probe's choice.
+
+datasets: [NYX, HACC, CESMATM-3D, SCALE-LETKF, EXAFEL]
+fields:
+  NYX: [temperature, baryon_density, velocity_x]
+  HACC: [vx, xx]
+  CESMATM-3D: [T, U, CLOUD]
+  SCALE-LETKF: [T, U, QV]
+  EXAFEL: [data]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 5
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: fzgm, variant: cuszp2_plain_sp,   pipeline: configs/pipelines/cuszp2_plain_sp.toml,
+     only_datasets: [HACC]}
+  - {compressor: fzgm, variant: cuszp2_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml,
+     only_datasets: [HACC]}
+  - {compressor: fzgm, variant: cuszp3_plain_sp,   pipeline: configs/pipelines/cuszp3_3d_plain_sp.toml,
+     only_datasets: [NYX, CESMATM-3D, SCALE-LETKF, EXAFEL]}
+  - {compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_3d_sp.toml,
+     only_datasets: [NYX, CESMATM-3D, SCALE-LETKF, EXAFEL]}

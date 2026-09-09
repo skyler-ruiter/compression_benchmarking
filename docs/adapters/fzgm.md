@@ -31,6 +31,35 @@ produces distinct, non-colliding sessions.
 `specialization_memory_smoke.yaml` (driver: `scripts/run-specialization-smoke.sh`) are
 the cross-machine preflight: each is launched twice, `FZ_SPECIALIZE=off` then `auto`.
 
+### Two gotchas that cost a full day of misdirected profiling (2026-09-08/09)
+
+- **A static pipeline TOML's error bound overrides `-m`/`-e` entirely, silently.**
+  `configs/pipelines/cuszp3_3d_plain_sp.toml` (and siblings) hardcode
+  `error_bound_mode = "ABS"` and a fixed `error_bound` in the `Quantizer` stage —
+  independent of any CLI flags or of what `error.mode` an experiment YAML requests.
+  benchkit itself handles this correctly (`rel_range` is resolved to
+  `render_eb = eb * value_range` and rendered into the TOML before the run — see
+  `adapters/fzgm.py`), but a **manual** `fzgmod-cli -c <toml> -m rel -e ...` test is
+  silently still running the TOML's own bound. For NYX/temperature this was the
+  difference between 23.5 bits/elem (near-lossless) and 2.1 bits/elem (the corpus's
+  actual `rel_range 1e-3` condition) — two completely different performance regimes.
+  Always drive representative tests through benchkit (or hand-compute the equivalent
+  ABS value) rather than hand-editing/reusing a static TOML with `-m`/`-e`.
+- **`FZ_TI`/`FZ_ADAPTIVE`/`FZ_SINGLEPASS` are silent no-ops unless `FZ_SPECIALIZE=auto`
+  is *also* set** — Pipeline Specialization's programmatic default is `Off`
+  (`compressor.h`), so forcing an internal dispatch path with none of those three set
+  quietly falls back to fully staged (unfused) execution instead. Always check
+  `fusion_installed_group_count`/`fusion_*` in the row, not just the throughput number,
+  before trusting a forced-path A/B.
+
+Below `FZ_SPECIALIZE`, the warp-register strategy has its own internal dispatch
+(thread-independent vs. single-pass vs. two-pass — see FZGM's own
+`docs/performance_tuning.md`), tuned via `FZ_TI`, `FZ_ADAPTIVE`,
+`FZ_ADAPTIVE_THRESH`/`FZ_ADAPTIVE_THRESH_TILED`, `FZ_TI_BPT`, `FZ_SP_BPW`, and debugged
+via `FZ_DEBUG_PROBE=1`. `fusion_groups[].execution_path` in the row records which one
+actually ran. Full writeup + corpus-wide before/after numbers for the 2026-09-09
+threshold fix: FZGM repo `paper_organizer/papers/FZGM/reports/fused_execution_paths_map.md`.
+
 ## Invocation
 
 Add `--report-json <path>` to any operation; it writes a standalone, pure-JSON file
