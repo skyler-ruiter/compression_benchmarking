@@ -36,7 +36,22 @@ cd "${repo_dir}"
 # shellcheck source=/dev/null
 source "${site_env}"
 
-if command -v nvidia-smi >/dev/null && [ -w /dev/nvidia0 ] 2>/dev/null; then
+# Optional clean-worktree binary override; apply it after the site environment
+# so provenance-sensitive runs do not silently fall back to the primary build.
+if [ -n "${FZGMOD_CLI_OVERRIDE:-}" ]; then
+    export FZGMOD_CLI="${FZGMOD_CLI_OVERRIDE}"
+fi
+
+# SPEC_SKIP_CLOCK_MGMT: set by a multi-GPU-on-one-node orchestrator (see
+# run-specialization-full-4gpu.sh) that manages locking once, node-wide, itself.
+# nvidia-smi -lgc/-rgc take no per-GPU index here and are NOT scoped by
+# CUDA_VISIBLE_DEVICES (that only restricts the CUDA runtime, not NVML/nvidia-smi
+# calls) — several concurrent shards each running their own lock+EXIT-trap-unlock
+# would race: whichever shard finishes first unlocks clocks node-wide while the
+# others are still mid-sweep. Single-shard callers are unaffected (unset = old behavior).
+if [ -n "${SPEC_SKIP_CLOCK_MGMT:-}" ]; then
+    :
+elif command -v nvidia-smi >/dev/null && [ -w /dev/nvidia0 ] 2>/dev/null; then
     bash scripts/lock_clocks.sh || true
     trap 'bash scripts/unlock_clocks.sh || true' EXIT
 fi

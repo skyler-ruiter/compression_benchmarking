@@ -41,7 +41,7 @@ diff --git a/src/pipeline/cli.inl b/src/pipeline/cli.inl
 index 7891b34..6c14f79 100644
 --- a/src/pipeline/cli.inl
 +++ b/src/pipeline/cli.inl
-@@ -218,17 +218,30 @@ class CLI {
+@@ -218,17 +218,34 @@ class CLI {
      // TODO disable predictor selection; to specify in another way
      // auto predictor = ctx->predictor;
  
@@ -64,13 +64,17 @@ index 7891b34..6c14f79 100644
 -    if (ctx->task_construct) do_construct(ctx, compressor, stream);
 -    if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
 +    for (int r = 0; r < reps; r++) {
++      // do_construct() converts a relative error bound to an absolute bound in
++      // place. Give every repetition a fresh context so per-repetition state
++      // cannot accumulate.
++      pszctx rep_ctx = *ctx;
 +      psz_framework* framework = pszdefault_framework();
 +      psz_compressor* compressor = psz_create(framework, F4);
 +
 +      // TODO enable f8
-+      if (ctx->task_dryrun) do_dryrun<float>(ctx);
-+      if (ctx->task_construct) do_construct(ctx, compressor, stream);
-+      if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
++      if (rep_ctx.task_dryrun) do_dryrun<float>(&rep_ctx);
++      if (rep_ctx.task_construct) do_construct(&rep_ctx, compressor, stream);
++      if (rep_ctx.task_reconstruct) do_reconstruct(&rep_ctx, compressor, stream);
 +
 +      delete framework;
 +      delete compressor;
@@ -78,7 +82,7 @@ index 7891b34..6c14f79 100644
      if (stream) GpuStreamDestroy(stream);
  
  #elif defined(PSZ_USE_1API)
-@@ -245,15 +258,20 @@ class CLI {
+@@ -245,15 +262,21 @@ class CLI {
      else
        q = sycl::queue(sycl::default_selector_v, plist);
  
@@ -87,14 +91,15 @@ index 7891b34..6c14f79 100644
 -    if (ctx->task_construct) do_construct(ctx, compressor, &q);
 -    if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, &q);
 +    for (int r = 0; r < reps; r++) {
++      pszctx rep_ctx = *ctx;
 +      psz_framework* framework = pszdefault_framework();
 +      psz_compressor* compressor = psz_create(framework, F4);
  
 -#endif
 +      // TODO enable f8
-+      if (ctx->task_dryrun) do_dryrun<float>(ctx);
-+      if (ctx->task_construct) do_construct(ctx, compressor, &q);
-+      if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, &q);
++      if (rep_ctx.task_dryrun) do_dryrun<float>(&rep_ctx);
++      if (rep_ctx.task_construct) do_construct(&rep_ctx, compressor, &q);
++      if (rep_ctx.task_reconstruct) do_reconstruct(&rep_ctx, compressor, &q);
  
 -    delete framework;
 -    delete compressor;

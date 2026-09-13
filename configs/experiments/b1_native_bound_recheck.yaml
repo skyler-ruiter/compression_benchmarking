@@ -1,0 +1,80 @@
+name: b1_native_bound_recheck
+description: >-
+  Narrow fresh-process reproduction of native severe error-bound violations
+  observed by the B1 corpus audit. Each Benchkit coordinate performs its
+  retained quality invocation in a separate subprocess. Run this same config
+  under two distinct session IDs and compare validity outcomes and reconstructed
+  hashes; timing is diagnostic only.
+
+datasets: [CESM-2D, EXAALT, EXAFEL]
+fields:
+  CESM-2D: [CLDTOT, FLNS]
+  EXAALT: [xx]
+  EXAFEL: [data]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3, 1.0e-4]
+
+repetitions: 1
+warmup_reps: 0
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-cusz-tool: &cusz_tool
+  tool_version: 0.17.3
+  tool_source_commit: e1c0135f2309921e13e7dac72c00101381e60c23
+  tool_build_flags: Release;PSZ_BACKEND=cuda;PSZ_BUILD_EXAMPLES=on;GPU-arch captured in session;recipe=compressors/build/cusz.sh
+  tool_patch_sha256: 0369a8d48e19f9102b01678571e52a42889444f35bfdd6da955f022614a45fd9
+x-cuszp3-tool: &cuszp3_tool
+  tool_version: 3.0.0
+  tool_source_commit: da90afb42770fcef6129cb586cf185c7d54c614c
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/cuszp3.sh
+  tool_patch_sha256: c55b20ff1477f0cbf76247da9a879f5d0a94aac6063e17beefd32340ebe633bb
+x-fzgpu-tool: &fzgpu_tool
+  tool_version: 0.1-3-g
+  tool_source_commit: c7e83f7614c8505e9b539190606b11589273696b
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/fz-gpu.sh
+  tool_patch_sha256: 5f2d0e9782a0e02cb392ad04e7eaf4b560e2f013c5445096eec7bd0e38dd46b1
+
+runs:
+  - {<<: *cusz_tool, compressor: cusz, variant: cusz_bound_recheck, pipeline: default,
+     only_datasets: [EXAALT, EXAFEL]}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_plain_bound_recheck,
+     pipeline: "plain:2d", only_datasets: [CESM-2D]}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_outlier_bound_recheck,
+     pipeline: "outlier:2d", only_datasets: [CESM-2D]}
+  - {<<: *fzgpu_tool, compressor: fzgpu, variant: fzgpu_bound_recheck, pipeline: default,
+     only_datasets: [CESM-2D]}
+
+verification:
+  accepted_failures:
+    - match:
+        compressor: cusz
+        variant: cusz_bound_recheck
+        dataset: EXAALT
+        field: xx
+        error_bound: 1.0e-3
+        error_type: AdapterError
+        fail_phase: compress
+      reason: >-
+        This coordinate intentionally checks whether the native cuSZ crash from
+        the original B1 session reproduces in an independent fresh process.
+  accepted_exclusions:
+    - codes: [eb_violated_severe]
+      match: {compressor: cusz}
+      reason: This run intentionally reproduces native severe bound violations.
+    - codes: [eb_violated_severe]
+      match: {compressor: cuszp3}
+      reason: This run intentionally reproduces native severe bound violations.
+    - codes: [eb_violated_severe]
+      match: {compressor: fzgpu}
+      reason: This run intentionally reproduces native severe bound violations.
+  accepted_unreliable_timing:
+    - match: {compressor: cusz}
+      reason: This experiment supports reconstruction validity only.
+    - match: {compressor: cuszp3}
+      reason: This experiment supports reconstruction validity only.
+    - match: {compressor: fzgpu}
+      reason: This experiment supports reconstruction validity only.

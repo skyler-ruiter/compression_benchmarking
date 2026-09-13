@@ -1,0 +1,217 @@
+schema_version: 1
+study: fzgm_b1_reconstruction_fidelity
+description: >-
+  Semantic pairings used to audit FZGPUModules reconstructions against native
+  compressor implementations. This file defines intended comparisons, not their
+  measured fidelity classification.
+
+coordinate_fields:
+  - dataset
+  - field
+  - dtype
+  - dims
+  - dim_order
+  - error_mode
+  - error_bound
+
+identity_checks:
+  - dataset_sha256
+  - original_bytes
+  - num_elements
+  - rel_basis
+  - eb_abs_effective
+
+fidelity_policy:
+  exact_reconstruction_field: decompressed_sha256
+  quality_fields:
+    - max_abs_err
+    - err_over_bound
+    - psnr
+    - nrmse
+  size_field: compressed_bytes
+  validity_policy: benchkit.validity
+  classification: >-
+    Report measured exactness and bound preservation separately. Tier assignment
+    also depends on documented implementation changes and is not inferred from a
+    numeric tolerance alone.
+
+pairs:
+  - id: cusz
+    label: cuSZ
+    reference:
+      compressor: cusz
+      variant: cusz
+      pipeline: default
+    reconstruction:
+      compressor: fzgm
+      variant: cusz
+      pipeline: configs/pipelines/cusz.toml
+    intended_relationship: algorithmically_corresponding
+    known_structural_differences:
+      - FZGM uses its own Huffman implementation and FZM archive container.
+
+  - id: cuszp2_plain
+    label: cuSZp2 plain
+    reference:
+      compressor: cuszp2
+      variant: cuszp2_plain
+      pipeline: plain
+    reconstruction:
+      compressor: fzgm
+      variant: cuszp2_plain_sp
+      pipeline: configs/pipelines/cuszp2_plain_sp.toml
+    intended_relationship: native_pipeline_reconstruction_candidate
+    known_structural_differences:
+      - Native and FZGM archive containers differ.
+
+  - id: cuszp2_outlier
+    label: cuSZp2 outlier
+    reference:
+      compressor: cuszp2
+      variant: cuszp2_outlier
+      pipeline: outlier
+    reconstruction:
+      compressor: fzgm
+      variant: cuszp2_outlier_sp
+      pipeline: configs/pipelines/cuszp2_sp.toml
+    intended_relationship: native_pipeline_reconstruction_candidate
+    known_structural_differences:
+      - Outlier storage and archive containers differ.
+
+  - id: cuszp3_plain
+    label: cuSZp3 plain
+    reference:
+      compressor: cuszp3
+      variant: cuszp3_plain
+      pipeline_any:
+        - plain
+        - plain:2d
+        - plain:3d
+    reconstruction:
+      compressor: fzgm
+      variant: cuszp3_plain_sp
+      pipeline_any:
+        - configs/pipelines/cuszp2_plain_sp.toml
+        - configs/pipelines/cuszp3_plain_sp.toml
+        - configs/pipelines/cuszp3_3d_plain_sp.toml
+    intended_relationship: native_pipeline_reconstruction_candidate
+    known_structural_differences:
+      - Pipeline selection is routed by dimensionality.
+      - Native and FZGM archive containers differ.
+
+  - id: cuszp3_outlier
+    label: cuSZp3 outlier
+    reference:
+      compressor: cuszp3
+      variant: cuszp3_outlier
+      pipeline_any:
+        - outlier
+        - outlier:2d
+        - outlier:3d
+    reconstruction:
+      compressor: fzgm
+      variant: cuszp3_outlier_sp
+      pipeline_any:
+        - configs/pipelines/cuszp2_sp.toml
+        - configs/pipelines/cuszp3_outlier_sp.toml
+        - configs/pipelines/cuszp3_3d_sp.toml
+    intended_relationship: native_pipeline_reconstruction_candidate
+    known_structural_differences:
+      - Pipeline selection is routed by dimensionality.
+      - Outlier storage and archive containers differ.
+
+  - id: fzgpu
+    label: FZ-GPU
+    reference:
+      compressor: fzgpu
+      variant: fzgpu
+      pipeline: default
+    reconstruction:
+      compressor: fzgm
+      variant: fzgpu
+      pipeline: configs/pipelines/fzgpu.toml
+    intended_relationship: native_pipeline_reconstruction_candidate
+    known_structural_differences:
+      - Native and FZGM archive containers differ.
+
+  - id: pfpl
+    label: PFPL
+    reference:
+      compressor: pfpl
+      variant: pfpl
+      pipeline: default
+    reconstruction:
+      compressor: fzgm
+      variant: pfpl
+      pipeline: configs/pipelines/pfpl.toml
+    intended_relationship: staged_native_algorithm_reconstruction_candidate
+    known_structural_differences:
+      - Native PFPL uses a fused chunk-local implementation.
+      - Native and FZGM archive containers differ.
+
+  - id: cuszp3_fixed
+    label: cuSZp3 fixed
+    reference:
+      compressor: cuszp3
+      pipeline_any:
+        - fixed:2d
+        - fixed:3d
+    reconstruction:
+      compressor: fzgm
+      variant: cuszp3_fixed_b1
+      pipeline_any:
+        - configs/pipelines/cuszp3_2d_fixed.toml
+        - configs/pipelines/cuszp3_3d_fixed.toml
+    intended_relationship: dimension_aware_native_pipeline_reconstruction_candidate
+    known_structural_differences:
+      - Both implementations use 8x8 tiles in 2-D and 4x4x4 tiles in 3-D.
+      - FZGM materializes quantized codes and tile order as separate stages.
+      - Native and FZGM archive containers differ.
+
+  - id: cuszhi_cr
+    label: cuSZ-Hi CR
+    reference:
+      compressor: cuszhi
+      variant: cuszhi_cr
+      pipeline: cr
+    reconstruction:
+      compressor: fzgm
+      variant: cuszhi_cr_b1_singlecall
+      pipeline: configs/pipelines/cusz_hi_cr_b1.toml
+    intended_relationship: native_mode_reconstruction_with_documented_2d_correction
+    known_structural_differences:
+      - Both implementations use CR-first structural autotuning.
+      - FZGM uses 16x16 level-4 tiles in 2-D to avoid the native level-6 anchor-gather defect.
+      - FZGM fixes an overlapping output slot in the native 2-D autotuning kernel.
+      - The 3-D predictor geometry follows native level-4 16x16x16 interpolation.
+      - Native and FZGM archive containers and entropy-coding stages differ.
+      - The FZGM CR arm uses one call per fresh process because its current RRE/RZE graph is not safe under repeated pipeline reuse.
+
+  - id: cuszhi_tp
+    label: cuSZ-Hi TP
+    reference:
+      compressor: cuszhi
+      variant: cuszhi_tp
+      pipeline: tp
+    reconstruction:
+      compressor: fzgm
+      variant: cuszhi_tp_b1
+      pipeline: configs/pipelines/cusz_hi_tp_b1.toml
+    intended_relationship: native_mode_reconstruction_with_documented_2d_correction
+    known_structural_differences:
+      - Both implementations use CR-first structural autotuning; TP uses the Huffman-free lossless pipeline.
+      - FZGM uses 16x16 level-4 tiles in 2-D to avoid the native level-6 anchor-gather defect.
+      - FZGM fixes an overlapping output slot in the native 2-D autotuning kernel.
+      - The 3-D predictor geometry follows native level-4 16x16x16 interpolation.
+      - Native and FZGM archive containers and entropy-coding stages differ.
+
+deferred_pairs:
+  - id: fsz
+    reason: >-
+      Add FSZ after the active implementation and fusion work is pinned and its
+      intended native relationship is documented.
+
+unpaired_variants:
+  - compressor: fzgm
+    variant: szp_composed
+    reason: FZGM-only composition with no native-equivalent claim.

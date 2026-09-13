@@ -1,0 +1,41 @@
+name: large_data_ti_check
+description: >
+  Re-measure FZGM (auto) on representative large fields (>=50M elems) after
+  merging TI-default + cuSZp3 faithful fixed. Native side reused from the
+  Sept-5 spec-vsnative-full baseline (unaffected by these changes).
+datasets: [NYX, HACC, CESMATM-3D, SCALE-LETKF, EXAFEL]
+fields:
+  NYX: [temperature, baryon_density, velocity_x]
+  HACC: [vx, xx]
+  CESMATM-3D: [T, U, CLOUD]
+  SCALE-LETKF: [T, U, QV]
+  EXAFEL: [data]
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+repetitions: 5
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+runs:
+  - {compressor: fzgm, variant: cusz,             pipeline: configs/pipelines/cusz.toml}
+  - {compressor: fzgm, variant: fzgpu,             pipeline: configs/pipelines/fzgpu.toml,
+     skip_datasets: [EXAFEL]}
+  - {compressor: fzgm, variant: pfpl,             pipeline: configs/pipelines/pfpl.toml}
+  - {compressor: fzgm, variant: cuszp2_plain_sp,  pipeline: configs/pipelines/cuszp2_plain_sp.toml}
+  - {compressor: fzgm, variant: cuszp2_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml}
+  # cuSZp3 plain/outlier on 1-D (HACC) reduces to the cuSZp2 preset (no tiling in 1-D)
+  - {compressor: fzgm, variant: cuszp3_plain_sp,  pipeline: configs/pipelines/cuszp2_plain_sp.toml,
+     only_datasets: [HACC]}
+  - {compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml,
+     only_datasets: [HACC]}
+  - {compressor: fzgm, variant: cuszp3_fixed,     pipeline: configs/pipelines/cuszp3_fixed.toml,
+     only_datasets: [HACC]}
+  # cuSZp3 plain/outlier/fixed on 3-D datasets: the tiled presets
+  - {compressor: fzgm, variant: cuszp3_plain_sp,  pipeline: configs/pipelines/cuszp3_3d_plain_sp.toml,
+     only_datasets: [NYX, CESMATM-3D, SCALE-LETKF, EXAFEL]}
+  - {compressor: fzgm, variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_3d_sp.toml,
+     only_datasets: [NYX, CESMATM-3D, SCALE-LETKF, EXAFEL]}
+  - {compressor: fzgm, variant: cuszp3_fixed,     pipeline: configs/pipelines/cuszp3_3d_fixed.toml,
+     only_datasets: [NYX, CESMATM-3D, SCALE-LETKF, EXAFEL]}

@@ -1,0 +1,30 @@
+# Bounded source-informed probe for the only native compressor that robustly
+# dominates X2. The default already uses CR-first interpolation autotuning,
+# radius 128, and GPU/length-aware Huffman chunk autotuning. This probe tests
+# the remaining fair alternatives without opening an unconstrained sweep.
+name: cuszhi_rq3_tuning_probe
+description: >
+  Native cuSZ-Hi interpolation-policy and spline-radius sensitivity on four
+  CESM decision fields plus missing/present HURR and SCALE coverage controls.
+
+datasets: [CESM-2D, HURR, SCALE-LETKF]
+fields:
+  CESM-2D: [AEROD_v, CLDHGH, FSDSC, FSNSC]
+  HURR: [CLOUD, V]
+  SCALE-LETKF: [QV, T]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: cuszhi, variant: cuszhi_tp_rd, pipeline: "tp;auto_tuning=rd-first", tool_version: "cuSZ-Hi-e16b75-repeatfix", tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0, tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9", tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}
+  - {compressor: cuszhi, variant: cuszhi_tp_r64, pipeline: "tp;radius=64", tool_version: "cuSZ-Hi-e16b75-repeatfix", tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0, tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9", tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}
+  - {compressor: cuszhi, variant: cuszhi_cr_rd, pipeline: "cr;auto_tuning=rd-first", tool_version: "cuSZ-Hi-e16b75-repeatfix", tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0, tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9", tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}
+  - {compressor: cuszhi, variant: cuszhi_cr_r64, pipeline: "cr;radius=64", tool_version: "cuSZ-Hi-e16b75-repeatfix", tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0, tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9", tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}

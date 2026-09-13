@@ -1,11 +1,33 @@
 from unittest import TestCase
 
 from benchkit.adapters.base import AdapterError
+from benchkit.adapters.cuszhi import _parse_pipeline
 from benchkit.adapters.cuszp import _parse_speed, _speed_to_ms
 from benchkit.adapters.fzgpu import _parse_all_times_s, _parse_psnr
 
 
 class AdapterParserFixtureTests(TestCase):
+    def test_cuszhi_bounded_native_tuning_syntax(self):
+        self.assertEqual(_parse_pipeline("default"), ("cr", None))
+        self.assertEqual(
+            _parse_pipeline("tp;radius=64,auto_tuning=rd-first"),
+            ("tp", "auto_tuning=rd-first,radius=64"),
+        )
+        self.assertEqual(
+            _parse_pipeline("cr;huffchunk=1024"),
+            ("cr", "huffchunk=1024"),
+        )
+
+    def test_cuszhi_rejects_semantically_invalid_tuning(self):
+        for pipeline in (
+            "tp;huffchunk=1024",
+            "cr;radius=256",
+            "cr;auto_tuning=fast",
+            "cr;unknown=1",
+        ):
+            with self.subTest(pipeline=pipeline), self.assertRaises(AdapterError):
+                _parse_pipeline(pipeline)
+
     def test_cuszp_spacing_and_scientific_notation(self):
         output = """
 cuSZp compression    end-to-end speed: 1.25e+02 GB/s

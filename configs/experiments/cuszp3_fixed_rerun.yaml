@@ -1,0 +1,21 @@
+name: cuszp3_fixed_rerun
+description: >
+  Re-measure cuSZp3 fixed after wiring the faithful dimension-aware presets
+  (cuszp3_2d_fixed / cuszp3_3d_fixed). 2-D + 3-D datasets only; 1-D unchanged.
+  Run under FZ_SPECIALIZE=off and =auto. Native side is unchanged but re-run for a
+  clean paired session on the same build/machine.
+datasets: [CESM-2D, CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+repetitions: 5
+warmup_reps: 3
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+runs:
+  - {compressor: cuszp3, variant: cuszp3_fixed, pipeline: fixed}
+  - {compressor: fzgm,   variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_2d_fixed.toml,
+     only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_fixed, pipeline: configs/pipelines/cuszp3_3d_fixed.toml,
+     only_datasets: [CESMATM-3D, HURR, NYX, MIRANDA, QMCPACK-3D, SCALE-LETKF, S3D, EXAFEL]}

@@ -303,12 +303,22 @@ def verify_session(session_dir: str | Path, *, write_report: bool = True,
     checks.append(_check("artifact_checksums", not artifact_errors,
                          "all archived inputs match SHA-256", artifact_errors))
 
+    # A session can retain provenance manifests from an invocation that produced no
+    # result rows (for example, an interrupted preflight followed by a resume).  Keep
+    # validating those manifests and their archived artifacts above, but reconstruct
+    # the measured matrix from the manifests actually referenced by the attempt
+    # history.  If attempts genuinely span different experiment inputs, _input_yaml
+    # remains strict and reports the disagreement.
+    referenced_provenance = {r.get("provenance_id") for r in attempt_rows}
+    measured_manifests = [m for m in manifests
+                          if m.get("provenance_id") in referenced_provenance]
+
     experiment: dict[str, Any] = {}
     datasets: dict[str, Any] = {}
     matrix_errors: list[str] = []
     try:
-        experiment = _input_yaml(session, manifests, "experiment")
-        datasets = _input_yaml(session, manifests, "datasets")
+        experiment = _input_yaml(session, measured_manifests, "experiment")
+        datasets = _input_yaml(session, measured_manifests, "datasets")
         expected, actual = _expected_matrix(experiment, datasets), _actual_matrix(rows)
         missing, extra = expected - actual, actual - expected
         if missing:

@@ -1,0 +1,33 @@
+# Checksummed, physically sized prefixes copied from the canonical HACC/vx source.
+# Separate files are required because FZGM rejects a file whose byte length does
+# not exactly match the declared dimensions.
+HACC-vx-prefixes:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/HACC_VX_PREFIXES
+  fields:
+    n_1024:      {dims: [1024],      path: n_1024.f32}
+    n_4096:      {dims: [4096],      path: n_4096.f32}
+    n_16384:     {dims: [16384],     path: n_16384.f32}
+    n_65536:     {dims: [65536],     path: n_65536.f32}
+    n_262144:    {dims: [262144],    path: n_262144.f32}
+    n_1048576:   {dims: [1048576],   path: n_1048576.f32}
+    n_4194304:   {dims: [4194304],   path: n_4194304.f32}
+    n_16777216:  {dims: [16777216],  path: n_16777216.f32}
+    n_67108864:  {dims: [67108864],  path: n_67108864.f32}
+    n_268435456: {dims: [268435456], path: n_268435456.f32}
+
+NYX-temperature-prefixes:
+  dtype: f32
+  dim_order: fast-to-slow
+  root: ${BENCHKIT_DATA_ROOT}/NYX_TEMPERATURE_PREFIXES
+  fields:
+    n_1024:     {dims: [1024],     path: n_1024.f32}
+    n_4096:     {dims: [4096],     path: n_4096.f32}
+    n_16384:    {dims: [16384],    path: n_16384.f32}
+    n_65536:    {dims: [65536],    path: n_65536.f32}
+    n_262144:   {dims: [262144],   path: n_262144.f32}
+    n_1048576:  {dims: [1048576],  path: n_1048576.f32}
+    n_4194304:  {dims: [4194304],  path: n_4194304.f32}
+    n_16777216: {dims: [16777216], path: n_16777216.f32}
+    n_67108864: {dims: [67108864], path: n_67108864.f32}

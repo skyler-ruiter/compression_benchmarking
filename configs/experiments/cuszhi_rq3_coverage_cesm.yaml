@@ -1,0 +1,28 @@
+# CESM companion to cuszhi_rq3_coverage.yaml. Kept separate so the completed
+# large-field HURR/SCALE session can be resumed without changing its identity.
+name: cuszhi_rq3_coverage_cesm
+description: >
+  Native cuSZ-Hi tp/cr coverage on every CESM-2D field at the three RQ3
+  rel_range bounds after correcting mutable state in the repeat patch.
+
+datasets: [CESM-2D]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: cuszhi, variant: cuszhi_tp, pipeline: tp, tool_version: "cuSZ-Hi-e16b75-repeatfix",
+     tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0,
+     tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+     tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}
+  - {compressor: cuszhi, variant: cuszhi_cr, pipeline: cr, tool_version: "cuSZ-Hi-e16b75-repeatfix",
+     tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0,
+     tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+     tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}

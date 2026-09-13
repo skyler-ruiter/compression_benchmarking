@@ -1,0 +1,66 @@
+name: fidelity_port_vs_native
+description: >
+  Port-fidelity check (D1). For each ported compressor, compare native vs FZGM plain-port
+  TOML vs FZGM _sp (specialization-ready) TOML on the same field/bound. Compares CR
+  (compressed_bytes), reconstruction quality (psnr/max_abs_err), and decompressed_sha256
+  to classify each port as bit-exact / near-bit-exact / meaningfully different, and to
+  quantify the linear_high_precision delta between plain and _sp variants.
+
+# 2-D (CLDHGH) exercises Lorenzo/block=32; 3-D (HURR/CLOUD) exercises TiledLorenzo.
+datasets: [CESM-2D, HURR]
+fields:
+  CESM-2D: [CLDHGH]
+  HURR: [CLOUD]
+
+error:
+  mode: rel_range           # canonical cross-tool comparable (= FZGM NOA = cuSZ REL)
+  bounds: [1.0e-3, 1.0e-4]
+
+repetitions: 2              # fidelity check: CR/quality/sha, not timing precision
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false # decompressed_sha256 is recorded regardless
+retain_compressed: false
+
+runs:
+  # ---- cuSZ (Lorenzo+Huffman) ----
+  - {compressor: cusz,   variant: cusz,             pipeline: default}
+  - {compressor: fzgm,   variant: cusz,             pipeline: configs/pipelines/cusz.toml}
+
+  # ---- cuSZp2 outlier: native vs plain-port vs _sp ----
+  - {compressor: cuszp2, variant: cuszp2_outlier,   pipeline: outlier}
+  - {compressor: fzgm,   variant: cuszp2_outlier,   pipeline: configs/pipelines/cuszp2.toml}
+  - {compressor: fzgm,   variant: cuszp2_outlier_sp, pipeline: configs/pipelines/cuszp2_sp.toml}
+
+  # ---- cuSZp2 plain: native vs plain-port vs _sp ----
+  - {compressor: cuszp2, variant: cuszp2_plain,     pipeline: plain}
+  - {compressor: fzgm,   variant: cuszp2_plain,     pipeline: configs/pipelines/cuszp2_plain.toml}
+  - {compressor: fzgm,   variant: cuszp2_plain_sp,  pipeline: configs/pipelines/cuszp2_plain_sp.toml}
+
+  # ---- cuSZp3 fixed (no _sp; it is already the fusible form) ----
+  - {compressor: cuszp3, variant: cuszp3_fixed,     pipeline: fixed}
+  - {compressor: fzgm,   variant: cuszp3_fixed,     pipeline: configs/pipelines/cuszp3_fixed.toml}
+
+  # ---- cuSZp3 plain 2-D vs 3-D: native vs plain-port vs _sp ----
+  - {compressor: cuszp3, variant: cuszp3_plain,     pipeline: "plain:2d", only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_plain,     pipeline: configs/pipelines/cuszp3.toml, only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_plain_sp,  pipeline: configs/pipelines/cuszp3_plain_sp.toml, only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_plain,     pipeline: "plain:3d", only_datasets: [HURR]}
+  - {compressor: fzgm,   variant: cuszp3_plain,     pipeline: configs/pipelines/cuszp3_3d.toml, only_datasets: [HURR]}
+  - {compressor: fzgm,   variant: cuszp3_plain_sp,  pipeline: configs/pipelines/cuszp3_3d_plain_sp.toml, only_datasets: [HURR]}
+
+  # ---- cuSZp3 outlier 2-D vs 3-D: native vs plain-port vs _sp ----
+  - {compressor: cuszp3, variant: cuszp3_outlier,   pipeline: "outlier:2d", only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_outlier,   pipeline: configs/pipelines/cuszp3_outlier.toml, only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_outlier_sp.toml, only_datasets: [CESM-2D]}
+  - {compressor: cuszp3, variant: cuszp3_outlier,   pipeline: "outlier:3d", only_datasets: [HURR]}
+  - {compressor: fzgm,   variant: cuszp3_outlier,   pipeline: configs/pipelines/cuszp3_3d_outlier.toml, only_datasets: [HURR]}
+  - {compressor: fzgm,   variant: cuszp3_outlier_sp, pipeline: configs/pipelines/cuszp3_3d_sp.toml, only_datasets: [HURR]}
+
+  # ---- FZ-GPU ----
+  - {compressor: fzgpu,  variant: fzgpu,            pipeline: default}
+  - {compressor: fzgm,   variant: fzgpu,            pipeline: configs/pipelines/fzgpu.toml}
+
+  # ---- PFPL ----
+  - {compressor: pfpl,   variant: pfpl,             pipeline: default}
+  - {compressor: fzgm,   variant: pfpl,             pipeline: configs/pipelines/pfpl.toml}

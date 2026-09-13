@@ -1,0 +1,67 @@
+# Preflight for fzgm_rq3_x2_paired_final.yaml.  This is intentionally one
+# representative 3-D f32 cell, but exercises the selected X2 pipeline and each
+# of its ten native frontier comparisons under the exact final provenance policy.
+name: fzgm_rq3_x2_paired_final_smoke
+description: >-
+  H3/H4 gate for the final X2 paired-native matrix: HURR/CLOUD at rel_range 1e-3,
+  using the same clean FZGM build and declared native tools as the full campaign.
+datasets: [HURR]
+fields:
+  HURR: [CLOUD]
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  tool_build_flags: Release;CUDA;sm_90;clean FZGPUModules-benchmark-b90fdfe worktree
+  tool_patch_sha256: clean
+x-cusz-tool: &cusz_tool
+  tool_version: 0.17.3
+  tool_source_commit: e1c0135f2309921e13e7dac72c00101381e60c23
+  tool_build_flags: Release;PSZ_BACKEND=cuda;PSZ_BUILD_EXAMPLES=on;GPU-arch captured in session;recipe=compressors/build/cusz.sh
+  tool_patch_sha256: 0369a8d48e19f9102b01678571e52a42889444f35bfdd6da955f022614a45fd9
+x-cuszp2-tool: &cuszp2_tool
+  tool_version: 2.0.1
+  tool_source_commit: 240240b2f8cc3984236ccea1f18658ef535a81c
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/cuszp2.sh
+  tool_patch_sha256: e0eec4a8fdef5c92f91fde9c4c3df1238ae1d872f2922b8fdc4660feac735c27
+x-cuszp3-tool: &cuszp3_tool
+  tool_version: 3.0.0
+  tool_source_commit: da90afb42770fcef6129cb586cf185c7d54c614c
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/cuszp3.sh
+  tool_patch_sha256: c55b20ff1477f0cbf76247da9a879f5d0a94aac6063e17beefd32340ebe633bb
+x-cuszhi-tool: &cuszhi_tool
+  tool_version: cuSZ-Hi-e16b75-repeatfix
+  tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0
+  tool_build_flags: Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9;fresh-context-per-repeat
+  tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8
+x-fzgpu-tool: &fzgpu_tool
+  tool_version: 0.1-3-g
+  tool_source_commit: c7e83f7614c8505e9b539190606b11589273696b
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/fz-gpu.sh
+  tool_patch_sha256: 5f2d0e9782a0e02cb392ad04e7eaf4b560e2f013c5445096eec7bd0e38dd46b1
+x-pfpl-tool: &pfpl_tool
+  tool_version: 36f5aaef
+  tool_source_commit: 36f5aaef42744ed78b4d1525b03a7fb2168b363c
+  tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/pfpl.sh
+  tool_patch_sha256: 9e082a37372f894e6a8af3797cbe72f05412197569edd1a4f54e2f82fe1d70b6
+
+runs:
+  - {<<: *fzgm_tool, compressor: fzgm, variant: x_lq_pfpl_ans, pipeline: configs/pipelines/x_lorenzoquant_pfpl_ans.toml}
+  - {<<: *cusz_tool, compressor: cusz, variant: cusz, pipeline: default}
+  - {<<: *cuszp2_tool, compressor: cuszp2, variant: cuszp2_outlier, pipeline: outlier}
+  - {<<: *cuszp2_tool, compressor: cuszp2, variant: cuszp2_plain, pipeline: plain}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_fixed, pipeline: fixed}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_plain, pipeline: "plain:3d"}
+  - {<<: *cuszp3_tool, compressor: cuszp3, variant: cuszp3_outlier, pipeline: "outlier:3d"}
+  - {<<: *cuszhi_tool, compressor: cuszhi, variant: cuszhi_tp, pipeline: tp}
+  - {<<: *cuszhi_tool, compressor: cuszhi, variant: cuszhi_cr, pipeline: cr}
+  - {<<: *fzgpu_tool, compressor: fzgpu, variant: fzgpu, pipeline: default}
+  - {<<: *pfpl_tool, compressor: pfpl, variant: pfpl, pipeline: default}

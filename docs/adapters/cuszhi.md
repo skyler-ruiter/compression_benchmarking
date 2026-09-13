@@ -21,6 +21,13 @@ cuszhi -x -i <compressed.cusza> [-R time]
 Set `CUSZHI_CLI` to the full path to the `cuszhi` binary, or pass
 `cli_path` in the run entry.
 
+For bounded native-tuning audits, the Benchkit `pipeline` value accepts
+`scheme;key=value[,key=value]`. Supported keys are `auto_tuning`
+(`cr-first` or `rd-first`), spline `radius` (1--128), and `huffchunk` (a
+multiple of 256, `cr` only). Examples are `tp;auto_tuning=rd-first` and
+`cr;radius=64,huffchunk=1024`. Ordinary `tp` and `cr` retain the tool defaults:
+CR-first interpolation tuning, radius 128, and automatic Huffman chunk sizing.
+
 ---
 
 ## Error-mode semantics
@@ -69,7 +76,8 @@ both `.cusza` and `.cuszx` land inside the workdir.
   build of `cuszhi` is patched (local, unmerged fork at
   `~/research/compressors/cuSZ-Hi`) to add a `--repeat N` flag: it loops the
   compress/decompress task N times inside one process, sharing one CUDA
-  stream/context across reps, and prints N `(total)` rows to stdout. The
+  stream across reps, with a fresh copy of the CLI context for each repetition,
+  and prints N `(total)` rows to stdout. The
   adapter parses all N rows out of one process's output instead of spawning N
   subprocesses. No `-S write2disk` equivalent: each rep still writes
   `.cusza`/`.cuszx` (same file, overwritten each rep) — this adds file I/O
@@ -94,6 +102,13 @@ reps 2-6 settle to a stable ~0.70ms compress / ~0.81ms decompress — roughly
 number. `warmup_reps` (dropped by `metrics.summarize_timing`) discards rep 1,
 so the harness now sees the true warm numbers, matching how FZGM's own single
 internal warmup rep is handled.
+
+Each repetition requires a fresh context because cuSZ-Hi converts a relative
+bound to an absolute bound in place and mutates interpolation-tuning fields
+during compression. The original local repeat patch reused this mutable state,
+causing the bound conversion to accumulate and making narrow-range HURR and
+SCALE fields abort from the third repetition onward. Those historical failures
+were measurement-patch failures, not failures of the native single-run path.
 
 ### Comparison note
 
@@ -163,21 +178,15 @@ cuSZ-Hi pipeline (real upstream work), not tweaking a preset's dims. Until then,
 with `skip_datasets: [HACC]` — native cuSZ-Hi still runs against HACC (useful
 reference data on its own), it just has no FZGM row to pair against.
 
-**Update (JetStream2 H100, full `fzgm_vs_native.yaml` run, 2026-07-19):** native
-cuSZ-Hi's 1-D handling is not just a different-predictor fallback — it's
-outright unstable at some (preset, eb) combinations on HACC's 280,953,867-element
-field, aborting with a C++ exception (exit -6) rather than producing a result:
+**Historical observation (JetStream2 H100, full `fzgm_vs_native.yaml` run,
+2026-07-19; not valid robustness evidence):** the repeated-timing build reported
+failures at some (preset, eb) combinations on HACC's 280,953,867-element field:
 
 | Preset | eb=1e-2 | eb=1e-3 | eb=1e-4 |
 |---|---|---|---|
 | `tp` | ok (CR 9.77) | ok (CR 5.08) | **crash** — `psz_gpu_exception`, "invalid argument" at `compressor.inl:272` |
 | `cr` | **crash** — `std::runtime_error`, "exceeding max len: 27" | ok (CR 5.65) | **crash** — `psz_gpu_exception`, "invalid argument" at `compressor.inl:309` |
 
-Only eb=1e-3 survived for both presets — not a clean "1-D unsupported"
-failure mode, more likely internal array-length/quantization-level bookkeeping
-in the spline path that happens to fit for some eb-derived parameter ranges and
-overflow for others on a field this large. Recorded as `status: fail` rows in
-`runs.jsonl` (not swallowed) — this is itself a legitimate robustness data point
-for the native tool, not a benchkit bug. Not root-caused further; if you need
-the `tp`/`cr` presets to run cleanly against 1-D data, this is where to start
-digging in cuSZ-Hi's own source.
+Those rows remain recorded as `status: fail`, but the later discovery of mutable
+per-repetition context means they cannot be attributed to native cuSZ-Hi without
+a corrected rerun. The structural FZGM pairing limitation above is unchanged.

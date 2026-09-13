@@ -3,7 +3,7 @@
 # The refreshed FZGM-vs-native comparison, run AFTER the 2026-08/09 optimization
 # work: generalized warp-register fusion (any block = 32*EPL, plain + outlier),
 # warp-register *decompress* fusion, chunk-cooperative decompress fusion, and
-# specialization-aware buffer coloring. This is the 4-field preflight; a
+# specialization-aware buffer coloring. This is the 5-field preflight; a
 # full-corpus counterpart is a follow-up once these numbers look right on 2-3
 # machines.
 #
@@ -80,7 +80,8 @@ description: >
   Pipeline Specialization vs native for cusz, cuszp2 (plain/outlier), cuszp3
   (fixed/plain/outlier, dim-matched), fzgpu, pfpl, plus an FZGM-only
   SZp-inspired szp_composed
-  showcase — 4 shape-class fields, eb in {1e-2,1e-3,1e-4}, rel_range. Run twice
+  showcase — 4 shape-class fields plus the offset-dominated CESM-2D/PSL
+  specialization-regression field, eb in {1e-2,1e-3,1e-4}, rel_range. Run twice
   (FZ_SPECIALIZE=off then auto).
 
 datasets:
@@ -90,7 +91,7 @@ datasets:
   - HACC
 
 fields:
-  CESM-2D: [CLDHGH]
+  CESM-2D: [CLDHGH, PSL]
   HURR:    [TC]
   NYX:     [temperature]
   HACC:    [vx]
@@ -109,7 +110,7 @@ retain_compressed: false
 
 x-fzgm-tool: &fzgm_tool
   tool_version: 2.0.0-dev
-  tool_source_commit: b90fdfe95a234a58269ffbeb13f4e1913a484b37
+  tool_source_commit: d511ebcb447194dd90cc452ce073dffc9ee78403
   tool_build_flags: Release;backend/GPU-arch/toolchain captured in session build_environment
   tool_patch_sha256: clean
 
@@ -142,6 +143,22 @@ x-pfpl-tool: &pfpl_tool
   tool_source_commit: 36f5aaef42744ed78b4d1525b03a7fb2168b363c
   tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/pfpl.sh
   tool_patch_sha256: 9e082a37372f894e6a8af3797cbe72f05412197569edd1a4f54e2f82fe1d70b6
+
+verification:
+  accepted_failures:
+    - match:
+        compressor: fzgm
+        variant: pfpl
+        dataset: CESM-2D
+        field: PSL
+        error_bound: 1.0e-4
+        error_type: AdapterError
+        fail_phase: compress
+      reason: >-
+        This offset-dominated field puts nearly every value outside PFPL's
+        declared quantizer capacity. Commit b08c406 restores the same safe
+        refusal under staged and specialized execution; retaining this cell in
+        the smoke prevents a recurrence of the prior silent fused-path error.
 
 runs:
   # ── cuSZ (Lorenzo-Quant → Huffman; never specializes) ──────────────────────

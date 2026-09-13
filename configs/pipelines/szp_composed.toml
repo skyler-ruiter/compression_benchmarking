@@ -1,17 +1,15 @@
 [pipeline]
-# SZp / fZ-light-inspired modular composition.
+# cuSZp-style plain modular composition with a larger block.
 #   Quantizer(linear) -> Lorenzo(block_size=128) -> AdaptiveBitpack(block_size=128)
 #
-# This matches SZp's published high-level quantize -> 1-D Lorenzo -> sign-bit /
-# fixed-width packing structure, with no entropy coder. It is not exact upstream
-# behavior: CPU SZp truncates x/eb, stores a seed per OpenMP partition, and carries
-# prediction across its small-block boundaries. FZGM uses its generic
-# round(x/(2eb)) quantizer and resets Lorenzo per 128-value block.
+# This is the same component chain and plain packing policy as the FZGM cuSZp2
+# reconstruction, with block_size changed from 32 to 128. It demonstrates that a
+# composed pipeline can expose an algorithm parameter that the native CLI fixes.
 #
 # Under FZ_SPECIALIZE=auto the whole chain fuses into one warp-register kernel
 # (forward) and one warp-register-inverse kernel (decompress). There is no native
-# SZp CLI wired into this repo, so this is an FZGM-only specialization showcase,
-# not a native-parity or container-compatibility claim.
+# native cuSZp B=128 reference, so this is an FZGM-only parameter-exploration
+# point, not a native-parity or container-compatibility claim.
 memory_strategy = "PREALLOCATE"
 
 [[stage]]

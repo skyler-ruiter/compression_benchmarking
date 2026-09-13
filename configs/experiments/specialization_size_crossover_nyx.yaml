@@ -1,0 +1,44 @@
+# Second-field confirmation for specialization_size_crossover.yaml.
+name: specialization_size_crossover_nyx
+description: >
+  NYX temperature prefix confirmation of the HACC/vx specialization crossover.
+  The 2^10 through 2^26 range spans every crossover bracket observed on HACC.
+
+datasets: [NYX-temperature-prefixes]
+fields:
+  NYX-temperature-prefixes:
+    - n_1024
+    - n_4096
+    - n_16384
+    - n_65536
+    - n_262144
+    - n_1048576
+    - n_4194304
+    - n_16777216
+    - n_67108864
+
+error:
+  mode: rel_range
+  bounds: [1.0e-3]
+
+repetitions: 10
+warmup_reps: 2
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: b08c406c48631eebdfc2b362e34aa521081f61f0
+  tool_build_flags: Release;CUDA;sm_90;runtime-path-telemetry
+  tool_patch_sha256: e855de8e71f534c1fa3d7bd799dfc76f826a636dca640167317a4461cb8384c6
+
+runs:
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b32_plain, pipeline: configs/pipelines/lorenzo_ab_b32_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b32_outlier, pipeline: configs/pipelines/lorenzo_ab_b32_outlier.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b64_plain, pipeline: configs/pipelines/lorenzo_ab_b64_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b64_outlier, pipeline: configs/pipelines/lorenzo_ab_b64_outlier.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b96_plain, pipeline: configs/pipelines/lorenzo_ab_b96_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b96_outlier, pipeline: configs/pipelines/lorenzo_ab_b96_outlier.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b128_plain, pipeline: configs/pipelines/lorenzo_ab_b128_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b128_outlier, pipeline: configs/pipelines/lorenzo_ab_b128_outlier.toml}

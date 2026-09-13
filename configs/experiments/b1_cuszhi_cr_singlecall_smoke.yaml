@@ -1,0 +1,22 @@
+name: b1_cuszhi_cr_singlecall_smoke
+description: Diagnostic single-call check for the repeated-execution failure in the FZGM cuSZ-Hi CR pipeline.
+datasets: [CESM-2D]
+fields: {CESM-2D: [AEROD_v, FLDS]}
+error: {mode: rel_range, bounds: [1.0e-2, 1.0e-4]}
+repetitions: 1
+warmup_reps: 0
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+runs:
+  - compressor: fzgm
+    variant: cuszhi_cr_b1_singlecall
+    pipeline: configs/pipelines/cusz_hi_cr_b1.toml
+    tool_version: 2.0.0-dev
+    tool_source_commit: d511ebcb447194dd90cc452ce073dffc9ee78403
+    tool_build_flags: Release;CUDA;sm_90;clean source;FZ_SPECIALIZE=off;single benchmark call
+    tool_patch_sha256: clean
+verification:
+  accepted_unreliable_timing:
+    - match: {compressor: fzgm}
+      reason: Diagnostic correctness run only.

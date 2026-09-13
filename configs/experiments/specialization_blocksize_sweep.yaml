@@ -1,0 +1,47 @@
+# Controlled cost-model probe for the generic warp-register specialization.
+# Run as an FZ_SPECIALIZE=off/auto pair. This deliberately uses neutral pipeline
+# names: B=128 is the former szp_composed shape, not a native SZp comparison.
+name: specialization_blocksize_sweep
+description: >
+  FZGM-only staged-versus-specialized sweep for linear quantization, 1-D
+  Lorenzo prediction, and AdaptiveBitpack at B={32,64,96,128}, with plain and
+  outlier modes. Five f32 fields span small/medium/large execution regimes; the
+  B=64 to B=96 transition also crosses the current single-pass/two-pass rule.
+
+datasets:
+  - CESM-2D
+  - HURR
+  - NYX
+  - HACC
+
+fields:
+  CESM-2D: [CLDHGH, PSL]
+  HURR:    [TC]
+  NYX:     [temperature]
+  HACC:    [vx]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: b08c406c48631eebdfc2b362e34aa521081f61f0
+  tool_build_flags: Release;backend/GPU-arch/toolchain captured in session build_environment
+  tool_patch_sha256: clean
+
+runs:
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b32_plain, pipeline: configs/pipelines/lorenzo_ab_b32_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b32_outlier, pipeline: configs/pipelines/lorenzo_ab_b32_outlier.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b64_plain, pipeline: configs/pipelines/lorenzo_ab_b64_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b64_outlier, pipeline: configs/pipelines/lorenzo_ab_b64_outlier.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b96_plain, pipeline: configs/pipelines/lorenzo_ab_b96_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b96_outlier, pipeline: configs/pipelines/lorenzo_ab_b96_outlier.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b128_plain, pipeline: configs/pipelines/lorenzo_ab_b128_plain.toml}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: lorenzo_ab_b128_outlier, pipeline: configs/pipelines/lorenzo_ab_b128_outlier.toml}

@@ -1,0 +1,99 @@
+# B1 native-aligned cuSZ-Hi TP comparison. This is the ordinary modular TP
+# pipeline with GInterp's structural autotuning enabled to match native
+# cuSZ-Hi's default cr-first mode (auto_tuning=3).
+
+[pipeline]
+# cuSZ-Hi LC back-end — throughput (tp) mode (Huffman-free).
+#   predictor: GInterp (spline interpolation, cuSZ-Hi Spline path)
+#   codes:    GInterp -> TCMS1 -> BIT1 -> RRE1
+#   outliers: Merge([anchor | outlier_vals | outlier_idxs]) -> BIT4 -> RRE2 -> RZE1
+# TCMS = Zigzag (byte-transparent), BIT = Bitshuffle, RRE = RRE, RZE = RZE.
+# dims are intentionally omitted: the caller must set them (CLI -l / setDims())
+# for the actual data. A dims entry here would override setDims() at loadConfig
+# time (GInterp is ≥2-D), silently running the pipeline at the wrong shape.
+memory_strategy = "PREALLOCATE"
+# PREALLOCATE, not MINIMAL (changed 2026-07-28). Under MINIMAL this pipeline
+# corrupts memory on large 3-D fields: the compressed blob size varies slightly
+# between successive compress() calls on a reused pipeline (23,079,728 then
+# 23,079,732 bytes on CESMATM-3D/CLDICE), so the inverse buffer — sized from the
+# previous run — is undersized on the next decompress, and the resulting illegal
+# memory access surfaces against whichever stage synchronizes first (it was
+# reported at rre_stage.cu:475, which is not where the fault is). This is the
+# failure mode the E19 note in ginterp_stage.cu predicts for reused MINIMAL
+# pipelines. PREALLOCATE sizes buffers to worst case once, so the variation is
+# harmless. Measured on NYX/temperature: byte-identical output (CR 185.10x,
+# PSNR 75.75 dB) and FASTER (compress 81.1 -> 95.5 GB/s, decompress 74.2 -> 80.1),
+# at ~1.6x peak device memory (4.3 -> 7.0 GB on a 643 MB field) — comfortable on
+# every GPU benchmarked here, including the 32 GB MI100.
+# NOTE: cuSZ-Hi throughput from this preset is therefore NOT comparable with
+# baselines captured before this date, which ran MINIMAL. CR and PSNR are.
+
+[[stage]]
+name = "gi"
+type = "GInterp"
+input_type = "float32"
+code_type = "uint8"                # match cuSZ-Hi's spline ectrl (ErrCtrlTrait<1> = u1).
+                                   # 1 byte/code, half the code-stream bytes of uint16.
+error_bound = 1e-3
+error_bound_mode = "NOA"
+quant_radius = 128                 # match cuSZ-Hi's spline default (dict_size=256, radius=128).
+                                   # Codes live in [0,256) so they fit a single byte; residuals
+                                   # outside +/-128 escape to the outlier buffer (compaction),
+                                   # exactly as native does. Together with uint8 codes this ~2x's
+                                   # the CR vs the old uint16/r32768 config (CLDHGH 7.68->12.47x,
+                                   # native 13.33x) at identical fidelity. Auto-tuning adds <0.5%.
+outlier_capacity = 0.2             # radius-128 pushes more residuals to outliers than a wide
+                                   # radius would; 20% capacity covers sharp fields (e.g. NYX).
+auto_tuning = 3                    # match native cuSZ-Hi CR-first structural tuning
+
+# ── codes chain: TCMS1 -> BIT1 -> RRE1 ──
+[[stage]]
+name = "tcms"
+type = "Zigzag"
+input_type = "int8"
+output_type = "uint8"
+byte_transparent = true            # LC TCMS: zigzag the raw byte stream
+inputs = [{from = "gi", port = "codes"}]
+
+[[stage]]
+name = "bit1"
+type = "Bitshuffle"
+element_width = 1
+block_size = 16384
+inputs = [{from = "tcms", port = "output"}]
+
+[[stage]]
+name = "rre1"
+type = "RRE"
+word_size = 1
+inputs = [{from = "bit1", port = "output"}]
+
+# ── outlier chain (BITR): Merge([anchor|outlier_vals|outlier_idxs]) -> BIT4 -> RRE2 -> RZE1 ──
+[[stage]]
+name = "merge"
+type = "Merge"
+segments = ["anchor", "outlier_vals", "outlier_idxs"]
+inputs = [
+  {from = "gi", port = "anchor"},
+  {from = "gi", port = "outlier_vals"},
+  {from = "gi", port = "outlier_idxs"},
+]
+
+[[stage]]
+name = "bit4"
+type = "Bitshuffle"
+element_width = 4
+block_size = 16384
+inputs = [{from = "merge", port = "output"}]
+
+[[stage]]
+name = "rre2"
+type = "RRE"
+word_size = 2
+inputs = [{from = "bit4", port = "output"}]
+
+[[stage]]
+name = "rze"
+type = "RZE"
+word_size = 1                       # LC RZE_1 (byte word size)
+inputs = [{from = "rre2", port = "output"}]

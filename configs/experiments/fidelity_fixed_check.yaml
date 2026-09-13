@@ -1,0 +1,26 @@
+name: fidelity_fixed_check
+description: >
+  Validate the faithful cuSZp3 fixed port. Compares native cuszp3 -m fixed vs the OLD
+  flat cuszp3_fixed.toml (1-D 64-run) vs the NEW faithful cuszp3_2d_fixed/3d_fixed
+  (TiledLorenzo predict=false). Expect the new preset to close the 3-D CR gap to
+  ~native (like plain), with identical reconstruction.
+datasets: [CESM-2D, HURR]
+fields:
+  CESM-2D: [CLDHGH]
+  HURR: [CLOUD]
+error:
+  mode: rel_range
+  bounds: [1.0e-3, 1.0e-4]
+repetitions: 2
+warmup_reps: 1
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+runs:
+  # native fixed (dimension-aware: 8x8 in 2-D, 4x4x4 in 3-D)
+  - {compressor: cuszp3, variant: cuszp3_fixed,      pipeline: fixed}
+  # OLD flat port (1-D 64-run) — the divergent one
+  - {compressor: fzgm,   variant: cuszp3_fixed_old,  pipeline: configs/pipelines/cuszp3_fixed.toml}
+  # NEW faithful ports, routed by dimension
+  - {compressor: fzgm,   variant: cuszp3_fixed_new,  pipeline: configs/pipelines/cuszp3_2d_fixed.toml, only_datasets: [CESM-2D]}
+  - {compressor: fzgm,   variant: cuszp3_fixed_new,  pipeline: configs/pipelines/cuszp3_3d_fixed.toml, only_datasets: [HURR]}

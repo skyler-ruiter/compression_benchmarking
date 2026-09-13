@@ -150,6 +150,30 @@ class VerificationTests(unittest.TestCase):
             checks = {c["name"]: c["status"] for c in report["checks"]}
             self.assertEqual(checks["artifact_checksums"], "fail")
 
+    def test_unreferenced_provenance_does_not_change_measured_matrix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            session = self._session(Path(tmp))
+            source = next(session.glob("provenance.provenance-v1-*.json"))
+            orphan = load_session_text(source.read_text())
+            store = ResultStore(Path(tmp), "session")
+            other_experiment = {
+                "name": "unmeasured-initialization", "datasets": ["d"],
+                "fields": "all", "error": {"mode": "rel_range", "bounds": [1e-2]},
+                "runs": [{"compressor": "fzgm", "variant": "test",
+                          "pipeline": "default"}],
+            }
+            orphan["input_artifacts"]["experiment"] = store.archive_bytes(
+                "experiment", _yaml(other_experiment), ".yaml")
+            orphan.pop("provenance_id")
+            orphan["provenance_id"] = assign_provenance_id(orphan)
+            store.write_provenance(orphan)
+
+            report = verify_session(session)
+            self.assertTrue(report["publication_grade"])
+            matrix = next(c for c in report["checks"]
+                          if c["name"] == "matrix_coverage")
+            self.assertEqual(matrix["summary"], "1/1 expected cells")
+
     def test_gating_exclusion_requires_code_scoped_policy(self):
         with tempfile.TemporaryDirectory() as tmp:
             session = self._session(Path(tmp))

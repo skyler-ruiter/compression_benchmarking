@@ -60,6 +60,53 @@ _MODE_MAP = {
 
 _DTYPE_FLAG = {"f32": "f32", "f64": "f64"}
 
+_CONTROL_KEYS = {"auto_tuning", "radius", "huffchunk"}
+
+
+def _parse_pipeline(value: str) -> tuple[str, str | None]:
+    """Parse ``scheme[;native-control-string]`` for bounded tuning studies."""
+    scheme, separator, control = value.strip().lower().partition(";")
+    if scheme == "default":
+        scheme = "cr"
+    if scheme not in ("cr", "tp"):
+        raise AdapterError(
+            f"cuSZ-Hi: unknown pipeline '{value}' "
+            "(scheme must be 'cr', 'tp', or 'default')")
+    if not separator:
+        return scheme, None
+    pairs = [part.strip() for part in control.split(",") if part.strip()]
+    if not pairs or any("=" not in part for part in pairs):
+        raise AdapterError(
+            "cuSZ-Hi tuning must use 'scheme;key=value[,key=value]' syntax")
+    parsed = dict(part.split("=", 1) for part in pairs)
+    unknown = sorted(set(parsed) - _CONTROL_KEYS)
+    if unknown:
+        raise AdapterError(f"cuSZ-Hi unsupported tuning key(s): {unknown}")
+    if "auto_tuning" in parsed and parsed["auto_tuning"] not in (
+        "cr-first", "rd-first"
+    ):
+        raise AdapterError("cuSZ-Hi auto_tuning must be cr-first or rd-first")
+    if "radius" in parsed:
+        try:
+            radius = int(parsed["radius"])
+        except ValueError as exc:
+            raise AdapterError("cuSZ-Hi radius must be an integer") from exc
+        # The spline path stores error-control symbols in uint8. Radius 128 is
+        # the native default and largest representable symmetric dictionary.
+        if radius < 1 or radius > 128:
+            raise AdapterError("cuSZ-Hi spline radius must be in [1, 128]")
+    if "huffchunk" in parsed:
+        try:
+            chunk = int(parsed["huffchunk"])
+        except ValueError as exc:
+            raise AdapterError("cuSZ-Hi huffchunk must be an integer") from exc
+        if chunk < 256 or chunk % 256:
+            raise AdapterError("cuSZ-Hi huffchunk must be a positive multiple of 256")
+        if scheme != "cr":
+            raise AdapterError("cuSZ-Hi huffchunk applies only to the cr scheme")
+    canonical = ",".join(f"{key}={parsed[key]}" for key in sorted(parsed))
+    return scheme, canonical
+
 
 def resolve_cli(explicit: str | None = None) -> str:
     for cand in (explicit, os.environ.get("CUSZHI_CLI")):
@@ -122,13 +169,7 @@ class CuszhiAdapter(Adapter):
         # pipeline selects the -s lossless-pipeline mode: "cr" (default, high-ratio,
         # slow) or "tp" (fast, lower CR). "default" is accepted as an alias for "cr"
         # (the tool's own default) so existing configs keep working.
-        lossless_mode = spec.pipeline.strip().lower()
-        if lossless_mode == "default":
-            lossless_mode = "cr"
-        if lossless_mode not in ("cr", "tp"):
-            raise AdapterError(
-                f"cuSZ-Hi: unknown pipeline '{spec.pipeline}' "
-                f"(supported: 'cr', 'tp', 'default')")
+        lossless_mode, native_control = _parse_pipeline(spec.pipeline)
 
         ext = spec.field.dtype
         link = workdir / f"input.{ext}"
@@ -143,12 +184,17 @@ class CuszhiAdapter(Adapter):
             "-e", repr(eb),
             "-s", lossless_mode,
         ]
+        if native_control:
+            config_args.extend(["-c", native_control])
+        pipeline_ref = f"cuszhi:spline+{lossless_mode}"
+        if native_control:
+            pipeline_ref += f";{native_control}"
         return Prepared(
             config_args=config_args,
             eb=eb,
             native_mode=native_mode,
             basis=basis,
-            pipeline_ref=f"cuszhi:spline+{lossless_mode}",
+            pipeline_ref=pipeline_ref,
             pipeline_path=None,
             pipeline_sha256=None,
         )

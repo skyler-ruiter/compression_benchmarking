@@ -29,6 +29,14 @@ cd "${repo_dir}"
 # shellcheck source=/dev/null
 source "${site_env}"
 
+# Allow a caller to benchmark a clean detached worktree without changing the
+# site's normal interactive FZGMOD_CLI setting. This is intentionally applied
+# after sourcing the site environment, which otherwise overwrites the caller's
+# exported binary path.
+if [ -n "${FZGMOD_CLI_OVERRIDE:-}" ]; then
+    export FZGMOD_CLI="${FZGMOD_CLI_OVERRIDE}"
+fi
+
 # Lock clocks only where we are allowed to (single-tenant VMs). On SLURM sites the
 # script is a no-op / errors harmlessly; rely on --exclusive in the job there.
 if command -v nvidia-smi >/dev/null && [ -w /dev/nvidia0 ] 2>/dev/null; then

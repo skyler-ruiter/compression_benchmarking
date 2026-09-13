@@ -1,0 +1,29 @@
+# RQ3 coverage repair after fixing the local cuSZ-Hi --repeat patch. The prior
+# HURR/SCALE failures were caused by repeated in-place rel_range conversion in
+# the benchmarking patch, not by the native compressor's single-run path.
+name: cuszhi_rq3_coverage
+description: >
+  Native cuSZ-Hi tp/cr coverage on every HURR and SCALE-LETKF field at the
+  three RQ3 rel_range bounds, using a fresh copied CLI context per repetition.
+
+datasets: [HURR, SCALE-LETKF]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 5
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+runs:
+  - {compressor: cuszhi, variant: cuszhi_tp, pipeline: tp, tool_version: "cuSZ-Hi-e16b75-repeatfix",
+     tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0,
+     tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+     tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}
+  - {compressor: cuszhi, variant: cuszhi_cr, pipeline: cr, tool_version: "cuSZ-Hi-e16b75-repeatfix",
+     tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0,
+     tool_build_flags: "Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9",
+     tool_patch_sha256: b5ae3fae61f0a9f89c91675c08248c2efb2e86faee7faad0e37d49fc1e4b4cb8}
