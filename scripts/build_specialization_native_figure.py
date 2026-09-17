@@ -37,8 +37,9 @@ FAMILIES = (
      ("fzgm", "cuszp3_plain_sp")),
     ("cuszp3_outlier", "cuSZp3\noutlier", ("cuszp3", "cuszp3_outlier"),
      ("fzgm", "cuszp3_outlier_sp")),
-    ("fzgpu", "FZ-GPU", ("fzgpu", "fzgpu"), ("fzgm", "fzgpu")),
     ("pfpl", "PFPL", ("pfpl", "pfpl"), ("fzgm", "pfpl")),
+    ("cuszhi_tp", "cuSZ-Hi\nTP", ("cuszhi", "cuszhi_tp"),
+     ("fzgm", "cuszhi_tp_b1")),
     ("fsz", "FSZ", ("fsz", "fsz"), ("fzgm", "fsz")),
 )
 
@@ -166,6 +167,9 @@ def build(off_rows: list[dict[str, Any]], auto_rows: list[dict[str, Any]]):
                     "family": family, "phase": phase, "dataset": key[0], "field": key[1],
                     "dtype": key[2], "dims": list(key[3]), "dim_order": key[4],
                     "error_mode": key[5], "error_bound": key[6],
+                    "native_throughput_gbs": baseline,
+                    "staged_throughput_gbs": fzgm_off[key][metric],
+                    "auto_throughput_gbs": fzgm_auto[key][metric],
                     "staged_over_native": fzgm_off[key][metric] / baseline,
                     "auto_over_native": fzgm_auto[key][metric] / baseline,
                     "auto_over_staged": fzgm_auto[key][metric] / fzgm_off[key][metric],
@@ -192,6 +196,12 @@ def build(off_rows: list[dict[str, Any]], auto_rows: list[dict[str, Any]]):
                               for row in phase_rows}),
                 "staged_over_native_gmean": staged_gmean,
                 "auto_over_native_gmean": auto_gmean,
+                "native_throughput_gbs_gmean": hierarchical_gmean(
+                    phase_rows, "native_throughput_gbs"),
+                "staged_throughput_gbs_gmean": hierarchical_gmean(
+                    phase_rows, "staged_throughput_gbs"),
+                "auto_throughput_gbs_gmean": hierarchical_gmean(
+                    phase_rows, "auto_throughput_gbs"),
                 "auto_over_staged_gmean": hierarchical_gmean(
                     phase_rows, "auto_over_staged"),
                 "native_auto_over_off_gmean": hierarchical_gmean(
@@ -228,13 +238,15 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def write_markdown(path: Path, payload: dict[str, Any]) -> None:
     lines = [
         "# H100 specialization performance normalized to native", "",
-        "Each row uses complete-case coordinates with valid, reliable native, staged,",
-        "and Auto measurements in both sessions. The common native baseline is the",
+        "Specialization-campaign rows use complete-case coordinates with valid, reliable",
+        "native, staged, and Auto measurements in both sessions. Their common native baseline is the",
         "geometric mean of the two native measurements. Reported geometric means",
         "give equal weight to bounds within each field, fields within each dataset,",
-        "and datasets. Fractions and distribution quantiles remain coordinate-level.", "",
-        "| Family | Phase | Datasets | Fields | Coordinates | Staged/native | Auto/native | Auto/staged | Auto wins | Auto >= native | Gap recovered |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "and datasets. Fractions and distribution quantiles remain coordinate-level.",
+        "cuSZ-Hi TP uses a separate, independently repeated staged session restricted",
+        "to matched 3-D predictor geometry; it has no Auto bar.", "",
+        "| Family | Phase | Datasets | Fields | Coordinates | Native GB/s | Staged GB/s | Auto GB/s | Staged/native | Auto/native | Auto/staged | Auto wins | Auto >= native | Gap recovered |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in payload["summary"]:
         pct = lambda value: "--" if value is None else f"{100 * value:.1f}%"
@@ -242,6 +254,9 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
         lines.append(
             f"| {row['label']} | {row['phase']} | {row['datasets']} | "
             f"{row['fields']} | {row['pairs']} | "
+            f"{row['native_throughput_gbs_gmean']:.1f} | "
+            f"{row['staged_throughput_gbs_gmean']:.1f} | "
+            f"{row['auto_throughput_gbs_gmean']:.1f} | "
             f"{ratio(row['staged_over_native_gmean'])} | "
             f"{ratio(row['auto_over_native_gmean'])} | "
             f"{ratio(row['auto_over_staged_gmean'])} | "
@@ -354,6 +369,11 @@ def main() -> None:
     parser.add_argument("--off", required=True, type=Path)
     parser.add_argument("--auto", required=True, type=Path)
     parser.add_argument("--policy", required=True, type=Path)
+    parser.add_argument(
+        "--cuszhi-tp", required=True, type=Path,
+        help=("publication-timed cuSZ-Hi TP session; its matched 3-D rows are "
+              "added as a non-specializing native comparison"),
+    )
     parser.add_argument("--output-prefix", required=True, type=Path)
     parser.add_argument("--figure", required=True, type=Path)
     args = parser.parse_args()
@@ -361,17 +381,35 @@ def main() -> None:
     off_runs, auto_runs = args.off / "runs.jsonl", args.auto / "runs.jsonl"
     off_rows = validity.annotate(load_result_file(off_runs))
     auto_rows = validity.annotate(load_result_file(auto_runs))
+    cuszhi_runs = args.cuszhi_tp / "runs.jsonl"
+    cuszhi_rows = validity.annotate(load_result_file(cuszhi_runs))
+    cuszhi_rows = [
+        row for row in cuszhi_rows
+        if (row.get("compressor"), row.get("variant")) in {
+            ("cuszhi", "cuszhi_tp"), ("fzgm", "cuszhi_tp_b1")
+        }
+        and len(row.get("dims") or []) == 3
+    ]
+    # cuSZ-Hi TP has no registered specialization, so one independently repeated
+    # staged session supplies its single plotted arm. Duplicating it into the two
+    # build inputs reuses the common complete-case machinery; Auto is not plotted.
+    off_rows.extend(cuszhi_rows)
+    auto_rows.extend(cuszhi_rows)
     summary, detail = build(off_rows, auto_rows)
     payload = {
         "schema_version": 2,
         "method": (
-            "four-way complete-case; common native baseline is geometric mean of Off "
-            "and Auto native throughput; summary means aggregate bounds within fields, "
+            "four-way complete-case for specialization-campaign families, with common "
+            "native baseline equal to the geometric mean of Off and Auto native "
+            "throughput; cuSZ-Hi TP uses its independently repeated matched-3D session "
+            "and has one staged arm; summary means aggregate bounds within fields, "
             "fields within datasets, then datasets with equal weight"
         ),
         "sources": {
             "off_session": args.off.name, "off_runs_sha256": sha256_file(off_runs),
             "auto_session": args.auto.name, "auto_runs_sha256": sha256_file(auto_runs),
+            "cuszhi_tp_session": args.cuszhi_tp.name,
+            "cuszhi_tp_runs_sha256": sha256_file(cuszhi_runs),
             "policy_path": str(args.policy.resolve()), "policy_sha256": sha256_file(args.policy),
             "generator_sha256": sha256_file(Path(__file__)),
         },

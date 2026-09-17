@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROW_ORDER = [
     "cusz", "cuszhi", "cuszp2_plain", "cuszp2_outlier", "cuszp3_plain",
-    "cuszp3_outlier", "cuszp3_fixed", "fzgpu", "pfpl",
+    "cuszp3_outlier", "cuszp3_fixed", "pfpl",
 ]
 
 REASONS = {
@@ -40,10 +40,6 @@ REASONS = {
         "Dimension-correct streams match except on QMCPACK, where FZGM is "
         "1.8--4.3\\% smaller; the cause is not isolated."
     ),
-    "fzgpu": (
-        "The BitplaneRZE kernels are adapted from FZ-GPU, but FZGM uses a separate "
-        "quantizer, staged execution, and FZM framing."
-    ),
     "pfpl": (
         "The native fused and FZGM staged implementations have field-dependent "
         "size differences that cancel in the aggregate."
@@ -58,7 +54,6 @@ LABELS = {
     "cuszp3_plain": "cuSZp3 plain",
     "cuszp3_outlier": "cuSZp3 outlier",
     "cuszp3_fixed": "cuSZp3 fixed",
-    "fzgpu": "FZ-GPU",
     "pfpl": "PFPL",
 }
 
@@ -96,7 +91,7 @@ def main() -> None:
     measured = {row["id"]: row for row in payload["pairs"]}
     required = {
         "cusz", "cuszhi_cr", "cuszhi_tp", "cuszp2_plain", "cuszp2_outlier",
-        "cuszp3_plain", "cuszp3_outlier", "cuszp3_fixed", "fzgpu", "pfpl",
+        "cuszp3_plain", "cuszp3_outlier", "cuszp3_fixed", "pfpl",
     }
     missing = sorted(required - measured.keys())
     if missing:
