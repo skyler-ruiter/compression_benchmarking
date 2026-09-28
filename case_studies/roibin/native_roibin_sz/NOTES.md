@@ -1,0 +1,162 @@
+# Native ROIBIN-SZ baseline (LibPressio) — setup and smoke test
+
+*2026-09-28. Baseline for the FZGM RQ4 light-source case study.*
+
+## Build
+- Spack env `roibin-sz` (`~/spack/var/spack/environments/roibin-sz/spack.yaml`):
+  `libpressio+core+sz3+openmp+python~cuda~fzgpumodules build_type=Release`, `sz3@3.3.0`
+  (commit 5d2fd26), dev-built from `~/src/libpressio-fork`. `+core` sets
+  `LIBPRESSIO_BUILD_MODE=FULL`, which compiles the `roibin`/`binning` plugins.
+- The fork's `roibin.cc`, `roibin_impl.h`, `binning.cc`, `masked_binning.cc`, `sz3.cc`
+  are identical to upstream robertu94/libpressio master `868a3a7` (the fork only adds
+  the fzgpumodules plugin), so this is an unmodified native baseline.
+- Run with: `V=~/spack/var/spack/environments/roibin-sz/.spack-env/view;
+  PYTHONPATH=$V/lib/python3.14/site-packages LD_LIBRARY_PATH=$V/lib $V/bin/python3 smoke.py 000`
+
+## Configuration (matches FZGM `roibin_b2`)
+`roibin` { roi = `sz3` abs 10; background = `binning` {shape 2x2x1} -> `sz3` abs 100 },
+`roi_size = {4,4,0}` (half-width -> 9x9 box, same as FZGM `roi_half_width=4`),
+coordinate strategy with the published `.roi` peak lists. Scoped option names:
+`/rb/roi:pressio:abs`, `/rb/background/sz3:pressio:abs`.
+
+## Upstream bug found (worked around, not patched)
+`roibin_impl.h` `restore_omp` for **1-D and 2-D** loops over `bins[2]` and `bins[3]`
+of a 1-/2-element indexer (copy-paste from the 4-D version): out-of-bounds reads give
+garbage trip counts, so `binning` **decompression hangs** on 2-D frames. The 3-D and
+4-D versions are correct (upstream `test_roibin` is 3-D). Workaround: pass each frame
+as 3-D `(1552, 1480, 1)` with bins `{2,2,1}` — identical result, no native code change.
+Worth reporting upstream.
+
+## Fairness notes
+- Native ROIBIN-SZ does **not** store the peak coordinates in its archive; decompression
+  reads them from the compressor options. FZGM stores the peak table in-archive
+  (8 B/peak). For a like-for-like CR, add `8 * npeaks` bytes to native's size or report
+  both.
+- Timing here is Python wall time around `encode`/`decode`, min of 3, 20-core Xeon 8468;
+  SZ3 itself runs single-threaded in this configuration (`roibin:nthreads`/
+  `binning:nthreads` only parallelize ROI extraction and binning).
+
+## Smoke result (EXAFEL, eb_roi=10, eb_bg=100, bin 2x2)
+
+| frame | peaks | native CR | FZGM b2 CR | native ROI max err | native bg PSNR | FZGM b2 bg PSNR | native cmp GB/s | FZGM b2 cmp GB/s |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| f000 | 108 | 403.4 | 97.3 | 9.9995 | 45.26 | 43.16 | 0.55 | 110.6 |
+| f001 | 68 | 273.1 | 77.6 | 9.9985 | 45.98 | 44.16 | 0.62 | 113.4 |
+| f050 | 219 | 92.2 | 41.9 | 9.9999 | 43.06 | 42.75 | 0.59 | 114.8 |
+
+FZGM columns from `../results/exafel_eb10_100.csv`. Native wins CR by 2.2-4.2x with
+slightly better background PSNR; FZGM is ~190x faster per frame (GPU vs CPU). The CR
+gap is the coder: SZ3 (interpolation + Huffman + zstd) on a mostly-zero binned
+background vs FZGM's TiledLorenzo + AdaptiveBitpack (per-block fixed width, which has a
+floor on near-zero blocks). Three frames only — run the full 409 before quoting.
+
+---
+
+# 2026-09-28 (cont.) — specialization and background-coder sweep, EXAFEL volume
+
+All FZGM numbers: whole 130-frame EXAFEL volume (1.19 GB, `roibin_volume_b2.toml`,
+eb_roi=10, eb_bg=100, bin 2x2), H100, `fzgmod-cli -b --runs 5`, device-time GB/s, GPU
+otherwise idle. Binary: worktree `~/FZGPUModules-paper-d511ebc` (d511ebc) **plus the
+uncommitted TiledLorenzo fix below**. Scratch configs/results:
+`/tmp/claude-1001/.../scratchpad/spec/` (var_*.toml, b_*_{off,auto}.json).
+
+## Bug: TiledLorenzo warp-register specialization corrupts stacked 2-D slices
+`modules/predictors/tiled_lorenzo/tiled_lorenzo_stage.h` `getFusedOp()` /
+`getInverseFusedOp()` take the 2-D op whenever `tile_z == 1`, even when `dim_z > 1`.
+The 2-D op sizes the work as `ntx*nty*64` (one slice) and its params carry no `dz`, so
+only slice 0 is coded correctly. Symptom on the volume: Auto archive 1.41 MB vs 23.4 MB
+staged (CR 848 vs 51), background max error ~4.3e11 on slices > 0 (PSNR -141 dB), ROI
+still correct, exit code 0 — a silent failure. Reproduced on b08c406 and d511ebc.
+Per-frame (dz=1) runs are unaffected and byte-identical.
+
+Fix tested (uncommitted, in the d511ebc worktree): 2-D op only when
+`tz == 1 && dz == 1`; otherwise the existing 3-D op with tz=1 (which never predicts
+along z). Result: Auto archive byte-identical to staged (23,446,688 B), reconstruction
+identical, staged output unchanged.
+
+Paper impact: none found. `specialization_vs_native_full.yaml` uses 8x8x1 tiling only
+on CESM-2D (dz=1); all 3-D datasets use 4x4x4 presets.
+
+## Specialization on the ROIBIN pipeline
+Installs one forward and one inverse warp-register group on the background branch
+(Quantizer -> TiledLorenzo -> AdaptiveBitpack); the ROI branch (no predictor) and the
+ROIBinSplit stage stay staged.
+- Per 9.2 MB frame: no gain (0.080 ms staged vs 0.114 ms Auto compress) — below the
+  small-input crossover; launch overhead dominates.
+- Volume (with fix): compress 631 -> 830 GB/s (1.32x), decompress 479 -> 589 (1.23x).
+
+## Background-coder sweep (volume; ROI branch unchanged; quantizer + TiledLorenzo fixed)
+Reconstruction byte-identical to the baseline for every variant that decodes.
+
+| background coder | CR | C GB/s off / auto | D GB/s off / auto | specializes |
+|---|---:|---:|---:|---|
+| AdaptiveBitpack (current) | 50.95 | 631 / 830 | 479 / 589 | yes |
+| Zigzag-Bitshuffle-RZE | 68.08 | 468 / 467 | 372 / 372 | no |
+| GolombRice | 71.65 | 460 / 461 | decode fails | no |
+| Zigzag-Huffman (16-bit codes) | 74.44 | 409 / 409 | 321 / 321 | no |
+| Zigzag-Bitshuffle-RZE-ANS (32-bit) | 85.36 | 436 / 436 | 367 / 367 | no |
+| Zigzag-Bitshuffle-RZE-ANS (16-bit) | **85.81** | 445 / 444 | 363 / 363 | no |
+
+GolombRice decompress: CUDA illegal memory access (mempool.cpp:221 reports it at the
+next sync) — second bug, not investigated.
+
+## Native ROIBIN-SZ, all 130 EXAFEL frames (per-frame, CPU, SZ3)
+Aggregate CR **152.3** (150.2 if charged 8 B/peak for the coordinate table), max ROI
+error 10.0000, median background PSNR 43.73 dB, median 0.555 GB/s compress /
+0.521 GB/s decompress.
+
+## Reading
+Native keeps a 1.8x CR lead over the best FZGM back end (86 vs 150) at ~800x lower
+throughput. Specialization only installs for the AdaptiveBitpack coder, so the
+highest-throughput and highest-ratio FZGM points are different configurations.
+Remaining CR gap is most likely SZ3's interpolation predictor + Huffman + zstd;
+untested FZGM options: GInterp (cuSZ-Hi) predictor on the background, a GPU-Zstd
+stage after Huffman. bin=1 (both bounds real) has not been swept yet.
+
+---
+
+# 2026-09-28 (cont. 2) — fixes, bin=1 sweep, PFPL back end
+
+## Commits / fixes (FZGM worktree `~/FZGPUModules-paper-d511ebc`, branch `fix-tiled-lorenzo-stacked-slices`)
+- `df85bad` fix: TiledLorenzo specialization on stacked 2-D slices (committed; not on main,
+  whose checkout had another session's uncommitted work).
+- GolombRice, **uncommitted**, two bugs, both only in standalone (file) decompress:
+  1. Inverse output sized from `cached_orig_bytes_`, which only an in-process forward run
+     sets; a `-x` decode fell back to the compressed size and wrote out of bounds
+     (volume: crash; single frame: 2,177 silent memcheck errors). Fix: store the original
+     byte count in the stage header (5 -> 9 bytes, as RZE does); 5-byte headers still load.
+  2. `GrBitReader::refill()` prefetched up to 8 bytes past the stream end; the in-process
+     buffer had a 16-byte tail pad, a file-loaded archive does not. Fix: per-chunk read
+     limit (`comp_size - 4 - 4*kIntervalsPerChunk`), zero past the end.
+  After both: 0 memcheck errors, recon byte-identical to baseline (frame and volume),
+  compressed output unchanged, `test_golomb_rice` 12/12 (HeaderSerialization updated).
+  Archives written before the fix still cannot be decoded standalone.
+- GolombRice ran **staged** in every sweep (0 groups installed).
+
+## bin=1 (both bounds real), EXAFEL volume, eb_roi=10, eb_bg=100
+Every FZGM variant: ROI max err 10.0000, bg max err 100.0001 (float rounding), bg PSNR
+49.09, recon byte-identical across coders.
+
+| config | CR | specializes |
+|---|---:|---|
+| native ROIBIN-SZ (CPU, 130 frames; bg = SZ3 directly) | **22.73** (22.68 w/ peak table) | — |
+| FZGM Zigzag-Huffman (16-bit) | **16.92** | no |
+| FZGM Zigzag-Bitshuffle-RZE-ANS (16-bit) | 16.55 | no |
+| FZGM Zigzag-Bitshuffle-RZE-ANS (32-bit) | 16.48 | no |
+| FZGM GolombRice | 15.84 | no |
+| FZGM TiledLorenzo-Zigzag-Bitshuffle-RZE | 13.79 | no |
+| FZGM PFPL back end (Quant-Difference-Bitshuffle-RZE) | 13.52 | **yes** (chunk-cooperative) |
+| FZGM TiledLorenzo-AdaptiveBitpack | 11.40 | **yes** (warp-register) |
+
+Native bin=1 timing: median 0.191 GB/s compress / 0.307 decompress (CPU), max bg err 100.0.
+bin=2 PFPL back end: CR 66.40, specializes; (bin=2 TiledLorenzo+RZE was 68.08, not
+specialized).
+
+**FZGM throughput for the bin=1 sweep is NOT valid**: the peak-memory session
+(`~/FZGPUModules-memory-d511ebc`) was running fzgmod-cli on the same GPU. Rerun timing
+when the GPU is free. CR and bounds are unaffected.
+
+## Why the higher-ratio coders don't specialize
+Planner verdict for every RZE/ANS/Huffman/GolombRice variant: 2 legal groups,
+`no_profitable_implementation` — the chunk-cooperative strategy only has a registered
+implementation for the PFPL chain (Quant -> Difference -> Bitshuffle -> RZE).
