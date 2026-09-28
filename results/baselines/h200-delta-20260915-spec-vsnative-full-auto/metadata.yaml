@@ -1,0 +1,133 @@
+# Baseline: H200 / Delta (NCSA) — Pipeline Specialization vs native, full corpus,
+# auto (FZ_SPECIALIZE=auto) arm. Pair with h200-delta-20260915-spec-vsnative-full-staged.
+baseline_id: h200-delta-20260915-spec-vsnative-full-auto
+gpu: NVIDIA H200 (143771 MiB), driver 595.71.05
+site: NCSA Delta, partition gpuH200x8, SLURM-shared (not single-tenant)
+driver: "595.71.05"
+cuda_toolkit: "12.9 (nvcc V12.9.86)"
+date: "2026-09-15 to 2026-09-18"
+
+experiment_config: configs/experiments/specialization_vs_native_full.yaml
+clocks_locked: false
+
+fzgm_build:
+  tool_source_commit: df7d675e66f56770a9f161e40c3f6a8c32c1c901   # "works on fusion details"
+  tool_build_flags: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90 (cuda-h200 preset)"
+  tool_patch_sha256: clean
+  binary: /u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=auto (forward and inverse specialization)"
+  provenance_field_correction: >-
+    Same correction as the staged baseline: the experiment YAML's declared
+    tool_source_commit was stale (d511ebcb44..., 2 commits behind HEAD) at run
+    time; the actual linked libfzgmod.so embeds FZGMOD_GIT_SHA=df7d675 (checked
+    via `strings`), and `benchkit stale --against-build` finds zero drift on
+    every fingerprinted row. Fixed in the repo's YAML since; provenance.json
+    here still shows the stale value it captured live.
+
+source:
+  kind: benchkit_native_output
+  fidelity: >-
+    Full, post-`benchkit merge` canonical session: 10,470 deduplicated rows
+    from 4 shard files. Complete per-repetition timing, FZGM stage/fusion
+    provenance (fusion_installed_group_count, fusion_groups, etc.), input
+    checksums. provenance.json is one representative shard capture (shard 0,
+    first job, node gpue06) — see execution_history: this session's rows were
+    actually produced across two node allocations.
+
+execution_history: >-
+  Same job 22051565 as the staged baseline ran off-then-auto per shard; it
+  completed off in full, then started auto and hit its 12h walltime with auto
+  only ~26% done and badly imbalanced (shards 0/3, which ran uninterrupted,
+  were ~49% through auto; shards 1/2, which lost their first ~2h40m to the
+  store.py race below and had to be manually resumed mid-job, were only ~4%
+  through). A follow-up job (22119340) was submitted same-day to finish the
+  auto pass with SPEC_DATE_TAG pinned to resume the same session; it queued
+  for ~2 days under cluster contention and ran 2026-09-18 on a *different*
+  node (gpue05, still gpuH200x8/4x H200 — same GPU model/partition, different
+  physical node). All 4 shards' off-pass work was already complete by then
+  ("0 already done, skipped" was false — everything was already done), so job
+  2 did purely auto-pass work. Net: this auto session's rows span node gpue06
+  (job 1, roughly the first ~26% of auto measurements, uneven by shard) and
+  node gpue05 (job 2, the remaining ~74%). Both are identical H200 hardware on
+  the same SLURM partition; CR/PSNR are unaffected by node identity (see
+  controlled_ab), but a reader doing fine-grained cross-node timing variance
+  analysis within this single auto session should be aware of the split.
+
+clocks_locked_detail: >-
+  false in both allocations: shared SLURM partition, no --exclusive, no sudo
+  for `nvidia-smi -lgc` in either job. 1,056 of 10,470 rows are flagged
+  timing_reliable=false (cv > 0.15) — much higher than the staged session's 46,
+  consistent with running unlocked for nearly the whole session (staged had a
+  few hours of incidentally-steadier clocks early in job 1 before the node got
+  busier). Prefer `*_device_ms_min` over median for any single-cell throughput
+  quote; the comparison artifact should withhold aggregate throughput on
+  unreliable rows rather than average through them.
+
+cells:
+  total: 10470
+  ok: 10449
+  failed: 21
+  validity_gated: 352   # 244 eb_violated_severe + 108 degenerate_field
+  timing_unreliable: 1056
+  usable_after_validity_gate: 10097
+
+known_issues:
+  - >-
+    Same benkit/store.py archive race as the staged baseline (see that
+    baseline's known_issues for the fix) — additionally responsible for this
+    session's uneven shard progress noted in execution_history, since shards
+    1/2 lost real wall-clock time to the crash-and-resume before ever reaching
+    the auto pass.
+  - >-
+    fzgm variant `cuszp3_fixed` (documented as a non-specializing control,
+    expected fusion_installed_group_count == 0 always) shows fusion installed
+    on 456/558 rows (~82%) — see the staged baseline's known_issues for full
+    detail. This is the AUTO-side half of that same open question: unresolved,
+    flag before trusting cuszp3_fixed as a non-specializing baseline here.
+  - >-
+    Fusion fallback reason is no_profitable_implementation on 100% of
+    fusable-variant rows on f64 datasets (BROWN, MIRANDA, NWCHEM, S3D) —
+    current f32-only limitation, not a bug. Off-vs-auto ratios on those 4
+    datasets are ~1.00x by construction, not because specialization failed.
+  - >-
+    3,422 of 5,514 fzgm rows in this session carry no stage_versions
+    fingerprints (`benchkit stale --against-build` output), vs. only 15/5,514
+    in the staged session. Best explanation: fusion collapses several named
+    stages (e.g. Quantizer+Lorenzo+AdaptiveBitpack) into one opaque
+    `fused:warp-register` unit that doesn't emit the same per-original-stage
+    fingerprints the staleness check keys on — consistent with the ~88%
+    fusion-install rate on those variants. Every row (fingerprinted or not)
+    was produced by the same single fzgmod-cli/libfzgmod.so used for the
+    whole campaign (confirmed via embedded FZGMOD_GIT_SHA=df7d675), so this is
+    an observability gap in the fingerprint feature under fusion, not evidence
+    of a different or stale binary on those rows.
+
+controlled_ab: >-
+  Across 5,499 fzgm cells present in both the staged and auto sessions (keyed
+  on compressor/variant/pipeline/dataset/field/error_bound, before validity
+  gating), CR is byte-identical in all 5,499 — zero mismatches. Fusion
+  installs (forward AND inverse) on ~88% of _sp/pfpl/szp_composed rows (the
+  ~12% shortfall is entirely the f64 no_profitable_implementation cases
+  above) and on ~82% of cuszp3_fixed rows (see known_issues). fzgm:cusz,
+  fzgm:fzgpu, and fzgm:fsz never install fusion (0/554, 0/488, 0/558) —
+  matches the campaign doc's invariant for those.
+
+speedup_headline: >-
+  Off -> auto median throughput ratios on the specializing variants (by
+  dataset, f32 only): szp_composed decompress up to 16.6x (HACC), typically
+  3-13x on 3D f32 datasets, compress up to 4.4x; cuszp2/cuszp3 outlier_sp
+  compress 2-4x on several datasets; pfpl decompress consistently ~1.8-2.1x,
+  compress up to 1.7x. Peak device memory drops to ~0.60-0.69x of the staged
+  session across the fusable variants (buffer-coloring effect). f64 datasets
+  show ~1.00x everywhere (no fusion applies there yet).
+
+verification_status: >-
+  `benchkit verify` exits 0 / publication-grade for this session as merged
+  (matrix_coverage 10,470/10,470; all 12 checks PASS) against
+  specialization_vs_native_full.yaml's own declared accepted_failures /
+  accepted_exclusions / accepted_unreliable_timing policies. "Publication-grade"
+  here means conformant with those declared tolerances, not zero-defect — see
+  known_issues above, especially the cuszp3_fixed and store.py items, which
+  those policies pass through rather than resolve.
+
+related_decisions: [D15, D24, D30, D33, D41, D42]

@@ -1,0 +1,120 @@
+# Baseline: H200 / Delta (NCSA) — Pipeline Specialization vs native, full corpus,
+# staged (FZ_SPECIALIZE=off) arm. Pair with h200-delta-20260915-spec-vsnative-full-auto.
+baseline_id: h200-delta-20260915-spec-vsnative-full-staged
+gpu: NVIDIA H200 (143771 MiB), driver 595.71.05
+site: NCSA Delta, partition gpuH200x8, SLURM-shared (not single-tenant)
+driver: "595.71.05"
+cuda_toolkit: "12.9 (nvcc V12.9.86)"
+date: "2026-09-15/16"
+
+experiment_config: configs/experiments/specialization_vs_native_full.yaml
+clocks_locked: false
+
+fzgm_build:
+  tool_source_commit: df7d675e66f56770a9f161e40c3f6a8c32c1c901   # "works on fusion details"
+  tool_build_flags: "Release;FZGMOD_BACKEND=CUDA;CMAKE_CUDA_ARCHITECTURES=90 (cuda-h200 preset)"
+  tool_patch_sha256: clean
+  binary: /u/sruiter/FZGPUModules/build/cuda-h200/bin/fzgmod-cli
+  specialization_policy: "FZ_SPECIALIZE=off (staged control)"
+  provenance_field_correction: >-
+    The experiment YAML's declared tool_source_commit was stale at run time
+    (d511ebcb44..., 2 commits behind HEAD) — a static documentation field in
+    configs/experiments/specialization_vs_native_full.yaml, not a live build
+    check. Verified independently via `strings` on the linked libfzgmod.so:
+    FZGMOD_GIT_SHA=df7d675 is compiled in, and `benchkit stale --against-build`
+    reports zero drift on every row carrying a fingerprint. The YAML field has
+    since been corrected in the repo; provenance.json here still carries the
+    stale value it captured live, so trust this note over that field.
+
+source:
+  kind: benchkit_native_output
+  fidelity: >-
+    Full, unsharded-merge native session (runs.jsonl is the post-`benchkit merge`
+    canonical file: 10,470 deduplicated rows from 4 shard files). Complete
+    per-repetition timing, FZGM stage/fusion provenance, input checksums.
+    provenance.json is one representative shard capture (shard 0, first job,
+    node gpue06) — see execution_history below for why this session spans two
+    node allocations.
+
+execution_history: >-
+  This session was captured in two SLURM allocations. Job 22051565 (2026-09-15,
+  node gpue06, 4x H200, 12h) ran the full off pass to completion for all 4
+  shards (2,618/2,618/2,617/2,617 cells) before the same job continued into the
+  auto pass and hit its walltime limit. Two of the four shards (1 and 2) also
+  hit a benchkit harness race on startup within this job (see known_issues) and
+  had to be manually resumed mid-job on the same node/allocation. No further
+  off-pass work was needed in job 22119340 (2026-09-18, node gpue05) — that
+  job's off-pass invocation found "0 already done, skipped" false; the off
+  pass was 100% complete already, so job 2 only advanced the auto pass. This
+  baseline's runs.jsonl is therefore entirely a job-22051565/gpue06 product.
+
+clocks_locked_detail: >-
+  false: this is a shared SLURM partition, not a single-tenant VM/exclusive
+  node. `nvidia-smi -lgc` requires elevated privilege not available here
+  (`sudo: a password is required`), so clock locking silently no-ops (the
+  driver script's fallback path). Timing rows carry the harness's own
+  `timing_reliable` (cv <= 0.15) flag; 46 of 10,470 rows are flagged unreliable
+  and are counted, not silently averaged. Prefer `*_device_ms_min` per-row
+  over the median when quoting single-cell throughput.
+
+cells:
+  total: 10470
+  ok: 10449
+  failed: 21
+  validity_gated: 352   # 244 eb_violated_severe + 108 degenerate_field
+  timing_unreliable: 46
+  usable_after_validity_gate: 10097
+
+known_issues:
+  - >-
+    A benchkit harness race (benchkit/store.py `archive_bytes`/`write_provenance`,
+    a non-atomic "check exists, read, compare, write" sequence) let 2 of the 4
+    concurrent shards in job 22051565 read each other's half-written immutable
+    input archive at session start and crash immediately with "immutable input
+    archive collision", before doing any work. They were manually resumed
+    within the same job/allocation once the archive files had stabilized. This
+    is now fixed in benchkit/store.py (`_write_immutable_once`, atomic
+    create-via-os.link) with a regression test in tests/test_store.py — not yet
+    committed as of this baseline. Does not affect data correctness (resume is
+    execution_id-keyed and idempotent; see the off/auto CR cross-check below),
+    only caused an operational restart and an uneven per-shard head start.
+  - >-
+    Eb_violated_severe (244) and degenerate_field (108) populations are gated
+    from aggregates by benchkit's own validity gate, same as every other
+    baseline in this directory — see docs on validity.py. 21 hard failures are
+    also excluded (status != ok).
+  - >-
+    fzgm variant `cuszp3_fixed`, documented in docs/specialization-campaign.md
+    as "the non-specializing cuSZp3-fixed control" (expected
+    fusion_installed_group_count == 0 always), shows fusion installed on 456 of
+    558 rows (~82%) in the paired auto session — indistinguishable from the
+    _sp/pfpl/szp_composed variants that are *supposed* to fuse. This is either
+    a stale invariant in the campaign doc (TiledLorenzo fusion support may have
+    been extended to this pipeline by the same "works on fusion details"
+    commit that produced this build) or a real methodology issue with what
+    this control measures. Unresolved as of this baseline — flag to whoever
+    owns FZGM's specialization/fusion work before treating cuszp3_fixed as a
+    true non-specializing baseline in any comparison.
+  - >-
+    Fusion shows fusion_fallback_reason=no_profitable_implementation on 100% of
+    the f64-dataset rows (BROWN, MIRANDA, NWCHEM, S3D) for the fusable
+    variants — appears to be a current f32-only limitation of the fusion
+    implementation, not a bug. Off vs auto throughput ratios on those 4
+    datasets are ~1.00x by construction.
+
+controlled_ab: >-
+  Across 5,499 fzgm cells present in both the staged and auto sessions (keyed
+  on compressor/variant/pipeline/dataset/field/error_bound, before validity
+  gating), CR is byte-identical in all 5,499 — zero mismatches. This is the
+  core specialization correctness invariant (auto must be a no-op on output)
+  and it holds cleanly on this machine/build.
+
+verification_status: >-
+  `benchkit verify` exits 0 / publication-grade for this session as merged
+  (matrix_coverage 10,470/10,470; all 12 checks PASS) against
+  specialization_vs_native_full.yaml's own declared accepted_failures /
+  accepted_exclusions / accepted_unreliable_timing policies. "Publication-grade"
+  here means conformant with those declared tolerances, not zero-defect — see
+  known_issues above for what those tolerances are absorbing.
+
+related_decisions: [D15, D24, D30, D33, D41, D42]
