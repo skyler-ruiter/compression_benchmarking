@@ -6,6 +6,51 @@ This is a **standalone measurement**, run outside benchkit's adapter/session
 machinery — the tool and field/CLI details below are exactly what a benchkit
 adapter integration would need to formalize, if that becomes worth doing.
 
+
+> **2026-09-28 rerun supersedes the September sweep's driver, arms and one
+> explanation.** Everything below the "September 2026 sweep" heading is kept as the
+> original record. The current protocol is:
+>
+> - **Driver in the repo:** `tools/peak_memory/` (`run_peak_memory.py`, `nvml_sampler.py`
+>   (ctypes NVML, no new dependency), `build_pfpl_shadow.sh`, `build_helpers.sh`,
+>   `ctx_baseline.cu`, `lmem_probe/`), config `configs/peak_memory/rq3_h100.yaml`. It reuses
+>   benchkit's adapters for every argv (same mode conversion, dims, dtype retargeting as the
+>   publication runs) and intercepts each `subprocess.run` they make. Output:
+>   `raw.jsonl` (one line per cell x rep, resumable) and `cells.jsonl` (one row per cell,
+>   with compact provenance) plus `session.json` (full provenance: repo commits, binary
+>   SHA-256s, dataset SHA-256 checked against the lock, GPU/driver/virtualization, metric
+>   definitions).
+> - **Arms (author decision 2026-09-28):** native, FZGM staged, FZGM Auto as *separate*
+>   curves (the old per-cell `min(staged, specialized)` "best FZGM" is retired). Planning
+>   ablation: PREALLOCATE + coloring (default), PREALLOCATE `--no-coloring`, and
+>   `--strategy minimal`, each x `FZ_SPECIALIZE` off/auto where the family specializes;
+>   plus a two-process (`-z`, `-x`) variant of the planned arm to match native cuSZ/PFPL,
+>   which are two-process tools. cuSZ and FSZ are staged-only; FZ-GPU and `szp_composed`
+>   are dropped. cuSZp2/3 plain modes added. Empty-context baseline process per field.
+> - **FZGM pinned** at `d511ebc` in a dedicated worktree build (`~/FZGPUModules-memory-d511ebc/build_memory`);
+>   every FZGM row's `--report-json` `git_sha` is checked against the config.
+> - **Third instrument, stack limit.** `tools/peak_memory/lmem_probe/libstacklimit.so` (LD_PRELOAD)
+>   records the context's maximum `cudaLimitStackSize`. `lmem_probe.cu` shows the driver reserves
+>   `(limit - 1 KiB) x maxThreadsPerSM x SMs` of device memory once any kernel with a
+>   per-thread frame above the 1 KiB default is launched, never released. On the H100
+>   (132 SMs x 2048) a 4352-byte frame costs +899.6 MB, exactly the cuSZp2 outlier-minus-plain
+>   gap. **This, not CUB allocator churn, is the "hidden ~1.4 GB" of native cuSZp**: its
+>   compress kernels have 4.2-8.5 KB stack frames (`cuobjdump -res-usage`), and cuSZp3's
+>   2-D/3-D *plain* kernels carry it too. The mechanism is architectural (SM count x
+>   threads/SM), so it is not a VM/IOMMU artifact; it scales by SM count across GPUs.
+> - **FZGM Auto can pay it too:** the runtime-generated cuSZp3 2-D/3-D fused kernels
+>   raise the limit (2112 B on CLDHGH -> +294 MB), which is why Auto can exceed staged at
+>   the process level while its pool shrinks.
+> - **Pool retention:** NVML sees FZGM's pool *reserved* memory (release threshold = pool
+>   size), not live bytes, so NVML - context - local-mem - probe is positive; largest in
+>   the `-x` decompress-from-file process.
+>
+> Results, exclusions, and the comparison against the September numbers are in the
+> generated artifact `paper_organizer/projects/FZGM/evidence/publication/memory/peak_memory.md`
+> (`scripts/build_peak_memory_artifact.py`). DESIGN D47 records the decisions.
+
+# September 2026 sweep (original record)
+
 ## What is being compared
 
 For each compressor family, three arms on the same field/bound:
