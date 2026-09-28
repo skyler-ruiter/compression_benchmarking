@@ -44,3 +44,7 @@ venv/
 # SLURM job output landing in the repo root (submit scripts run from $SLURM_SUBMIT_DIR)
 slurm-*.out
 shard-*.log
+tools/peak_memory/ctx_baseline
+tools/peak_memory/lmem_probe/lmem_*
+!tools/peak_memory/lmem_probe/lmem_probe.cu
+tools/peak_memory/lmem_probe/libstacklimit.so
