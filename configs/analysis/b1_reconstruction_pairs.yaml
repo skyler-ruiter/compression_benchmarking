@@ -205,11 +205,12 @@ pairs:
       - The 3-D predictor geometry follows native level-4 16x16x16 interpolation.
       - Native and FZGM archive containers and entropy-coding stages differ.
 
-deferred_pairs:
+separately_measured_pairs:
   - id: fsz
     reason: >-
-      Add FSZ after the active implementation and fusion work is pinned and its
-      intended native relationship is documented.
+      Measured from the later September 9 staged H100 session using
+      b1_fsz_reconstruction_pair.yaml; kept separate to avoid mixing that source
+      into the closed multi-session B1 extraction.
 
 unpaired_variants:
   - compressor: fzgm

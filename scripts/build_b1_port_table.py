@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the compact paper-facing B1 port comparison table.
+"""Generate the paper-facing reconstruction-fidelity table.
 
-The numeric cells come only from analyze_b1_fidelity.py JSON. Explanations are
-kept here as reviewed implementation attribution, so rerunning measurements
-cannot silently replace a source-level conclusion.
+Numeric cells come only from analyze_b1_fidelity.py JSON. Explanations and
+semantic graph decompositions are reviewed source-level attribution, so a
+measurement rerun cannot silently change them.
 """
 from __future__ import annotations
 
@@ -12,131 +12,144 @@ import json
 from pathlib import Path
 
 
-ROW_ORDER = [
-    "cusz", "cuszhi", "cuszp2_plain", "cuszp2_outlier", "cuszp3_plain",
-    "cuszp3_outlier", "cuszp3_fixed", "pfpl",
-]
-
-REASONS = {
-    "cusz": (
-        "FZGM uses a separately adapted Huffman implementation and FZM framing; "
-        "the size contribution of each has not been isolated."
-    ),
-    "cuszhi": (
-        "The 2-D GInterp geometry differs to avoid an upstream anchor-gather "
-        "defect; CR size and quality use one fresh process per call because repeated reuse is unsafe."
-    ),
-    "cuszp2_plain": "---",
-    "cuszp2_outlier": (
-        "FZGM stores an additional selection byte per 32-value block rather than packing "
-        "the selection into the native rate byte."
-    ),
-    "cuszp3_plain": "---",
-    "cuszp3_outlier": (
-        "FZGM stores an additional selection byte per 64-value tile rather than packing "
-        "the selection into the native rate byte."
-    ),
-    "cuszp3_fixed": (
-        "Dimension-correct streams match except on QMCPACK, where FZGM is "
-        "1.8--4.3\\% smaller; the cause is not isolated."
-    ),
-    "pfpl": (
-        "The native fused and FZGM staged implementations have field-dependent "
-        "size differences that cancel in the aggregate."
-    ),
-}
-
-LABELS = {
-    "cusz": "cuSZ",
-    "cuszhi": "cuSZ-Hi (CR/TP)",
-    "cuszp2_plain": "cuSZp2 plain",
-    "cuszp2_outlier": "cuSZp2 outlier",
-    "cuszp3_plain": "cuSZp3 plain",
-    "cuszp3_outlier": "cuSZp3 outlier",
-    "cuszp3_fixed": "cuSZp3 fixed",
-    "pfpl": "PFPL",
-}
-
-
 def difference(ratio: float) -> str:
-    pct = abs(ratio - 1.0) * 100.0
-    if pct < 0.5:
-        return "No aggregate difference"
-    direction = "smaller" if ratio < 1.0 else "larger"
-    return rf"{pct:.1f}\% {direction}"
+    delta = (ratio - 1.0) * 100.0
+    if abs(delta) < 0.5:
+        return r"$\approx 0\%$"
+    return rf"${delta:+.1f}\%$"
 
 
-def quality_caveat(rows: list[dict], *, corrected_2d: bool = False) -> str:
-    native = sum(int(row["reference_severe_bound_violation"]) for row in rows)
-    fzgm = sum(int(row["reconstruction_severe_bound_violation"]) for row in rows)
-    parts: list[str] = []
-    if native:
-        parts.append(
-            f"{native} paired native bound violation{'s' if native != 1 else ''}"
-        )
-    if fzgm:
-        parts.append(f"{fzgm} FZGM bound violation{'s' if fzgm != 1 else ''}")
-    if corrected_2d:
-        parts.append("2-D predictor differs")
-    return "; ".join(parts) if parts else "---"
+def load_pairs(path: Path) -> dict[str, dict]:
+    payload = json.loads(path.read_text())
+    return {row["id"]: row for row in payload["pairs"]}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fidelity", type=Path, required=True)
+    parser.add_argument("--fsz-fidelity", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    payload = json.loads(args.fidelity.read_text())
-    measured = {row["id"]: row for row in payload["pairs"]}
+    measured = load_pairs(args.fidelity)
+    measured.update(load_pairs(args.fsz_fidelity))
     required = {
         "cusz", "cuszhi_cr", "cuszhi_tp", "cuszp2_plain", "cuszp2_outlier",
-        "cuszp3_plain", "cuszp3_outlier", "cuszp3_fixed", "pfpl",
+        "cuszp3_plain", "cuszp3_outlier", "cuszp3_fixed", "pfpl", "fsz",
     }
     missing = sorted(required - measured.keys())
     if missing:
-        raise ValueError(f"fidelity report is missing required pairs: {missing}")
+        raise ValueError(f"fidelity reports are missing required pairs: {missing}")
+
+    def measured_difference(row_id: str) -> str:
+        return difference(
+            measured[row_id]["compressed_bytes_ratio_fzgm_over_native"]["geomean"]
+        )
+
+    # One row denotes one evaluated compressor pipeline or mode. WR and CC are
+    # compatibility classes, not claims that specialization installed on every
+    # dtype and geometry in the corpus.
+    rows = [
+        (
+            "cuSZ",
+            r"LorenzoQuant $\rightarrow$ Huffman",
+            "---",
+            measured_difference("cusz"),
+            "Native HFR-v3; FZGM uses adaptive Huffman and FZM framing.",
+        ),
+        (
+            "cuSZ-Hi CR",
+            r"See \Cref{fig:cuszhi-cr-graph}",
+            "---",
+            measured_difference("cuszhi_cr"),
+            r"2-D uses corrected LEVEL=4/16$\times$16 geometry.",
+        ),
+        (
+            "cuSZ-Hi TP",
+            r"G-Interp branches to codes: Zigzag $\rightarrow$ Bitshuffle $\rightarrow$ RRE; auxiliaries: Merge $\rightarrow$ Bitshuffle $\rightarrow$ RRE $\rightarrow$ RZE",
+            "---",
+            measured_difference("cuszhi_tp"),
+            r"2-D uses corrected LEVEL=4/16$\times$16 geometry.",
+        ),
+        (
+            "cuSZp2 plain",
+            r"Quantizer $\rightarrow$ Lorenzo $\rightarrow$ AdaptiveBitpack[plain]",
+            "WR",
+            measured_difference("cuszp2_plain"),
+            "No material aggregate size difference.",
+        ),
+        (
+            "cuSZp2 outlier",
+            r"Quantizer $\rightarrow$ Lorenzo $\rightarrow$ AdaptiveBitpack[outlier]",
+            "WR",
+            measured_difference("cuszp2_outlier"),
+            "Additional metadata byte preserves the full int32 rate range.",
+        ),
+        (
+            "cuSZp3 fixed",
+            r"Quantizer $\rightarrow$ AdaptiveBitpack[fixed]",
+            "WR",
+            measured_difference("cuszp3_fixed"),
+            "Uses dimension-matched 2-D/3-D tile geometry.",
+        ),
+        (
+            "cuSZp3 plain",
+            r"Quantizer $\rightarrow$ TiledLorenzo $\rightarrow$ AdaptiveBitpack[plain]",
+            "WR",
+            measured_difference("cuszp3_plain"),
+            "No material aggregate size difference.",
+        ),
+        (
+            "cuSZp3 outlier",
+            r"Quantizer $\rightarrow$ TiledLorenzo $\rightarrow$ AdaptiveBitpack[outlier]",
+            "WR",
+            measured_difference("cuszp3_outlier"),
+            "Additional metadata byte preserves the full int32 rate range.",
+        ),
+        (
+            "PFPL",
+            r"Quantizer $\rightarrow$ Difference[Negabinary] $\rightarrow$ Bitshuffle $\rightarrow$ RZE",
+            "CC",
+            measured_difference("pfpl"),
+            "Aggregate size matches, but individual-field sizes differ substantially.",
+        ),
+        (
+            "FSZ",
+            r"Quantizer $\rightarrow$ AdaptiveLorenzo $\rightarrow$ AdaptiveBitpack[plain]",
+            "---",
+            measured_difference("fsz"),
+            "Independent reimplementation; predictor-mode storage and framing differ.",
+        ),
+    ]
 
     lines = [
         "% Generated by compression_benchmarking/scripts/build_b1_port_table.py.",
-        f"% Fidelity manifest: {args.fidelity.resolve()}",
+        f"% Main fidelity manifest: {args.fidelity.resolve()}",
+        f"% FSZ fidelity manifest: {args.fsz_fidelity.resolve()}",
         r"\begin{table*}[t]",
         r"  \centering",
-        r"  \caption{Compressed-size differences between FZGM pipelines and their native",
-        r"  implementations, computed from geometric-mean compressed bytes over jointly valid",
-        r"  matched runs. Quality caveats identify severe error-bound violations or known",
-        r"  implementation differences. A dash indicates no material caveat or identified cause.}",
-        r"  \label{tab:port-accuracy}",
-        r"  \footnotesize",
-        r"  \setlength{\tabcolsep}{4pt}",
-        r"  \renewcommand{\arraystretch}{1.08}",
-        r"  \begin{tabular}{@{}p{0.14\textwidth}p{0.18\textwidth}p{0.22\textwidth}p{0.39\textwidth}@{}}",
+        r"  \caption{FZGPUModules reconstructions of native designs. Each row is one",
+        r"  evaluated pipeline; graphs are semantic rather than byte-identical. Spec. lists",
+        r"  an available specialization (WR: warp-register; CC: chunk-cooperative; ---:",
+        r"  staged-only). Size $\Delta$ is the geometric-mean compressed-byte difference",
+        r"  over jointly valid matches; negative values are smaller.}",
+        r"  \label{tab:reconstruction-fidelity}",
+        r"  \scriptsize",
+        r"  \setlength{\tabcolsep}{2.5pt}",
+        r"  \renewcommand{\arraystretch}{1.00}",
+        r"  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.095\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}>{\centering\arraybackslash}p{0.045\textwidth}>{\raggedleft\arraybackslash}p{0.07\textwidth}>{\raggedright\arraybackslash}p{0.37\textwidth}@{}}",
         r"    \toprule",
-        r"    Pipeline & Compressed-size difference & Quality caveat & Reason \\",
+        r"    Design & Declared FZGPUModules graph & Spec. & Size $\Delta$ & Key difference \\",
         r"    \midrule",
     ]
 
-    for row_id in ROW_ORDER:
-        if row_id == "cuszhi":
-            cr, tp = measured["cuszhi_cr"], measured["cuszhi_tp"]
-            rows = [cr, tp]
-            diff = (
-                f"CR: {difference(cr['compressed_bytes_ratio_fzgm_over_native']['geomean'])}; "
-                f"TP: {difference(tp['compressed_bytes_ratio_fzgm_over_native']['geomean'])}"
-            )
-        else:
-            rows = [measured[row_id]]
-            diff = difference(rows[0]["compressed_bytes_ratio_fzgm_over_native"]["geomean"])
-        caveat = quality_caveat(rows, corrected_2d=(row_id == "cuszhi"))
-        if row_id == "cuszhi" and any(
-            int(row["reference_severe_bound_violation"]) for row in rows
-        ):
-            caveat = "Native bound violation in both modes; 2-D predictor differs"
+    for label, graph, spec, diff, caveat in rows:
         lines.extend([
-            f"    {LABELS[row_id]}",
+            f"    {label}",
+            f"      & {graph}",
+            f"      & {spec}",
             f"      & {diff}",
-            f"      & {caveat}",
-            f"      & {REASONS[row_id]} \\\\",
+            f"      & {caveat} \\\\",
         ])
 
     lines.extend([

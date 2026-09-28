@@ -370,18 +370,16 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
             "- Exact reconstruction hashes occur on subsets of every family. Nonidentical",
             "  hashes require Tier-2 implementation attribution; close aggregate quality",
             "  alone cannot establish bit identity.",
-            "- The largest PSNR deltas for the cuSZp families occur on the near-constant",
-            "  f64 S3D/N2 field, where tiny absolute error changes are amplified in dB.",
-            "  Across joint-valid cuSZp2/cuSZp3 cells, the 95th-percentile normalized",
-            "  maximum-error delta is below 0.0005 and the maximum is below 0.009.",
             f"- The validity policy retains marginal misses through "
             f"{payload['validity_policy']['marginal_eb_ratio']:.2f}x.",
             f"  It retains {payload['totals']['reconstruction_marginal_bound_miss']} "
             f"FZGM and {payload['totals']['reference_marginal_bound_miss']} native rows;",
             "  they are reported rather than counted as severe violations.",
-            "- The 19 execution failures remain coverage exceptions: four native cuSZ",
-            "  failures and fifteen FZGM capacity refusals. They are not silently removed",
-            "  from the tested-coordinate count.",
+            f"- The {payload['totals']['execution_failed']} execution failures remain "
+            "coverage exceptions: "
+            f"{payload['totals']['reference_execution_failed']} reference and "
+            f"{payload['totals']['reconstruction_execution_failed']} reconstruction "
+            "failures. They are not silently removed from the tested-coordinate count.",
             "",
             "The accompanying CSV contains one row per coordinate, including validity",
             "reasons and logical-cell IDs. The JSON records source, contract, verification,",
@@ -389,6 +387,18 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
             "",
         ]
     )
+    if any(pair["id"].startswith("cuszp") for pair in payload["pairs"]):
+        insertion = [
+            "- The largest PSNR deltas for the cuSZp families occur on the near-constant",
+            "  f64 S3D/N2 field, where tiny absolute error changes are amplified in dB.",
+            "  Across joint-valid cuSZp2/cuSZp3 cells, the 95th-percentile normalized",
+            "  maximum-error delta is below 0.0005 and the maximum is below 0.009.",
+        ]
+        validity_index = next(
+            index for index, line in enumerate(lines)
+            if line.startswith("- The validity policy retains marginal misses")
+        )
+        lines[validity_index:validity_index] = insertion
     path.write_text("\n".join(lines))
 
 

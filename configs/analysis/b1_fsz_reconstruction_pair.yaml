@@ -1,0 +1,53 @@
+schema_version: 1
+study: fzgm_b1_fsz_reconstruction_fidelity
+description: >-
+  Semantic pairing used to audit the independently implemented FZGPUModules
+  FSZ graph against the native FSZ implementation.
+
+coordinate_fields:
+  - dataset
+  - field
+  - dtype
+  - dims
+  - dim_order
+  - error_mode
+  - error_bound
+
+identity_checks:
+  - dataset_sha256
+  - original_bytes
+  - num_elements
+  - rel_basis
+  - eb_abs_effective
+
+fidelity_policy:
+  exact_reconstruction_field: decompressed_sha256
+  quality_fields:
+    - max_abs_err
+    - err_over_bound
+    - psnr
+    - nrmse
+  size_field: compressed_bytes
+  validity_policy: benchkit.validity
+  classification: >-
+    Report measured exactness and bound preservation separately. Tier assignment
+    also depends on documented implementation changes and is not inferred from a
+    numeric tolerance alone.
+
+pairs:
+  - id: fsz
+    label: FSZ
+    reference:
+      compressor: fsz
+      variant: fsz
+      pipeline: default
+    reconstruction:
+      compressor: fzgm
+      variant: fsz
+      pipeline: configs/pipelines/fsz.toml
+    intended_relationship: independent_algorithmic_reimplementation
+    known_structural_differences:
+      - FZGM independently reimplements the published FSZ algorithm.
+      - Native FSZ fuses prediction, quantization, and encoding.
+      - FZGM exposes the operations as graph stages and stores mode flags in a separate stream.
+      - Native and FZGM archive containers differ.
