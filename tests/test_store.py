@@ -1,9 +1,10 @@
 import json
+import threading
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from benchkit.store import ResultStore
+from benchkit.store import ResultStore, _write_immutable_once
 
 
 class ResultStoreLoadingTests(TestCase):
@@ -55,3 +56,77 @@ class ResultStoreLoadingTests(TestCase):
                          "execution_id": "execution-v1-exact"})
 
             self.assertEqual(store.completed_execution_ids(), {"execution-v1-exact"})
+
+
+class WriteImmutableOnceTests(TestCase):
+    def test_detects_a_genuine_content_mismatch(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "input.yaml"
+            _write_immutable_once(path, b"first")
+            with self.assertRaises(RuntimeError):
+                _write_immutable_once(path, b"second")
+
+    def test_repeated_identical_writes_are_a_no_op(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "input.yaml"
+            _write_immutable_once(path, b"same")
+            _write_immutable_once(path, b"same")  # must not raise
+            self.assertEqual(path.read_bytes(), b"same")
+
+    def test_concurrent_identical_writes_never_collide(self):
+        # Regression test for the race that killed 2 of 4 shards mid-launch on
+        # Delta: every shard archives the same experiment/dataset YAML at
+        # session start, so N threads/processes call this for the *same*
+        # path with *identical* content at effectively the same instant. The
+        # old "exists? read, compare, write" sequence let a reader observe
+        # another writer's file mid-write and misread it as a mismatch.
+        for _ in range(50):  # a race is timing-dependent; iterate to catch flakes
+            with TemporaryDirectory() as tmp:
+                path = Path(tmp) / "input.yaml"
+                content = b"x" * 4096  # large enough that a naive write is not one syscall
+                barrier = threading.Barrier(8)
+                errors: list[BaseException] = []
+
+                def worker():
+                    barrier.wait()
+                    try:
+                        _write_immutable_once(path, content)
+                    except BaseException as exc:  # noqa: BLE001
+                        errors.append(exc)
+
+                threads = [threading.Thread(target=worker) for _ in range(8)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+
+                self.assertEqual(errors, [])
+                self.assertEqual(path.read_bytes(), content)
+
+    def test_archive_bytes_concurrent_shards_do_not_collide(self):
+        # Same race, exercised through the public ResultStore API the runner
+        # actually calls (store.archive_bytes for experiment.yaml / datasets.yaml).
+        for _ in range(20):
+            with TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                content = json.dumps({"experiment": "specialization_vs_native_full"}).encode()
+                barrier = threading.Barrier(4)
+                errors: list[BaseException] = []
+                results: list[dict] = []
+
+                def worker(shard_idx: int):
+                    store = ResultStore(root, "session", shard=(shard_idx, 4))
+                    barrier.wait()
+                    try:
+                        results.append(store.archive_bytes("experiment", content, ".yaml"))
+                    except BaseException as exc:  # noqa: BLE001
+                        errors.append(exc)
+
+                threads = [threading.Thread(target=worker, args=(k,)) for k in range(4)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+
+                self.assertEqual(errors, [])
+                self.assertEqual(len({r["sha256"] for r in results}), 1)

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import threading
 from pathlib import Path
 
 from .schema import dumps_result, dumps_session, load_result_file
@@ -26,6 +28,37 @@ def sha256_file(path: Path, chunk: int = 1 << 20) -> str:
         for block in iter(lambda: fh.read(chunk), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def _write_immutable_once(path: Path, content: bytes) -> None:
+    """Create ``path`` with ``content`` iff it doesn't already exist, atomically.
+
+    Concurrent shards racing to archive the same identical input (e.g. every
+    shard hashing the same experiment/dataset YAML at session start) must not
+    observe each other's write half-finished. A plain "check exists, read,
+    compare, write" sequence has exactly that race: one process's partial
+    write is visible to `path.exists()` before it is complete, so a second
+    process can read a truncated file and raise a false "collision".
+
+    Fix: write to a uniquely-named temp file in the same directory, then use
+    `os.link` to publish it at `path` -- link is atomic and fails with
+    FileExistsError if the destination is already there, so whichever writer
+    wins always finds a fully-written file underneath, and every loser just
+    verifies content instead of racing the write.
+    """
+    if path.exists() and path.read_bytes() == content:
+        return  # fast path: already there, no temp file needed
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_bytes(content)
+    try:
+        os.link(tmp, path)
+    except FileExistsError:
+        pass
+    finally:
+        tmp.unlink(missing_ok=True)
+    existing = path.read_bytes()
+    if existing != content:
+        raise RuntimeError(f"immutable input archive collision: {path}")
 
 
 def _shard_suffix(shard: tuple[int, int] | None) -> str:
@@ -51,10 +84,10 @@ class ResultStore:
         if provenance_id:
             immutable = self.dir / f"provenance.{provenance_id}.json"
             content = encoded + "\n"
-            if immutable.exists() and immutable.read_text() != content:
+            try:
+                _write_immutable_once(immutable, content.encode())
+            except RuntimeError:
                 raise RuntimeError(f"provenance ID collision: {immutable}")
-            if not immutable.exists():
-                immutable.write_text(content)
         with open(path, "w") as fh:
             fh.write(encoded + "\n")
 
@@ -66,10 +99,7 @@ class ResultStore:
     def archive_bytes(self, category: str, content: bytes, suffix: str) -> dict:
         digest = hashlib.sha256(content).hexdigest()
         path = self.dir / "inputs" / f"{category}.{digest}{suffix}"
-        if path.exists() and path.read_bytes() != content:
-            raise RuntimeError(f"immutable input archive collision: {path}")
-        if not path.exists():
-            path.write_bytes(content)
+        _write_immutable_once(path, content)
         return {"path": str(path.relative_to(self.dir)), "sha256": digest}
 
     def archive_json(self, category: str, document: dict) -> dict:
@@ -83,9 +113,9 @@ class ResultStore:
         content = path.read_bytes()
         digest = hashlib.sha256(content).hexdigest()
         target = self.dir / "inputs" / "rendered-pipelines" / f"{digest}{path.suffix}"
-        if not target.exists():
-            target.write_bytes(content)
-        elif target.read_bytes() != content:
+        try:
+            _write_immutable_once(target, content)
+        except RuntimeError:
             raise RuntimeError(f"immutable rendered-pipeline collision: {target}")
         return {"path": str(target.relative_to(self.dir)), "sha256": digest}
 
