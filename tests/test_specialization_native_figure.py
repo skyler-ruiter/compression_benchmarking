@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.build_specialization_native_figure import build
+from scripts.build_specialization_native_figure import FAMILIES, build
 
 
 def row(compressor, variant, throughput, *, reliable=True, forward=0, inverse=0,
@@ -28,6 +28,11 @@ def row(compressor, variant, throughput, *, reliable=True, forward=0, inverse=0,
 
 
 class SpecializationNativeFigureTests(unittest.TestCase):
+    def test_evaluation_replaces_fzgpu_with_cuszhi_tp(self):
+        family_ids = {entry[0] for entry in FAMILIES}
+        self.assertIn("cuszhi_tp", family_ids)
+        self.assertNotIn("fzgpu", family_ids)
+
     def test_uses_one_geometric_native_baseline_for_both_arms(self):
         off = [row("cusz", "cusz", 4.0), row("fzgm", "cusz", 3.0)]
         auto = [row("cusz", "cusz", 9.0), row("fzgm", "cusz", 12.0)]

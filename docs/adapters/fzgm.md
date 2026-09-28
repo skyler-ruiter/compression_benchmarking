@@ -58,7 +58,7 @@ Below `FZ_SPECIALIZE`, the warp-register strategy has its own internal dispatch
 `FZ_ADAPTIVE_THRESH`/`FZ_ADAPTIVE_THRESH_TILED`, `FZ_TI_BPT`, `FZ_SP_BPW`, and debugged
 via `FZ_DEBUG_PROBE=1`. `fusion_groups[].execution_path` in the row records which one
 actually ran. Full writeup + corpus-wide before/after numbers for the 2026-09-09
-threshold fix: FZGM repo `paper_organizer/papers/FZGM/reports/fused_execution_paths_map.md`.
+threshold fix: FZGM repo `paper_organizer/projects/FZGM/investigations/fusion/fused_execution_paths_map.md`.
 
 ## Invocation
 
