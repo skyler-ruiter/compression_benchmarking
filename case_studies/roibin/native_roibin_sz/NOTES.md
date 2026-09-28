@@ -160,3 +160,16 @@ when the GPU is free. CR and bounds are unaffected.
 Planner verdict for every RZE/ANS/Huffman/GolombRice variant: 2 legal groups,
 `no_profitable_implementation` — the chunk-cooperative strategy only has a registered
 implementation for the PFPL chain (Quant -> Difference -> Bitshuffle -> RZE).
+
+## GolombRice through chunk-cooperative specialization (variant H)
+GolombRice is a chunk-cooperative SegmentCodec (forward only, int32, 16 KiB chunk). It
+did not install after TiledLorenzo because TiledLorenzo's 64-element region does not
+match the 16 KiB chunk. The designed chain — Quantizer (zigzag_codes, inplace_outliers,
+ABS 100) -> Difference (int32, chunk 16384) -> GolombRice — installs one chunk-coop
+forward group (inverse stays staged, by design), byte-identical to staged:
+bin=1 CR 11.06 (bounds: ROI 10.0000, bg 100.0001), bin=2 CR 54.26. The 1-D Difference
+predictor costs ratio vs TiledLorenzo (GolombRice after TiledLorenzo: 15.84 / 71.65).
+Closing that needs a chunk-cooperative TiledLorenzo op (8x8 tiles are tile-major, so a
+16 KiB chunk holds 64 whole tiles).
+
+Fixes are on FZGPUModules main as 80d2e1a (TiledLorenzo) and 0bfbb6f (GolombRice).
