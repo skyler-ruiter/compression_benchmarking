@@ -1,0 +1,494 @@
+[
+ {
+  "variant": "A_bitpack",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 15.047749,
+  "C_off": 212.29707,
+  "D_off": 216.658,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 15.047749,
+  "C_auto": 418.13375,
+  "D_auto": 277.26468,
+  "cv_auto": 0.002,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "warp-register"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.97,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "A_bitpack",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 62.511104,
+  "C_off": 623.95025,
+  "D_off": 476.6824,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 62.511104,
+  "C_auto": 926.96519,
+  "D_auto": 569.1119,
+  "cv_auto": 0.004,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "warp-register"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "B_golomb_tl",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 19.032457,
+  "C_off": 135.51897,
+  "D_off": 98.303187,
+  "cv_off": 0.004,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 19.032457,
+  "C_auto": 135.5091,
+  "D_auto": 98.332144,
+  "cv_auto": 0.004,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 14854.0,
+  "bg_psnr": 40.53,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "B_golomb_tl",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 84.953727,
+  "C_off": 441.05912,
+  "D_off": 286.11909,
+  "cv_off": 0.004,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 84.953727,
+  "C_auto": 441.10527,
+  "D_auto": 285.88628,
+  "cv_auto": 0.005,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "C_tl_rze",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 21.399714,
+  "C_off": 144.04609,
+  "D_off": 142.21786,
+  "cv_off": 0.006,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 21.399714,
+  "C_auto": 144.0435,
+  "D_auto": 142.41735,
+  "cv_auto": 0.006,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.97,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "C_tl_rze",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 112.41121,
+  "C_off": 461.75938,
+  "D_off": 369.83771,
+  "cv_off": 0.006,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 112.41121,
+  "C_auto": 462.10832,
+  "D_auto": 369.67218,
+  "cv_auto": 0.005,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "D_tl_rze_ans",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 26.07595,
+  "C_off": 138.88904,
+  "D_off": 140.25127,
+  "cv_off": 0.006,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 26.07595,
+  "C_auto": 138.92132,
+  "D_auto": 139.97142,
+  "cv_auto": 0.007,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.97,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "D_tl_rze_ans",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 145.07208,
+  "C_off": 443.95326,
+  "D_off": 365.52265,
+  "cv_off": 0.006,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 145.07208,
+  "C_auto": 444.12799,
+  "D_auto": 365.38593,
+  "cv_auto": 0.005,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "E_tl_huff16",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 20.860364,
+  "C_off": 127.93517,
+  "D_off": 108.49288,
+  "cv_off": 0.004,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 20.860364,
+  "C_auto": 128.15315,
+  "D_auto": 108.55095,
+  "cv_auto": 0.005,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.97,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "E_tl_huff16",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 90.929655,
+  "C_off": 416.01871,
+  "D_off": 311.62075,
+  "cv_off": 0.01,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 90.929655,
+  "C_auto": 415.79196,
+  "D_auto": 309.8753,
+  "cv_auto": 0.012,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "F_tl_rze_ans16",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 26.261802,
+  "C_off": 142.39177,
+  "D_off": 141.30968,
+  "cv_off": 0.004,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 26.261802,
+  "C_auto": 142.39076,
+  "D_auto": 141.44067,
+  "cv_auto": 0.003,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.97,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "F_tl_rze_ans16",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 146.64077,
+  "C_off": 451.24056,
+  "D_off": 366.37021,
+  "cv_off": 0.003,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 146.64077,
+  "C_auto": 451.45925,
+  "D_auto": 366.41044,
+  "cv_auto": 0.002,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "G_pfpl",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 20.747779,
+  "C_off": 202.93943,
+  "D_off": 142.43279,
+  "cv_off": 0.008,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 20.747779,
+  "C_auto": 342.10878,
+  "D_auto": 270.89082,
+  "cv_auto": 0.001,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.97,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "G_pfpl",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 107.89296,
+  "C_off": 605.25785,
+  "D_off": 381.35772,
+  "cv_off": 0.006,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 107.89296,
+  "C_auto": 862.02738,
+  "D_auto": 563.89189,
+  "cv_auto": 0.003,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "H_diff_golomb",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 14.810961,
+  "C_off": 158.13944,
+  "D_off": 100.51809,
+  "cv_off": 0.004,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 14.810961,
+  "C_auto": 236.72267,
+  "D_auto": 100.43528,
+  "cv_auto": 0.016,
+  "inst": [
+   1,
+   0
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": false,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.97,
+  "dataset": "CXIDB21"
+ },
+ {
+  "variant": "H_diff_golomb",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 71.057802,
+  "C_off": 502.26646,
+  "D_off": 285.56018,
+  "cv_off": 0.023,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 71.057802,
+  "C_auto": 675.82723,
+  "D_auto": 298.93043,
+  "cv_auto": 0.003,
+  "inst": [
+   1,
+   0
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 11054.0,
+  "bg_psnr": 44.64,
+  "dataset": "CXIDB21"
+ }
+]

@@ -217,3 +217,55 @@ ratio. Report as "on uncalibrated raw frames".
 
 lsCOMP has no region-aware or pointwise bound; its lossless mode mis-decodes 7 values
 (not magnitude-correlated) — a defect worth reporting upstream.
+
+---
+
+# 2026-09-30 (cont.) — CXIDB 21 replication, native parallel modes, coder overflow fix
+
+## FZGM on CXIDB 21 (279 frames, 2.56 GB, 5,655 peaks, raw int16 ADU as f32)
+Volume + z-indexed peaks built from the per-frame files (sorted filename order,
+`cxidb21_volume_frame_order.txt`): `derived/CXIDB21_ROIBIN/cxidb21_volume_279x1480x1552.f32`,
+`peaks/cxidb21_full.roi`. Same build (381a45e), protocol and driver
+(`clean_timing.py CXIDB21`); results `clean_timing_results_CXIDB21.json`.
+bin=1 rows: ROI max 10.0, bg max 100.0, bg PSNR 49.97; bin=2 bg PSNR 44.64.
+
+| background coder | bin=1 CR | bin=1 C/D staged -> spec | bin=2 CR | bin=2 C/D staged -> spec |
+|---|---:|---|---:|---|
+| TiledLorenzo-AdaptiveBitpack (warp-register) | 15.05 | 212/217 -> **418/277** | 62.51 | 624/477 -> **927/569** |
+| PFPL back end (chunk-coop fwd+inv) | 20.75 | 203/142 -> **342/271** | 107.89 | 605/381 -> **862/564** |
+| Difference-GolombRice (chunk-coop fwd) | 14.81 | 158/101 -> 237/100 | 71.06 | 502/286 -> 676/299 |
+| TiledLorenzo-GolombRice | 19.03 | 136/98 | 84.95 | 441/286 |
+| TiledLorenzo-Huffman16 | 20.86 | 128/108 | 90.93 | 416/312 |
+| TiledLorenzo-RZE | 21.40 | 144/142 | 112.41 | 462/370 |
+| TiledLorenzo-RZE-ANS32 | 26.08 | 139/140 | 145.07 | 444/366 |
+| TiledLorenzo-RZE-ANS16 | **26.26** | 142/141 | **146.64** | 451/366 |
+
+**The two GolombRice bin=1 rows in `clean_timing_results_CXIDB21.json` are invalid as
+recorded** (TiledLorenzo-GolombRice: bg max err 14,854, last 13 frames decoded as zeros;
+Difference-GolombRice: off/auto recon differed). Cause: `golombRicePackKernel` computed
+`cid * scratch_stride` in uint32; stride ~28.8 KB wraps 2^32 at chunk ~149k (~2.4 GB of
+int32 input). Fixed (64-bit offsets; RZE's pack kernel had the same pattern, wrapping at
+4 GB) — FZGPUModules `db387d3` on branch `fix-coder-pack-offset-overflow` (pushed), and
+`a062d88` on local main. After the fix both rows: 0 bound violations, off/auto recon
+identical, CR unchanged (19.03 / 14.81). Their timing was not re-measured.
+
+## Native ROIBIN-SZ, both corpora (`run_native.py`)
+SZ3 3.3.0 via LibPressio, 20-core Xeon 8468. Codec GB/s = frame bytes / summed
+encode (decode) time. "20 frames" = 20 worker processes compressing whole frames;
+its aggregate lies between the wall-time bound (encode + decode + quality checks, so
+conservative) and 20x the per-worker codec rate.
+
+| corpus | bin | CR (w/ peak table) | serial C/D GB/s | 20 workers: per-worker C/D | 20 workers: wall bound | 20x per-worker C |
+|---|---|---:|---|---|---:|---:|
+| EXAFEL | 1 | 22.73 (22.68) | 0.191/0.307 | 0.161/0.266 | 0.95 | ~3.2 |
+| EXAFEL | 2 | 152.3 (150.2) | 0.555/0.521 | 0.455/0.426 | 1.29 | ~9.1 |
+| CXIDB 21 | 1 | 36.88 (36.85) | 0.205/0.413 | 0.172/0.316 | 1.17 | ~3.4 |
+| CXIDB 21 | 2 | 234.3 (233.3) | 0.598/0.587 | 0.523/0.465 | 1.72 | ~10.5 |
+
+All native runs: ROI max err 10.0001 (CXIDB 21; float rounding) / 10.0000 (EXAFEL),
+bin=1 bg max 100.00. SZ3 OpenMP (`sz3:openmp`, 20 threads) gave no speedup on 9 MB
+frames (0.186 / 0.170 GB/s compress) and decompression stays single-threaded; frame-level
+parallelism is the realistic CPU scaling path.
+
+## Remaining ratio gap (FZGM best / native), bin=1: EXAFEL 16.92/22.73 = 0.74,
+CXIDB 21 26.26/36.88 = 0.71. bin=2: 85.81/152.3 = 0.56, 146.64/234.3 = 0.63.

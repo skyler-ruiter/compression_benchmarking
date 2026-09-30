@@ -1,9 +1,17 @@
 import json, os, subprocess, struct, sys
 import numpy as np
-S = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.abspath(__file__))
 CLI = "/home/exouser/FZGPUModules-roibin-381a45e/build_rel/bin/fzgmod-cli"
-V = "/media/volume/Compression_Data/sdrbench_data/EXAFEL_130x1480x1552/SDRBENCH-EXAFEL-data-130x1480x1552.f32"
-R = "/media/volume/Compression_Data/sdrbench_data/derived/EXAFEL_ROIBIN/peaks/exafel_full.roi"
+DATA = "/media/volume/Compression_Data/sdrbench_data"
+DATASETS = {  # name -> (volume, z-indexed peaks, nz, config dir)
+    "EXAFEL":  (f"{DATA}/EXAFEL_130x1480x1552/SDRBENCH-EXAFEL-data-130x1480x1552.f32",
+                f"{DATA}/derived/EXAFEL_ROIBIN/peaks/exafel_full.roi", 130, "variant_configs"),
+    "CXIDB21": (f"{DATA}/derived/CXIDB21_ROIBIN/cxidb21_volume_279x1480x1552.f32",
+                f"{DATA}/derived/CXIDB21_ROIBIN/peaks/cxidb21_full.roi", 279, "variant_configs_cxidb21"),
+}
+DS = sys.argv[1] if len(sys.argv) > 1 else "EXAFEL"
+V, R, NZ, CFGDIR = DATASETS[DS]
+S = os.environ.get("CT_WORK", HERE)   # scratch dir for archives/outputs/json
 VARS = {  # name -> (bin1 config, bin2 config)
  "A_bitpack":   ("b1_A_bitpack.toml",   "var_A_bitpack.toml"),
  "B_golomb_tl": ("b1_B_golomb.toml",    "var_B_golomb.toml"),
@@ -20,7 +28,7 @@ def gpu_busy():
 def sh(args, env=None):
     e = dict(os.environ); e.update(env or {})
     return subprocess.run(args, capture_output=True, text=True, env=e)
-x = np.fromfile(V, np.float32).reshape(130,1480,1552)
+x = np.fromfile(V, np.float32).reshape(NZ,1480,1552)
 f = open(R,"rb"); f.read(8); nx,ny,nz,n = struct.unpack("<4I", f.read(16))
 rec = np.frombuffer(f.read(8*n), dtype=[("z","<u4"),("x","<u2"),("y","<u2")])
 m = np.zeros(x.shape, bool)
@@ -30,16 +38,16 @@ rng = float(x.max()-x.min())
 rows = []
 for name,(c1,c2) in VARS.items():
     for binf,cfg in ((1,c1),(2,c2)):
-        cfgp = os.path.join(S,cfg); row = dict(variant=name, bin=binf)
+        cfgp = os.path.join(HERE,CFGDIR,cfg); row = dict(variant=name, bin=binf)
         outs = {}
         for pol in ("off","auto"):
             if gpu_busy(): sys.exit("GPU busy - aborting so timing stays clean")
             fzm = os.path.join(S,f"ct_{pol}.fzm"); out = os.path.join(S,f"ct_{pol}.out")
-            z = sh([CLI,"-z","-i",V,"-l","1552x1480x130","-c",cfgp,"-o",fzm],{"FZ_SPECIALIZE":pol})
+            z = sh([CLI,"-z","-i",V,"-l",f"1552x1480x{NZ}","-c",cfgp,"-o",fzm],{"FZ_SPECIALIZE":pol})
             xx_ = sh([CLI,"-x","-i",fzm,"-o",out],{"FZ_SPECIALIZE":pol})
             row[f"rc_{pol}"] = (z.returncode, xx_.returncode); outs[pol]=out
-            rj = os.path.join(S,f"ct_{name}_b{binf}_{pol}.json")
-            b = sh([CLI,"-b","-i",V,"-l","1552x1480x130","-c",cfgp,"--runs","7","--report-json",rj],{"FZ_SPECIALIZE":pol})
+            rj = os.path.join(S,f"ct_{DS}_{name}_b{binf}_{pol}.json")
+            b = sh([CLI,"-b","-i",V,"-l",f"1552x1480x{NZ}","-c",cfgp,"--runs","7","--report-json",rj],{"FZ_SPECIALIZE":pol})
             j = json.load(open(rj)); t=j["timing"]; sp=j["specialization"]
             row[f"cr_{pol}"]=j["size"]["ratio"]; row[f"C_{pol}"]=j["throughput"]["compress_gbs"]; row[f"D_{pol}"]=j["throughput"]["decompress_gbs"]
             c=np.array(t["compress"]["device_ms"]["all"][1:]); d=np.array(t["decompress"]["device_ms"]["all"][1:])
@@ -50,5 +58,5 @@ for name,(c1,c2) in VARS.items():
         row["roi_max"]=round(float(e[m].max()),4); row["bg_max"]=round(float(e[~m].max()),4)
         row["bg_psnr"]=round(float(20*np.log10(rng)-10*np.log10((e[~m]**2).mean())),2)
         for p in outs.values(): os.remove(p)
-        rows.append(row); print(json.dumps(row), flush=True)
-json.dump(rows, open(os.path.join(S,"clean_timing_results.json"),"w"), indent=1)
+        row["dataset"]=DS; rows.append(row); print(json.dumps(row), flush=True)
+json.dump(rows, open(os.path.join(HERE,f"clean_timing_results_{DS}.json"),"w"), indent=1)
