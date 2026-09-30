@@ -128,6 +128,8 @@ RESULT_OPTIONAL = {
     "native_mode": (str, True),
     "rel_basis": (str, True),
     "native_psnr": ((int, float), True),
+    "compressed_payload_bytes": (int, False),
+    "compressed_archive_overhead_bytes": (int, False),
     "graph_active": (bool, True),
     "graph_reason": (str, True),
     "fusion_policy": (str, True),

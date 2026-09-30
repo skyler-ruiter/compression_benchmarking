@@ -200,8 +200,13 @@ class FzgmAdapter(Adapter):
             raise AdapterError(f"compress failed (exit {proc.returncode}){_tool_error(report, log)}; see {log}")
         rep = load_report_json(report)
         size = rep["size"]
+        # The CLI report's compressed_bytes is the codec payload length from the
+        # FZM header. CR comparisons charge the complete deployable artifact,
+        # including its self-describing FZM header and metadata, as other adapters
+        # do for their emitted files. Keep the raw report intact so payload size
+        # remains available for codec-only diagnostics.
         return CompressResult(compressed_path=out,
-                              compressed_bytes=int(size["compressed_bytes"]),
+                              compressed_bytes=out.stat().st_size,
                               original_bytes=int(size["original_bytes"]),
                               raw_json=rep, log_path=log)
 
@@ -240,6 +245,11 @@ class FzgmAdapter(Adapter):
         if proc.returncode != 0:
             raise AdapterError(f"benchmark failed (exit {proc.returncode}){_tool_error(report, log)}; see {log}")
         rep = load_report_json(report)
+        compressed = workdir / "c.fzm"
+        if not compressed.is_file():
+            raise AdapterError(
+                f"benchmark produced no compressed archive at {compressed}; "
+                f"cannot report complete archive size; see {log}")
         t = rep["timing"]
         comp = t.get("compress", {}).get("device_ms", {}).get("all", [])
         dec = t.get("decompress", {}).get("device_ms", {}).get("all", [])
@@ -273,7 +283,7 @@ class FzgmAdapter(Adapter):
             decompress_device_ms_all=[float(x) for x in dec],
             compress_host_ms_all=[float(x) for x in comp_host],
             decompress_host_ms_all=[float(x) for x in dec_host],
-            compressed_bytes=int(rep["size"]["compressed_bytes"]),
+            compressed_bytes=compressed.stat().st_size,
             stages=rep.get("stages", []),
             stage_versions=rep.get("stage_versions", {}) or {},
             native_quality=rep.get("quality"),

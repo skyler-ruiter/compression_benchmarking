@@ -362,6 +362,7 @@ def run_experiment(cfg: ExperimentConfig, catalog: DatasetCatalog,
             reliable = ct.stable and dt.stable and not thermal
             row = _row(run_id, store.session_id, entry, fspec, cfg, prep,
                        size, qual, ct, dt, bench, cht, dht)
+            _add_fzgm_size_breakdown(row, entry, comp)
             row["cell_key"] = key
             row.update({
                 "identity_schema_version": 1,
@@ -541,3 +542,14 @@ def _row(run_id, session_id, entry, f, cfg, prep, size, qual, ct, dt, bench,
         "status": "ok",
         "error_message": None,
     }
+
+
+def _add_fzgm_size_breakdown(row: dict, entry, comp) -> None:
+    """Add payload/archive size details when an FZGM compress report has them."""
+    if entry.compressor != "fzgm":
+        return
+    reported = (comp.raw_json or {}).get("size", {}).get("compressed_bytes")
+    if not isinstance(reported, int) or isinstance(reported, bool):
+        return
+    row["compressed_payload_bytes"] = reported
+    row["compressed_archive_overhead_bytes"] = comp.compressed_bytes - reported

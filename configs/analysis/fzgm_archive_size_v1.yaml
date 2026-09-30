@@ -1,0 +1,66 @@
+schema_version: 1
+study: fzgm_historical_archive_size_correction
+format: FZM v3.1
+formula: 80 + 256 * (num_stages + num_archived_buffers)
+source_rows: payload-only compressed_bytes; source runs.jsonl files are immutable
+audit: paper_organizer/projects/FZGM/evidence/diagnostics/archive_size_accounting_20260929.md
+# Exact variant|pipeline selectors. Header values are from the audited topology
+# table; aliases are listed explicitly so a new variant or pipeline fails closed.
+selectors:
+  fsz|configs/pipelines/fsz.toml: {header_bytes: 1104}
+  fzgm-fsz-bpt8|configs/pipelines/fsz.toml: {header_bytes: 1104}
+  cusz|configs/pipelines/cusz.toml: {header_bytes: 1360}
+  cusz_color|configs/pipelines/cusz.toml: {header_bytes: 1360}
+  cusz_nocolor|configs/pipelines/cusz_nocolor.toml: {header_bytes: 1360}
+  fzgpu|configs/pipelines/fzgpu.toml: {header_bytes: 1360}
+  pfpl|configs/pipelines/pfpl.toml: {header_bytes: 1360}
+  pfpl_color|configs/pipelines/pfpl.toml: {header_bytes: 1360}
+  pfpl_nocolor|configs/pipelines/pfpl_nocolor.toml: {header_bytes: 1360}
+  cuszhi_cr|configs/pipelines/cusz_hi_cr.toml: {header_bytes: 1872}
+  cuszhi_cr_b1|configs/pipelines/cusz_hi_cr_b1.toml: {header_bytes: 1872}
+  cuszhi_cr_b1_singlecall|configs/pipelines/cusz_hi_cr_b1.toml: {header_bytes: 1872}
+  cuszhi_tp|configs/pipelines/cusz_hi_tp.toml: {header_bytes: 2640}
+  cuszhi_tp_b1|configs/pipelines/cusz_hi_tp_b1.toml: {header_bytes: 2640}
+  cuszp2_plain|configs/pipelines/cuszp2_plain.toml: {header_bytes: 1104}
+  cuszp2_plain_hp|configs/pipelines/cuszp2_plain.toml: {header_bytes: 1104}
+  cuszp2_plain_sp|configs/pipelines/cuszp2_plain_sp.toml: {header_bytes: 1104}
+  cuszp2_sp_color|configs/pipelines/cuszp2_sp.toml: {header_bytes: 1104}
+  cuszp2_sp_nocolor|configs/pipelines/cuszp2_sp_nocolor.toml: {header_bytes: 1104}
+  cuszp2_outlier|configs/pipelines/cuszp2.toml: {header_bytes: 1104}
+  cuszp2_outlier_hp|configs/pipelines/cuszp2.toml: {header_bytes: 1104}
+  cuszp2_outlier_sp|configs/pipelines/cuszp2_sp.toml: {header_bytes: 1104}
+  cuszp3_plain|configs/pipelines/cuszp3.toml: {header_bytes: 1104}
+  cuszp3_plain_hp|configs/pipelines/cuszp3.toml: {header_bytes: 1104}
+  cuszp3_plain|configs/pipelines/cuszp3_1d.toml: {header_bytes: 1104}
+  cuszp3_plain_hp|configs/pipelines/cuszp3_1d.toml: {header_bytes: 1104}
+  cuszp3_plain|configs/pipelines/cuszp3_3d.toml: {header_bytes: 1104}
+  cuszp3_plain_hp|configs/pipelines/cuszp3_3d.toml: {header_bytes: 1104}
+  cuszp3_plain_sp|configs/pipelines/cuszp3_plain_sp.toml: {header_bytes: 1104}
+  cuszp3_plain_sp|configs/pipelines/cuszp3_3d_plain_sp.toml: {header_bytes: 1104}
+  cuszp3_plain_sp|configs/pipelines/cuszp2_plain_sp.toml: {header_bytes: 1104}
+  cuszp3_outlier|configs/pipelines/cuszp3_outlier.toml: {header_bytes: 1104}
+  cuszp3_outlier|configs/pipelines/cuszp3_1d_outlier.toml: {header_bytes: 1104}
+  cuszp3_outlier|configs/pipelines/cuszp3_3d_outlier.toml: {header_bytes: 1104}
+  cuszp3_outlier_hp|configs/pipelines/cuszp3_outlier.toml: {header_bytes: 1104}
+  cuszp3_outlier_hp|configs/pipelines/cuszp3_1d_outlier.toml: {header_bytes: 1104}
+  cuszp3_outlier_hp|configs/pipelines/cuszp3_3d_outlier.toml: {header_bytes: 1104}
+  cuszp3_outlier_sp|configs/pipelines/cuszp3_outlier_sp.toml: {header_bytes: 1104}
+  cuszp3_outlier_sp|configs/pipelines/cuszp3_3d_sp.toml: {header_bytes: 1104}
+  cuszp3_outlier_sp|configs/pipelines/cuszp2_sp.toml: {header_bytes: 1104}
+  cuszp3_fixed|configs/pipelines/cuszp3_fixed.toml: {header_bytes: 848}
+  cuszp3_fixed|configs/pipelines/cuszp3_2d_fixed.toml: {header_bytes: 1104}
+  cuszp3_fixed|configs/pipelines/cuszp3_3d_fixed.toml: {header_bytes: 1104}
+  cuszp3_fixed_b1|configs/pipelines/cuszp3_2d_fixed.toml: {header_bytes: 1104}
+  cuszp3_fixed_b1|configs/pipelines/cuszp3_3d_fixed.toml: {header_bytes: 1104}
+  x_lq_pfpl_ans|configs/pipelines/x_lorenzoquant_pfpl_ans.toml: {header_bytes: 1872}
+  lorenzo_ab_b128_plain|configs/pipelines/lorenzo_ab_b128_plain.toml: {header_bytes: 1104}
+  lorenzo_ab_b128_outlier|configs/pipelines/lorenzo_ab_b128_outlier.toml: {header_bytes: 1104}
+  lorenzo_ab_b32_plain|configs/pipelines/lorenzo_ab_b32_plain.toml: {header_bytes: 1104}
+  lorenzo_ab_b32_outlier|configs/pipelines/lorenzo_ab_b32_outlier.toml: {header_bytes: 1104}
+  lorenzo_ab_b64_plain|configs/pipelines/lorenzo_ab_b64_plain.toml: {header_bytes: 1104}
+  lorenzo_ab_b64_outlier|configs/pipelines/lorenzo_ab_b64_outlier.toml: {header_bytes: 1104}
+  lorenzo_ab_b96_plain|configs/pipelines/lorenzo_ab_b96_plain.toml: {header_bytes: 1104}
+  lorenzo_ab_b96_outlier|configs/pipelines/lorenzo_ab_b96_outlier.toml: {header_bytes: 1104}
+  szp_composed|configs/pipelines/szp_composed.toml: {header_bytes: 1104}
+  szp_composed_color|configs/pipelines/szp_composed.toml: {header_bytes: 1104}
+  szp_composed_nocolor|configs/pipelines/szp_composed_nocolor.toml: {header_bytes: 1104}
