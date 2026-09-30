@@ -9,6 +9,7 @@ medians at the same requested bound.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from collections import Counter, defaultdict
@@ -18,6 +19,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from benchkit import validity  # noqa: E402
+from benchkit.archive_size import (  # noqa: E402
+    DEFAULT_CONFIG as DEFAULT_ARCHIVE_SIZE_CONFIG,
+    correct_fzgm_archive_sizes,
+)
 
 
 NATIVE_VARIANTS = (
@@ -50,6 +55,27 @@ THROUGHPUT_UNCERTAINTY = 0.05
 def load_rows(path: Path) -> list[dict]:
     with path.open() as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def apply_archive_size_correction(rows: list[dict], config_path: Path | None) -> list[dict]:
+    if config_path is None:
+        return rows
+    return correct_fzgm_archive_sizes(rows, config_path=config_path)
+
+
+def archive_size_metadata(config_path: Path | None) -> dict | None:
+    if config_path is None:
+        return None
+    resolved = config_path.resolve()
+    repo_root = Path(__file__).resolve().parent.parent
+    try:
+        display_path = resolved.relative_to(repo_root).as_posix()
+    except ValueError:
+        display_path = resolved.name
+    return {
+        "config_path": display_path,
+        "config_sha256": hashlib.sha256(resolved.read_bytes()).hexdigest(),
+    }
 
 
 def select_composed_rows(rows: list[dict], variant: str | None = None) -> list[dict]:
@@ -183,6 +209,13 @@ def render_markdown(payload: dict) -> str:
         "dominate a valid composition. `All usable` is the stricter sensitivity subset",
         f"where all {native_points_per_field} native points are valid and compression-stable.",
     ]
+    correction = payload.get("archive_size_correction")
+    if correction:
+        lines += [
+            "",
+            "Archive-inclusive FZGM sizes were derived in memory using",
+            f"`{correction['config_path']}` (SHA-256 `{correction['config_sha256']}`).",
+        ]
     if compatibility["same_session"]:
         lines += [
             "Candidate and native rows come from the same publication session. Dataset",
@@ -281,6 +314,9 @@ def render_tex(payload: dict, selected_variant: str) -> str:
         "    Dataset / bound & Valid & Frontier & Robust & Attempt-complete robust \\\\",
         "    \\midrule",
     ]
+    correction = payload.get("archive_size_correction")
+    if correction:
+        lines.insert(1, f"% Archive-size correction config SHA-256: {correction['config_sha256']}")
     for row in selected:
         lines.append(
             f"    {row['dataset']} / $10^{{{int(round(math.log10(row['bound'])))}}}$ & "
@@ -307,6 +343,12 @@ def main() -> None:
     parser.add_argument("--output-tex", type=Path, required=True)
     parser.add_argument("--selected-variant", default="x_lq_pfpl_ans")
     parser.add_argument(
+        "--fzgm-archive-size-config",
+        type=Path,
+        help=("apply the audited historical FZGM archive-size correction using this "
+              f"config (default mapping: {DEFAULT_ARCHIVE_SIZE_CONFIG})"),
+    )
+    parser.add_argument(
         "--composed-variant",
         help=("restrict the composed source to one variant; use this when a paired "
               "session contains both composition and native rows"),
@@ -318,6 +360,9 @@ def main() -> None:
     # Restrict this side to known FZGM compositions so native rows cannot become
     # candidate points when the same session is supplied to both inputs.
     composed_raw = select_composed_rows(composed_source_rows, args.composed_variant)
+    composed_raw = apply_archive_size_correction(
+        composed_raw, args.fzgm_archive_size_config
+    )
     if not composed_raw:
         raise ValueError("composed source contains no matching FZGM composition rows")
     native_all = [row for path in args.native for row in load_rows(path / "runs.jsonl")]
@@ -493,6 +538,7 @@ def main() -> None:
 
     payload = {
         "schema": "fzgm-rq3-native-frontier-v1",
+        "archive_size_correction": archive_size_metadata(args.fzgm_archive_size_config),
         "composed_source": args.composed.name,
         "native_sources": [path.name for path in args.native],
         "definition": {

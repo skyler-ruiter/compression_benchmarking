@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from benchkit import validity
+from benchkit.archive_size import correct_fzgm_archive_sizes
 from benchkit.schema import load_result_file
 from scripts.analyze_b1_join_audit import (
     REPO_ROOT,
@@ -306,7 +307,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]], coordinate_fields: list[st
         "reconstruction_logical_cell_id",
     ]
     with path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             encoded = dict(row)
@@ -323,6 +324,17 @@ def fmt(value: float | None, digits: int = 4) -> str:
 
 
 def write_markdown(path: Path, payload: dict[str, Any]) -> None:
+    measured_pairs = [pair for pair in payload["pairs"] if pair["joint_policy_valid"]]
+    exact_pairs = [
+        pair["label"]
+        for pair in measured_pairs
+        if pair["exact_reconstruction"] == pair["joint_policy_valid"]
+    ]
+    nonexact_pairs = [
+        pair["label"]
+        for pair in measured_pairs
+        if pair["exact_reconstruction"] != pair["joint_policy_valid"]
+    ]
     lines = [
         "# B1 reconstruction fidelity audit",
         "",
@@ -340,6 +352,14 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
         "| Pair | Successful | Joint-valid | Exact raw reconstruction | Native severe EB | FZGM severe EB | Native failed | FZGM failed | Normalized max-error delta p95 / max | PSNR delta p95 / max (dB) | FZGM/native bytes geomean [range] |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    correction = payload.get("archive_size_correction")
+    if correction:
+        lines[6:6] = [
+            "Historical FZGM payload sizes are converted in memory to complete FZM",
+            f"archive sizes using `{correction['config_path']}` (SHA-256",
+            f"`{correction['config_sha256']}`). Source session rows remain unchanged.",
+            "",
+        ]
     for pair in payload["pairs"]:
         ratio = pair["compressed_bytes_ratio_fzgm_over_native"]
         psnr = pair["psnr_abs_delta_db"]
@@ -356,38 +376,71 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
             f"{fmt(psnr['p95'])} / {fmt(psnr['max'])} | "
             f"{fmt(ratio['geomean'])} [{fmt(ratio['min'])}, {fmt(ratio['max'])}] |"
         )
-    lines.extend(
-        [
-            "",
-            "## Interpretation",
-            "",
+    lines.extend(["", "## Interpretation", ""])
+    if exact_pairs:
+        lines.extend([
+            "- Exact reconstruction on every jointly valid coordinate is observed for "
+            + ", ".join(exact_pairs) + ".",
+        ])
+        if nonexact_pairs:
+            lines.extend([
+                "  Other measured families remain algorithmic reconstructions rather than",
+                "  byte-identical whole-pipeline reproductions.",
+            ])
+    else:
+        lines.extend([
             "- No configured whole-pipeline pair is byte-identical over every joint-valid",
             "  cell. The earlier two-field Tier-1 wording is therefore not supported by",
             "  this full-corpus audit.",
+        ])
+    lines.extend([
             "- Every successful, nondegenerate FZGM row avoids a severe error-bound",
-            "  violation under `benchkit.validity`. Severe violations occur only in native",
-            "  reference rows and remain visible in the table.",
-            "- Exact reconstruction hashes occur on subsets of every family. Nonidentical",
-            "  hashes require Tier-2 implementation attribution; close aggregate quality",
-            "  alone cannot establish bit identity.",
+            "  violation under `benchkit.validity`.",
+    ])
+    if payload["totals"]["reference_severe_bound_violation"]:
+        lines.extend([
+            "  Severe violations occur only in native reference rows and remain visible",
+            "  in the table.",
+        ])
+    if nonexact_pairs:
+        lines.extend([
+            "- Outside the exactly reconstructed families named above, exact hashes occur",
+            "  only on subsets. Nonidentical hashes require Tier-2 implementation",
+            "  attribution; close aggregate quality alone cannot establish bit identity.",
+        ])
+    marginal_total = (
+        payload["totals"]["reconstruction_marginal_bound_miss"]
+        + payload["totals"]["reference_marginal_bound_miss"]
+    )
+    if marginal_total:
+        lines.extend([
             f"- The validity policy retains marginal misses through "
             f"{payload['validity_policy']['marginal_eb_ratio']:.2f}x.",
             f"  It retains {payload['totals']['reconstruction_marginal_bound_miss']} "
             f"FZGM and {payload['totals']['reference_marginal_bound_miss']} native rows;",
             "  they are reported rather than counted as severe violations.",
+        ])
+    if payload["totals"]["execution_failed"]:
+        lines.extend([
             f"- The {payload['totals']['execution_failed']} execution failures remain "
             "coverage exceptions: "
             f"{payload['totals']['reference_execution_failed']} reference and "
             f"{payload['totals']['reconstruction_execution_failed']} reconstruction "
             "failures. They are not silently removed from the tested-coordinate count.",
-            "",
-            "The accompanying CSV contains one row per coordinate, including validity",
-            "reasons and logical-cell IDs. The JSON records source, contract, verification,",
-            "and generator checksums for later artifact packaging.",
-            "",
-        ]
-    )
-    if any(pair["id"].startswith("cuszp") for pair in payload["pairs"]):
+        ])
+    else:
+        lines.append("- No paired execution failed.")
+    lines.extend([
+        "",
+        "The accompanying CSV contains one row per coordinate, including validity",
+        "reasons and logical-cell IDs. The JSON records source, contract, verification,",
+        "and generator checksums for later artifact packaging.",
+        "",
+    ])
+    if any(
+        pair["id"].startswith("cuszp") and pair["joint_policy_valid"]
+        for pair in payload["pairs"]
+    ):
         insertion = [
             "- The largest PSNR deltas for the cuSZp families occur on the near-constant",
             "  f64 S3D/N2 field, where tiny absolute error changes are amplified in dB.",
@@ -407,6 +460,11 @@ def main() -> None:
     parser.add_argument("--pairs", type=Path, required=True)
     parser.add_argument("--session", type=Path, action="append", required=True)
     parser.add_argument("--output-prefix", type=Path, required=True)
+    parser.add_argument(
+        "--fzgm-archive-size-config",
+        type=Path,
+        help="audited mapping used to add FZM headers to historical payload-only rows",
+    )
     args = parser.parse_args()
 
     contract_path = args.pairs.resolve()
@@ -417,6 +475,19 @@ def main() -> None:
     rows: list[dict[str, Any]] = []
     for session in sessions:
         rows.extend(load_result_file(session / "runs.jsonl"))
+    input_rows = len(rows)
+    archive_size_correction = None
+    if args.fzgm_archive_size_config is not None:
+        config_path = args.fzgm_archive_size_config.resolve()
+        rows = correct_fzgm_archive_sizes(rows, config_path=config_path)
+        try:
+            display_path = config_path.relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            display_path = config_path.name
+        archive_size_correction = {
+            "config_path": display_path,
+            "config_sha256": sha256_file(config_path),
+        }
     pairs, details = analyze(rows, contract)
     totals = {field: sum(pair[field] for pair in pairs) for field in COUNT_FIELDS}
 
@@ -435,7 +506,8 @@ def main() -> None:
             "marginal_eb_ratio": validity.MARGINAL_EB_RATIO,
         },
         "coordinate_fields": contract["coordinate_fields"],
-        "input_rows": len(rows),
+        "input_rows": input_rows,
+        "archive_size_correction": archive_size_correction,
         "pairs": pairs,
         "totals": totals,
     }

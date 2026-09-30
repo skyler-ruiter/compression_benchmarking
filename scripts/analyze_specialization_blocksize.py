@@ -4,11 +4,20 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import re
 from collections import defaultdict
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from benchkit.archive_size import (  # noqa: E402
+    DEFAULT_CONFIG as DEFAULT_ARCHIVE_SIZE_CONFIG,
+    correct_fzgm_archive_sizes,
+)
 
 
 VARIANT_RE = re.compile(r"^lorenzo_ab_b(32|64|96|128)_(plain|outlier)$")
@@ -17,6 +26,27 @@ VARIANT_RE = re.compile(r"^lorenzo_ab_b(32|64|96|128)_(plain|outlier)$")
 def load(path: Path) -> list[dict]:
     with path.open() as stream:
         return [json.loads(line) for line in stream if line.strip()]
+
+
+def apply_archive_size_correction(rows: list[dict], config_path: Path | None) -> list[dict]:
+    if config_path is None:
+        return rows
+    return correct_fzgm_archive_sizes(rows, config_path=config_path)
+
+
+def archive_size_metadata(config_path: Path | None) -> dict | None:
+    if config_path is None:
+        return None
+    resolved = config_path.resolve()
+    repo_root = Path(__file__).resolve().parent.parent
+    try:
+        display_path = resolved.relative_to(repo_root).as_posix()
+    except ValueError:
+        display_path = resolved.name
+    return {
+        "config_path": display_path,
+        "config_sha256": hashlib.sha256(resolved.read_bytes()).hexdigest(),
+    }
 
 
 def gmean(values: list[float]) -> float | None:
@@ -180,6 +210,13 @@ def markdown(payload: dict, off_name: str, auto_name: str) -> str:
         "| B | Mode | Pairs | C/D timed | Compress | Decompress | Auto C/D (GB/s) | CR / B=32 | Peak memory |",
         "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    correction = payload.get("archive_size_correction")
+    if correction:
+        lines[4:4] = [
+            "",
+            "Archive-inclusive FZGM sizes were derived in memory using",
+            f"`{correction['config_path']}` (SHA-256 `{correction['config_sha256']}`).",
+        ]
     for row in payload["rows"]:
         lines.append(
             f"| {row['block_size']} | {row['mode']} | {row['valid_pairs']} | "
@@ -245,6 +282,9 @@ def latex(payload: dict) -> str:
         "    $B$ & C/D pairs & Mode & C speedup & D speedup & CR/$B{=}32$ & Memory \\\\",
         "    \\midrule",
     ]
+    correction = payload.get("archive_size_correction")
+    if correction:
+        lines.insert(2, f"% Archive-size correction config SHA-256: {correction['config_sha256']}")
     for row in payload["rows"]:
         lines.append(
             f"    {row['block_size']} & {row['compress_timed_pairs']}/{row['decompress_timed_pairs']} & "
@@ -267,12 +307,27 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--off", required=True, type=Path)
     parser.add_argument("--auto", required=True, type=Path)
+    parser.add_argument(
+        "--fzgm-archive-size-config",
+        type=Path,
+        help=("apply the audited historical FZGM archive-size correction using this "
+              f"config (default mapping: {DEFAULT_ARCHIVE_SIZE_CONFIG})"),
+    )
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--output-md", type=Path)
     parser.add_argument("--output-tex", type=Path)
     args = parser.parse_args()
 
-    payload = summarize(load(args.off / "runs.jsonl"), load(args.auto / "runs.jsonl"))
+    off_rows = apply_archive_size_correction(
+        load(args.off / "runs.jsonl"), args.fzgm_archive_size_config
+    )
+    auto_rows = apply_archive_size_correction(
+        load(args.auto / "runs.jsonl"), args.fzgm_archive_size_config
+    )
+    payload = summarize(off_rows, auto_rows)
+    payload["archive_size_correction"] = archive_size_metadata(
+        args.fzgm_archive_size_config
+    )
     payload["staged_source"] = args.off.name
     payload["specialized_source"] = args.auto.name
     outputs = {
