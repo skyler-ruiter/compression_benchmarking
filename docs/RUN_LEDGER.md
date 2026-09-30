@@ -636,3 +636,5 @@ specialized identity). Payload = `compressed_bytes - compressed_archive_overhead
 because benchkit `7d87ebd` began charging the full FZM archive after the published sessions.
 Smoke (QMCPACK-3D, 240 cells, auto): 192 same-pipeline cells identical; 48 differ only
 because the pfpl/szp_composed pipeline definitions changed (`11ea87e`), all within bound.
+
+**Cancelled 2026-09-30 before it ran:** the author judged the running range_precomputed_spec campaign sufficient. Scripts and configs are kept for reuse.
