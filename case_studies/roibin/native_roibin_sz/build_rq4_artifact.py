@@ -20,7 +20,9 @@ REV = "a062d88"
 CORPORA = {"EXAFEL": "EXAFEL (LCLS, 130 frames, calibrated)",
            "CXIDB21": "CXIDB 21 (LCLS, 279 frames, raw ADU)"}
 # Figure selection: specialized configurations plus the best-ratio staged coders.
-FIG_VARIANTS = {"A_bitpack": "Bitpack", "G_pfpl": "PFPL back end", "H_diff_golomb": "Golomb-Rice",
+# Golomb-Rice (H_diff_golomb) is omitted from the figure: compression-only specialization,
+# dominated by Bitpack; it stays in fzgm_all.
+FIG_VARIANTS = {"A_bitpack": "Bitpack", "G_pfpl": "PFPL back end",
                 "E_tl_huff16": "Huffman", "F_tl_rze_ans16": "RZE+ANS"}
 LABELS = {"A_bitpack": "TiledLorenzo-AdaptiveBitpack",
           "B_golomb_tl": "TiledLorenzo-GolombRice",
