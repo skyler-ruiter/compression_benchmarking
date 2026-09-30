@@ -1,0 +1,1 @@
+{"dataset": "EXAFEL", "tool": "X2 (LorenzoQuant-Bitshuffle-RZE-ANS)", "label": "X2", "cr": 5.8231542, "compress_gbs": 228.27437, "decompress_gbs": 207.15958, "compress_gbs_auto": 228.31068, "installed": 0, "max_err": 10.0, "output_padding_elems": 1792, "cv": 0.0011}

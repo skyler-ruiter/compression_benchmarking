@@ -269,3 +269,18 @@ parallelism is the realistic CPU scaling path.
 
 ## Remaining ratio gap (FZGM best / native), bin=1: EXAFEL 16.92/22.73 = 0.74,
 CXIDB 21 26.26/36.88 = 0.71. bin=2: 85.81/152.3 = 0.56, 146.64/234.3 = 0.63.
+
+## X2 on the light-source volumes (2026-09-30)
+X2 (`x_lorenzoquant_pfpl_ans.toml` with ABS 10: `x2_abs10.toml`), volume presented as one
+tall 2-D image, tag build, `-b --runs 7`: EXAFEL CR 5.82 at 228/207 GB/s, CXIDB 21 CR 7.94
+at 251/214 GB/s; max err 10.0; no specialization installs (0 groups). Summaries:
+`x2_{EXAFEL,CXIDB21}_summary.json`. **Quirk:** `fzgmod-cli -x` writes a decompressed file
+longer than the input (EXAFEL +1,792 values, CXIDB 21 +128) — LorenzoQuant's padded stream
+length leaks into the output size. The first N values are correct; worth a look (would
+break a naive byte-length check).
+
+## cuSZp3 on CXIDB 21 is a native defect, not our batching
+Per-frame native cuSZp3 (`-m plain -d 2 1 1480 1552`, abs 10) also violates the bound on
+single CXIDB 21 frames: 1-9 values per frame, mostly original zeros reconstructed as
++-160/320/640 (powers of two x eb: fixed-length overflow). Plotted flagged, excluded from the
+Pareto front.

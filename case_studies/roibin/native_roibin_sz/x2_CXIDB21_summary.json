@@ -1,0 +1,1 @@
+{"dataset": "CXIDB21", "tool": "X2 (LorenzoQuant-Bitshuffle-RZE-ANS)", "label": "X2", "cr": 7.9365547, "compress_gbs": 250.69156, "decompress_gbs": 214.01906, "compress_gbs_auto": 250.70725, "installed": 0, "max_err": 10.0, "output_padding_elems": 128, "cv": 0.0002}

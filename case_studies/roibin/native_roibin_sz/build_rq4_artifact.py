@@ -83,12 +83,22 @@ def main(out: Path) -> None:
             if "error" in b:
                 corpus["general_gpu_excluded"].append(dict(tool=b["tool"], reason=b["error"]))
             elif b["max_err"] > 10.0 * 1.001:
+                # Kept with its measurements so the figure can show it flagged; never
+                # counted as a valid configuration (excluded from the Pareto front).
                 corpus["general_gpu_excluded"].append(
-                    dict(tool=b["tool"], reason=f"bound violated: max err {b['max_err']:.1f} > 10"))
+                    dict(tool=b["tool"], label=BASELINE_LABELS[b["tool"]], cr=b["cr"],
+                         compress_gbs=b["cmp_gbs"], decompress_gbs=b["dec_gbs"], max_err=b["max_err"],
+                         reason=f"bound violated: max err {b['max_err']:.1f} > 10"))
             else:
                 corpus["general_gpu"].append(dict(label=BASELINE_LABELS[b["tool"]], tool=b["tool"],
                                                   cr=b["cr"], compress_gbs=b["cmp_gbs"],
                                                   decompress_gbs=b["dec_gbs"], batches=b["batches"]))
+        x2 = load(f"x2_{ds}_summary.json")
+        assert x2["max_err"] <= 10.0 * 1.001, (ds, "X2 bound")
+        corpus["fzgm_general"] = [dict(label="X2", tool=x2["tool"], cr=x2["cr"],
+                                       compress_gbs=x2["compress_gbs"], decompress_gbs=x2["decompress_gbs"],
+                                       specialized=bool(x2["installed"]), max_err=x2["max_err"],
+                                       output_padding_elems=x2["output_padding_elems"])]
         payload["corpora"].append(corpus)
 
         md += [f"## {title}", "",
@@ -111,8 +121,12 @@ def main(out: Path) -> None:
         for g in corpus["general_gpu"]:
             md.append(f"| {g['tool']} (global eb 10, {g['batches']} batch) | — | {g['cr']:.2f} | "
                       f"{g['compress_gbs']:.0f} | {g['decompress_gbs']:.0f} | — |")
+        for g in corpus["fzgm_general"]:
+            md.append(f"| FZGM {g['tool']} (global eb 10, cross-family, not specialized) | — | {g['cr']:.2f} | "
+                      f"{g['compress_gbs']:.0f} | {g['decompress_gbs']:.0f} | no |")
         for x in corpus["general_gpu_excluded"]:
-            md.append(f"| ~~{x['tool']}~~ excluded: {x['reason']} | | | | | |")
+            vals = (f"{x['cr']:.2f} | {x['compress_gbs']:.0f} | {x['decompress_gbs']:.0f}" if "cr" in x else " | | ")
+            md.append(f"| ~~{x['tool']}~~ INVALID: {x['reason']} | — | {vals} | — |")
         md.append("")
     md += ["## Protocol and caveats", "",
            "- FZGM: whole-volume `fzgmod-cli -b --runs 7`, median warm device time; GPU verified idle "
