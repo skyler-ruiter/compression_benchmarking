@@ -231,7 +231,10 @@ class FzgmAdapter(Adapter):
         load_report_json(report)
         return DecompressResult(decompressed_path=out, raw_json={}, log_path=log)
 
-    def benchmark(self, spec: RunSpec, prep: Prepared, n_runs: int, workdir: Path) -> BenchmarkResult:
+    def benchmark(self, spec: RunSpec, prep: Prepared, n_runs: int, workdir: Path,
+                  require_archive: bool = True) -> BenchmarkResult:
+        """`require_archive=False` is for callers that measure the process itself and
+        not archive size (tools/peak_memory), which run -b without a prior compress()."""
         f = spec.field
         report = workdir / "b.json"
         log = workdir / "benchmark.log"
@@ -246,7 +249,7 @@ class FzgmAdapter(Adapter):
             raise AdapterError(f"benchmark failed (exit {proc.returncode}){_tool_error(report, log)}; see {log}")
         rep = load_report_json(report)
         compressed = workdir / "c.fzm"
-        if not compressed.is_file():
+        if require_archive and not compressed.is_file():
             raise AdapterError(
                 f"benchmark produced no compressed archive at {compressed}; "
                 f"cannot report complete archive size; see {log}")
@@ -283,7 +286,8 @@ class FzgmAdapter(Adapter):
             decompress_device_ms_all=[float(x) for x in dec],
             compress_host_ms_all=[float(x) for x in comp_host],
             decompress_host_ms_all=[float(x) for x in dec_host],
-            compressed_bytes=compressed.stat().st_size,
+            compressed_bytes=(compressed.stat().st_size if compressed.is_file()
+                              else int(rep["size"]["compressed_bytes"])),
             stages=rep.get("stages", []),
             stage_versions=rep.get("stage_versions", {}) or {},
             native_quality=rep.get("quality"),

@@ -1,0 +1,67 @@
+# Whole-process peak memory for the specialization block-size table
+# (tab:specialization-block-size): staged vs Auto for linear quantization + 1-D Lorenzo +
+# AdaptiveBitpack at B = 32/64/96/128, plain and outlier. Replaces that table's former
+# Memory column, which was FZGM's self-reported pool peak (peak_device_bytes) and
+# excluded the CUDA context, module code and driver local-memory reservation.
+#
+# Same driver, protocol and FZGM commit as rq3_h100_b09f210.yaml (NVML primary, probe
+# for decomposition, runs=2 steady state, 3 reps, PREALLOCATE + coloring). FZGM-only:
+# no native arm. Fields match configs/experiments/specialization_blocksize_sweep.yaml.
+# One bound: the pool peak in that sweep was identical at 1e-2/1e-3/1e-4 in all 80
+# field x variant x policy cells (PREALLOCATE sizes buffers independent of the bound).
+
+name: peak_memory_blocksize_h100_b09f210
+error: {mode: rel_range, bound: 1.0e-3}
+reps: 3
+sample_period_ms: 0.5
+
+fields:
+  - [CESM-2D, CLDHGH]
+  - [CESM-2D, PSL]
+  - [HURR, TC]
+  - [NYX, temperature]
+  - [HACC, vx]
+
+fzgm:
+  expected_git_sha: b09f210
+  runs: 2
+  planning_arms:
+    planned: {strategy: preallocate, coloring: true}
+  split_process_arms: []
+
+families:
+  lorenzo_ab_b32_plain:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b32_plain.toml
+  lorenzo_ab_b32_outlier:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b32_outlier.toml
+  lorenzo_ab_b64_plain:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b64_plain.toml
+  lorenzo_ab_b64_outlier:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b64_outlier.toml
+  lorenzo_ab_b96_plain:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b96_plain.toml
+  lorenzo_ab_b96_outlier:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b96_outlier.toml
+  lorenzo_ab_b128_plain:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b128_plain.toml
+  lorenzo_ab_b128_outlier:
+    specializes: true
+    native: null
+    fzgm: configs/pipelines/lorenzo_ab_b128_outlier.toml
+
+pipeline_sources: {}
+native_pins: {}

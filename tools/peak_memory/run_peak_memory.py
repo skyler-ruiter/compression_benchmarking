@@ -213,11 +213,13 @@ def env_override(**kv):
 
 # ---------------------------------------------------------------------- cell plan
 
-def family_entry(fam_cfg: dict, rank: int) -> tuple[dict, str]:
+def family_entry(fam_cfg: dict, rank: int) -> tuple[dict | None, str]:
+    """(native spec, FZGM TOML). native is None for an FZGM-only family
+    (`native: null`, e.g. the block-size ablation), which plans no native cell."""
     if "by_rank" in fam_cfg:
         e = fam_cfg["by_rank"][rank]
-        return e["native"], e["fzgm"]
-    return fam_cfg["native"], fam_cfg["fzgm"]
+        return e.get("native"), e["fzgm"]
+    return fam_cfg.get("native"), fam_cfg["fzgm"]
 
 
 def snapshot_pipelines(cfg: dict, out: Path) -> dict:
@@ -276,9 +278,10 @@ def plan_cells(cfg: dict, catalog: DatasetCatalog, only_fields=None, only_famili
             if only_families and fam not in only_families:
                 continue
             native, fzgm_toml = family_entry(fcfg, len(fspec.dims))
-            cells.append({"cell_id": f"{fam}|native|{key}", "family": fam, "impl": "native",
-                          "arm": "native", "native": native, "field": fspec})
-            for sc in native.get("static_control_fields", []):
+            if native is not None:
+                cells.append({"cell_id": f"{fam}|native|{key}", "family": fam, "impl": "native",
+                              "arm": "native", "native": native, "field": fspec})
+            for sc in (native or {}).get("static_control_fields", []):
                 if sc == key:
                     cells.append({"cell_id": f"{fam}|native_static|{key}", "family": fam,
                                   "impl": "native", "arm": "native_static",
@@ -371,7 +374,7 @@ def measure(cell: dict, cfg: dict, args, nvml: Nvml, workroot: Path) -> dict:
                     ad.decompress(spec, c.compressed_path, wd)
                     reports = [wd / "z.json", wd / "x.json"]
                 else:
-                    ad.benchmark(spec, prep, cell.get("n_runs", 1), wd)
+                    ad.benchmark(spec, prep, cell.get("n_runs", 1), wd, require_archive=False)
                     reports = [wd / "b.json"]
             out["fzgm_reports"] = [summarize_fzgm_report(r) for r in reports]
             shas = {r["git_sha"] for r in out["fzgm_reports"]}
@@ -450,6 +453,7 @@ def capture_provenance(cfg: dict, cfg_path: Path, args, nvml: Nvml, fields) -> d
     bins = {
         "cusz": os.environ.get("CUSZ_CLI"), "cuszp2": os.environ.get("CUSZP2_CLI"),
         "cuszp3": os.environ.get("CUSZP3_CLI"), "fsz": os.environ.get("FSZ_CLI"),
+        "cuszhi": os.environ.get("CUSZHI_CLI"),
         "fzgmod-cli": args.fzgm_cli, "cuda_mem_probe": str(PROBE_SO),
         "ctx_baseline": str(CTX_BASELINE), "stacklimit_shim": str(STACK_SHIM),
     }

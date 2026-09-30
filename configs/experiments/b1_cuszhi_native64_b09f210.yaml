@@ -1,0 +1,93 @@
+name: b1_cuszhi_native64_b09f210
+description: >-
+  Paired H100 compressed-size and reconstruction-quality comparison of native
+  cuSZ-Hi CR/TP and FZGM GInterp with the active native 2-D 64x64 geometry.
+  Final rerun at clean FZGM main b09f210: d9e0d06 (native64 geometry ed4b3c1 and the
+  inverse-DAG cache fix) plus deterministic GInterp auto-tuning, which removes the
+  run-to-run 2-D archive jitter seen in b1-cuszhi-native64-h100-d9e0d06-20260930.
+  Native cuSZ-Hi is the same binary. Timing is diagnostic; a separate timing campaign is needed for
+  throughput claims.
+
+# Exact fresh-build executables. Check these digests before launch if either
+# source checkout or build directory has changed; Benchkit records this YAML
+# but does not itself enforce the binary hashes.
+# fzgmod-cli is a thin launcher; the code is in the libfzgmod*.so libraries beside it.
+x-binary-sha256:
+  fzgm: 321b55e2533eacc6e220  # fzgmod-cli (prefix; full hashes in provenance)
+  libfzgmod: 3679728f80e6a8aea9c7
+  libfzgmod_modules: 7a23616fca0483c58dda
+  libfzgmod_pipeline: 9fce5227aa014deca9e7
+  libfzgmod_mem: b9eb6f7b2818eecc3820
+  cuszhi: 14cf1df90bf438d71b80f734737d1783d28b8bb0a7b628ada07b3a52cedea1c3
+
+datasets: [CESM-2D, HURR, SCALE-LETKF]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+# One fresh compressor invocation per logical cell avoids the previously
+# observed CR-chain pipeline-reuse issue. Independent repeats, if needed for
+# close size/quality results, should use separate sessions.
+repetitions: 1
+warmup_reps: 0
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: b09f2108666f08517ecb3bd9dc7ecb9d8e25f2cd
+  tool_build_flags: Release;CUDA;sm_90;clean worktree ~/FZGPUModules-memfix/build;FZ_SPECIALIZE=off
+  tool_patch_sha256: clean
+  cli_path: /home/exouser/FZGPUModules-memfix/build/bin/fzgmod-cli
+
+x-cuszhi-tool: &cuszhi_tool
+  tool_version: cuSZ-Hi-e16b75-repeatfix
+  tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0
+  tool_build_flags: Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9;fresh build/native64_benchmark;fresh-compressor-per-repeat
+  tool_patch_sha256: a234d502b0ad40b79c2184c3c2bb4a3ef753570489845ace15d86547f675c128
+  cli_path: /home/exouser/compressors/cuSZ-Hi/build/native64_benchmark/cuszhi
+
+runs:
+  - {<<: *cuszhi_tool, compressor: cuszhi, variant: cuszhi_cr, pipeline: cr}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszhi_cr_native64,
+     pipeline: configs/pipelines/cusz_hi_cr_native64.toml}
+  - {<<: *cuszhi_tool, compressor: cuszhi, variant: cuszhi_tp, pipeline: tp}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszhi_tp_native64,
+     pipeline: configs/pipelines/cusz_hi_tp_native64.toml}
+
+verification:
+  accepted_exclusions:
+    - codes: [degenerate_field]
+      match: {dataset: CESM-2D}
+      reason: Constant or numerically degenerate fields cannot support rate-distortion comparison.
+    - codes: [degenerate_field]
+      match: {dataset: HURR}
+      reason: Constant or numerically degenerate fields cannot support rate-distortion comparison.
+    - codes: [degenerate_field]
+      match: {dataset: SCALE-LETKF}
+      reason: Constant or numerically degenerate fields cannot support rate-distortion comparison.
+    - codes: [eb_violated_severe]
+      match: {dataset: CESM-2D, field: TSMX, error_bound: 1.0e-4}
+      reason: >-
+        Marginal overshoot (1.005-1.013x the effective bound in b1-cuszhi-native64-h100-20260929)
+        at the tightest bound, shown by native cuSZ-Hi and FZGM alike (native TSMX 1.012x):
+        float32 reconstruction rounding just past the shared 1.01 tolerance, not a port defect.
+    - codes: [eb_violated_severe]
+      match: {dataset: CESM-2D, field: TREFMNAV, error_bound: 1.0e-4}
+      reason: >-
+        Marginal overshoot (1.005-1.013x the effective bound in b1-cuszhi-native64-h100-20260929)
+        at the tightest bound, shown by native cuSZ-Hi and FZGM alike (native TSMX 1.012x):
+        float32 reconstruction rounding just past the shared 1.01 tolerance, not a port defect.
+    - codes: [eb_violated_severe]
+      match: {dataset: CESM-2D, field: TROP_T, error_bound: 1.0e-4}
+      reason: >-
+        Marginal overshoot (1.005-1.013x the effective bound in b1-cuszhi-native64-h100-20260929)
+        at the tightest bound, shown by native cuSZ-Hi and FZGM alike (native TSMX 1.012x):
+        float32 reconstruction rounding just past the shared 1.01 tolerance, not a port defect.
+  accepted_unreliable_timing:
+    - match: {compressor: cuszhi}
+      reason: This campaign supports compressed-size and quality claims only.
+    - match: {compressor: fzgm}
+      reason: This campaign supports compressed-size and quality claims only.
