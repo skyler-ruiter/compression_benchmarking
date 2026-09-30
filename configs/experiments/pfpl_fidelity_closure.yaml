@@ -1,0 +1,44 @@
+name: pfpl_fidelity_closure
+description: >
+  Focused native-versus-FZGM PFPL closure check. TROP_T previously exposed the
+  narrow-radius split-outlier mismatch; TREFMNAV exposed the missing native
+  reconstruction-safety escape. This diagnostic reruns both float32 cases after
+  enabling the native-compatible inplace quantizer policy.
+
+datasets: [CESM-2D]
+fields:
+  CESM-2D: [TROP_T, TREFMNAV]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-4]
+
+repetitions: 2
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+verification:
+  accepted_unreliable_timing:
+    - match: {variant: pfpl}
+      reason: >-
+        This focused closure establishes reconstructed-byte and compressed-size
+        correspondence, not performance; its two-repetition timing is retained
+        only as diagnostic metadata and excluded from publication throughput claims.
+
+runs:
+  - compressor: pfpl
+    variant: pfpl
+    pipeline: default
+    tool_version: 36f5aaef
+    tool_source_commit: 36f5aaef42744ed78b4d1525b03a7fb2168b363c
+    tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/pfpl.sh
+    tool_patch_sha256: 9e082a37372f894e6a8af3797cbe72f05412197569edd1a4f54e2f82fe1d70b6
+  - compressor: fzgm
+    variant: pfpl
+    pipeline: configs/pipelines/pfpl.toml
+    tool_version: 2.0.0-dev
+    tool_source_commit: 381a45e4a8a863f37f0a12e993f668058ebff4ab
+    tool_build_flags: Release;CUDA;sm_90;native-compatible-PFPL-quantizer
+    tool_patch_sha256: clean

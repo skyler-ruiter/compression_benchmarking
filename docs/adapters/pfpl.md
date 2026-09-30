@@ -20,8 +20,8 @@ uses the GPU variants from `<bin_dir>/<dtype>/gpu/`:
 Set `PFPL_BIN_DIR` to the `bin/` directory (e.g.
 `~/research/compressors/PFPL/bin`), or pass `cli_path` in the run entry.
 
-f64 executables exist under `bin/f64/gpu/` but are not yet wired in the
-adapter (f32 only for now).
+The adapter selects the corresponding executables under `bin/f64/gpu/` for
+f64 fields.
 
 ---
 
@@ -78,6 +78,27 @@ with sentinel values should be filtered or handled upstream.
 
 PFPL writes no compressed-size header; compressed size is measured from
 file size. The compressed format is opaque (LC-framework bitstream).
+
+## FZGPUModules correspondence
+
+The canonical `configs/pipelines/pfpl.toml` preset reproduces the native f32
+quantization representation, including the `2^22` code radius, raw-float
+in-place escapes, and the post-quantization reconstruction check. Its staged
+and chunk-specialized paths deliberately preserve native's float operation
+order (`0.5f / eb`, `roundf`, and a separately rounded reconstruction
+multiplication); allowing CUDA to contract the reconstruction into an FMA
+changes which boundary values escape.
+
+Focused checks on the two CESM-2D fields that formerly exposed opposite size
+extremes now produce byte-identical reconstructed fields in native PFPL and
+both FZGPUModules execution modes. FZGPUModules archives remain approximately
+0.1% larger because FZM framing and RZE's 32-bit per-chunk size entries differ
+from native PFPL's container and 16-bit entries. This is reconstruction and
+algorithmic correspondence, not archive byte identity.
+
+The current FZGPUModules preset is f32-specific. Native PFPL's f64 path uses
+64-bit quantization codes, `DIFFNB_8`, and `BIT_8`; simply rendering the f32
+graph with a double input does not reproduce that pipeline.
 
 ---
 

@@ -1,0 +1,63 @@
+# Publication refresh for the PFPL row of the RQ1 fidelity table.
+#
+# This matrix is intentionally f32-only. Native PFPL's f64 pipeline uses 64-bit
+# quantization codes, DIFFNB_8, and BIT_8; FZGM does not yet have a dtype-correct
+# f64 PFPL graph. Timing is retained as diagnostic metadata but is not evidence
+# from this run: the obligation is reconstructed quality and compressed size.
+
+name: pfpl_fidelity_full_f32
+description: >
+  Full-corpus float32 native-PFPL versus FZGM-PFPL fidelity refresh after
+  aligning the quantization radius, in-place raw-value representation,
+  reconstruction guard, and float operation order.
+
+datasets:
+  - CESM-2D
+  - CESMATM-3D
+  - HURR
+  - NYX
+  - HACC
+  - EXAALT
+  - QMCPACK-3D
+  - SCALE-LETKF
+  - EXAFEL
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+repetitions: 2
+warmup_reps: 1
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+verification:
+  accepted_exclusions:
+    - codes: [degenerate_field]
+      match: {dataset: CESM-2D}
+      reason: >-
+        SFCLDICE and SFCLDLIQ are constant, so their range-relative error bound
+        and PSNR are undefined and they do not enter paired fidelity aggregates.
+  accepted_unreliable_timing:
+    - match: {variant: pfpl}
+      reason: >-
+        This matrix supports compressed-size and reconstruction correspondence,
+        not throughput; its two-repetition timing is diagnostic and excluded
+        from publication performance claims even though GPU clocks are locked.
+
+runs:
+  - compressor: pfpl
+    variant: pfpl
+    pipeline: default
+    tool_version: 36f5aaef
+    tool_source_commit: 36f5aaef42744ed78b4d1525b03a7fb2168b363c
+    tool_build_flags: Release;CUDA;GPU-arch captured in session;recipe=compressors/build/pfpl.sh
+    tool_patch_sha256: 9e082a37372f894e6a8af3797cbe72f05412197569edd1a4f54e2f82fe1d70b6
+  - compressor: fzgm
+    variant: pfpl
+    pipeline: configs/pipelines/pfpl.toml
+    tool_version: 2.0.0-dev
+    tool_source_commit: 381a45e4a8a863f37f0a12e993f668058ebff4ab
+    tool_build_flags: Release;CUDA;sm_90;native-compatible-PFPL-quantizer
+    tool_patch_sha256: clean
