@@ -69,6 +69,16 @@ adapter integration would need to formalize, if that becomes worth doing.
 > sensitivity result is reused from `e5e3412` (author decision). Native cuSZ-Hi here is f32-only
 > and fails on EXAALT/vx with its own GPU API error; FZGM's cuSZ-Hi graph rejects 1-D input.
 >
+> **2026-09-30: final revision is FZGM `b09f210`** (on `main`: the memory fixes, the cache fix,
+> native64 GInterp geometry). Config `configs/peak_memory/rq3_h100_b09f210.yaml`; cuSZ-Hi uses the
+> native64 presets and the same native cuSZ-Hi binary as the B1 port-fidelity session
+> (`CUSZHI_CLI`, now hashed in `session.json`); PFPL uses the committed in-place outlier preset,
+> which FZGM cannot run on f64 (no float64->uint64 quantizer), so FZGM PFPL f64 cells are
+> excluded. `fzgm -b` runs with `FzgmAdapter.benchmark(require_archive=False)`. Block-size memory:
+> `configs/peak_memory/blocksize_h100_b09f210.yaml` (FZGM-only families), feeding the block-size
+> table via `analyze_specialization_blocksize.py --memory-session`. Later `main` (`3a3159b`) only
+> changes GInterp's auto-tune error summation; not rerun (author decision).
+>
 > Results, exclusions, and the comparison against the September numbers are in the
 > generated artifact `paper_organizer/projects/FZGM/evidence/publication/memory/peak_memory.md`
 > (`scripts/build_peak_memory_artifact.py`). DESIGN D47 records the decisions.

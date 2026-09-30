@@ -19,9 +19,12 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import subprocess
 import json
 import math
 from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
 
 FAMILY_LABEL = {
     "cusz": "cuSZ", "cuszhi_cr": "cuSZ-Hi-CR", "cuszhi_tp": "cuSZ-Hi-TP",
@@ -103,6 +106,14 @@ def parse_blocksize_memory(path):
     return [min(vals), max(vals)] if vals else None
 
 
+def blocksize_memory_source(path):
+    """'nvml' when the table's Memory column comes from a peak-memory session
+    (analyze_specialization_blocksize.py --memory-session), else 'self_report'."""
+    if not path or not Path(path).exists():
+        return None
+    return "nvml" if "% Memory: NVML session" in Path(path).read_text() else "self_report"
+
+
 def ratio(a, b):
     return a / b if (a and b) else None
 
@@ -131,6 +142,10 @@ def build(args):
             if "must specify data type" in err and "cuszhi" in c["cell_id"]:
                 err += (" (the native cuSZ-Hi build parses -t f64 but its check_dtype accepts only "
                         "f32: native cuSZ-Hi is f32-only here)")
+            if "setInplaceOutliers(true) requires sizeof(TCode)==sizeof(TInput)" in err:
+                err += (" (the PFPL preset stores outliers in place, which on f64 input needs "
+                        "64-bit codes; FZGM has no float64->uint64 quantizer, so FZGM PFPL "
+                        "does not run on f64 fields at this revision)")
             exclusions.append({"cell_id": c["cell_id"], "status": c["status"],
                                "n_ok": c["n_ok"], "n_reps": c["n_reps"], "error": err})
     polluted = [c["cell_id"] for c in cells if c.get("foreign_processes_seen")]
@@ -259,10 +274,11 @@ def build(args):
                   and c["family"].startswith("cuszp") and (c["max_stack_limit_bytes"] or 0) > 1024]
     agg["native_cuszp_stack_limit_range_bytes"] = [min(nat_stacks), max(nat_stacks)] if nat_stacks else None
     agg["self_vs_process"] = {
-        "note": ("specialization_blocksize_h100.tex's Memory column is gmean(Auto/Staged) of FZGM's "
-                 "self-reported peak_device_bytes (scripts/analyze_specialization_blocksize.py). "
-                 "The process-level (NVML) ratio for the same arms is reported alongside."),
+        "note": ("specialization_blocksize_h100.tex's Memory column is gmean(Auto/Staged) over its "
+                 "fields, from the source named in blocksize_table_memory_source "
+                 "(scripts/analyze_specialization_blocksize.py)."),
         "blocksize_table_memory_column_pct": parse_blocksize_memory(args.blocksize_tex),
+        "blocksize_table_memory_source": blocksize_memory_source(args.blocksize_tex),
     }
 
     # Decomposition check: NVML ~= ctx + lmem + probe
@@ -398,7 +414,23 @@ def build(args):
             fz = next((c for c in pf if c["arm"] == key_arm and c["input_bytes"] == big), None)
             if nat and fz:
                 prev_largest[fam_] = fz["nvml_peak_bytes"] / nat["nvml_peak_bytes"]
+        # Pipeline presets that differ between the sessions. Older sessions did not pin
+        # their TOMLs, so their side is read at the benchmarking commit they recorded.
+        changed_pipelines = []
+        prev_commit = (pprov.get("benchmarking_repo") or {}).get("commit")
+        for rel, pin in (prov.get("pipelines") or {}).items():
+            if not prev_commit:
+                break
+            old_txt = subprocess.run(["git", "-C", str(REPO), "show", f"{prev_commit}:{rel}"],
+                                     capture_output=True, text=True)
+            old_sha = (hashlib.sha256(old_txt.stdout.encode()).hexdigest()
+                       if old_txt.returncode == 0 else None)
+            if old_sha is not None and old_sha != pin["sha256"]:
+                changed_pipelines.append(rel)
         rev = {"previous_session": str(prev_dir), "previous_largest_default_over_native": prev_largest,
+               "previous_benchmarking_commit": prev_commit,
+               "previous_benchmarking_dirty": (pprov.get("benchmarking_repo") or {}).get("dirty"),
+               "changed_pipelines": changed_pipelines,
                "previous_fzgm": pprov["fzgm"]["expected_git_sha"],
                "by_family": by_fam,
                "largest_changes": sorted(rows_, key=lambda r: r["ratio"])[:12]}
@@ -428,7 +460,8 @@ def build(args):
                     "session_json_sha256": sha256(session / "session.json")},
         "provenance": {k: prov[k] for k in ("created_utc", "host", "gpu", "benchmarking_repo", "fzgm",
                                            "native_tools", "binaries_sha256", "datasets",
-                                           "metric_definitions", "sample_period_ms", "config_sha256")},
+                                           "metric_definitions", "sample_period_ms", "config_sha256",
+                                           "config_path")},
         "protocol": {"error": prov["config"]["error"], "reps": prov["config"]["reps"],
                      "fzgm_runs": prov["config"]["fzgm"].get("runs", 1),
                      "families": FAMILIES, "arms": ARMS,
@@ -508,7 +541,7 @@ def render_md(p: dict, args) -> str:
       "(`Pipeline::getPeakMemoryUsage`) is recorded but is not a process footprint: it excludes the "
       "CUDA context and the CLI input buffer.")
     a("- Driver, sampler, config: `compression_benchmarking/tools/peak_memory/`, "
-      "`configs/peak_memory/rq3_h100.yaml`; one JSONL row per cell with provenance.\n")
+      f"`configs/peak_memory/{Path(pv['config_path']).name}`; one JSONL row per cell with provenance.\n")
     a("**Field set is not corpus-representative.** Eight fields span 11.5 MB–1.12 GB to resolve where "
       "native and FZGM cross; ratios below must not be read as a typical-field aggregate.\n")
 
@@ -580,11 +613,18 @@ def render_md(p: dict, args) -> str:
       f"install (`{', '.join(sp['fallback_reasons'])}`) and executed the staged graph, so those "
       "Auto points equal staged.\n")
     bt = agg["self_vs_process"]["blocksize_table_memory_column_pct"]
-    a("The block-size table's Memory column ("
-      + (f"{bt[0]:+.1f}% to {bt[1]:+.1f}%" if bt else "n/a") +
-      ", `scripts/analyze_specialization_blocksize.py`, benchkit rows at `d511ebc`) uses this same "
-      "self-report ratio. It measures the pool, not the process, and should be labelled that way (or "
-      "replaced with the NVML ratio).\n")
+    bsrc = agg["self_vs_process"]["blocksize_table_memory_source"]
+    if bsrc == "nvml":
+        a("The block-size table's Memory column ("
+          + (f"{bt[0]:+.1f}% to {bt[1]:+.1f}%" if bt else "n/a") +
+          ", `scripts/analyze_specialization_blocksize.py --memory-session`) is this NVML "
+          "process measure, from the block-size peak-memory session "
+          "(`configs/peak_memory/blocksize_h100_*.yaml`, same protocol).\n")
+    else:
+        a("The block-size table's Memory column ("
+          + (f"{bt[0]:+.1f}% to {bt[1]:+.1f}%" if bt else "n/a") +
+          ", `scripts/analyze_specialization_blocksize.py`) uses the self-report ratio. It "
+          "measures the pool, not the process.\n")
 
     a("## FZGM vs native\n")
     a("| Family | Field | Input MB | Native | Staged | Auto | Staged/native | Auto/native |")
@@ -691,12 +731,18 @@ def render_md(p: dict, args) -> str:
         a(f"## Change from the previous FZGM revision (`{rv['previous_fzgm']}`)\n")
         a(f"Same protocol, same host; the previous session is `{Path(rv['previous_session']).name}`. "
           f"Between `{rv['previous_fzgm']}` and `{p['provenance']['fzgm']['expected_git_sha']}` "
-          "(branch `memfix-chunk-fusion`), the memory-relevant FZGM changes are: no padded input copy "
+          "the memory-relevant FZGM changes are: no padded input copy "
           "for chunk-fused pipelines; single-pass chunk encode without a full-size scratch buffer; no "
           "retained inverse result buffer in `decompress()`; and the inverse-DAG cache rebuilt when a "
           "stage's stream size changes (a correctness fix that can cost a rebuild's worth of pool "
           "memory). Native rows are re-measured controls and should not move; families absent from "
           "the previous session are not compared.\n")
+        if rv.get("changed_pipelines"):
+            a("Pipeline presets also changed between the sessions (previous side read at benchmarking "
+              f"commit `{(rv.get('previous_benchmarking_commit') or '')[:8]}`"
+              + (", whose working tree was dirty" if rv.get("previous_benchmarking_dirty") else "")
+              + "): " + ", ".join(f"`{Path(x).name}`" for x in rv["changed_pipelines"])
+              + ". Rows for those families mix FZGM and preset changes.\n")
         a("| Family | Impl | cells | NVML new/previous (gmean) | min | max |\n|---|---|--:|--:|--:|--:|")
         for k, v in rv["by_family"].items():
             fam_, impl_ = k.split("/")
@@ -818,8 +864,11 @@ def draft_paragraph(p: dict) -> str:
                      f"so on small fields FZGM needs as little as {x(small_min['auto_over_native'])} of native.")
     pf_prev = (rv.get("previous_largest_default_over_native") or {}).get("pfpl")
     if pf_prev and "pfpl" in largest:
+        pfpl_preset_changed = any(Path(x).name == "pfpl.toml" for x in rv.get("changed_pipelines", []))
         parts.append("Removing a padded input copy, a full-size chunk scratch buffer, and a retained "
-                     f"decompression buffer lowered PFPL from {x(pf_prev)} to {x(largest['pfpl'])} of native.")
+                     "decompression buffer"
+                     + (", together with PFPL's in-place outlier preset," if pfpl_preset_changed else "")
+                     + f" lowered PFPL from {x(pf_prev)} to {x(largest['pfpl'])} of native.")
     parts.append(f"Planning and specialization bring FZGM to or below native memory for {len(at_or_below)} of "
                  f"{len(at_or_below) + len(above)} families; the rest keep a family-specific gap.")
     txt = " ".join(parts)

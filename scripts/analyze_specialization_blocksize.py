@@ -192,6 +192,43 @@ def summarize(off_rows: list[dict], auto_rows: list[dict]) -> dict:
     }
 
 
+def attach_process_memory(payload: dict, session: Path) -> None:
+    """Add whole-process (NVML) Auto/staged peak ratios from a tools/peak_memory
+    session (configs/peak_memory/blocksize_h100_*.yaml) to each (B, mode) row."""
+    cells_path = session / "cells.jsonl"
+    cells = {row["cell_id"]: row for row in load(cells_path)}
+    meta = json.loads((session / "session.json").read_text())
+    for row in payload["rows"]:
+        family = f"lorenzo_ab_b{row['block_size']}_{row['mode']}"
+        ratios = {}
+        for cell_id, staged in cells.items():
+            parts = cell_id.split("|")
+            if len(parts) != 3:          # ctx_baseline|<field>
+                continue
+            fam, arm, field = parts
+            if fam != family or arm != "fzgm:planned:off" or staged["status"] != "ok":
+                continue
+            auto = cells.get(f"{fam}|fzgm:planned:auto|{field}")
+            if auto is None or auto["status"] != "ok":
+                continue
+            ratios[field] = auto["nvml_peak_bytes"] / staged["nvml_peak_bytes"]
+        row["process_memory_ratio_gmean"] = gmean(list(ratios.values()))
+        row["process_memory_ratio_by_field"] = ratios
+    payload["process_memory_source"] = {
+        "session": session.name,
+        "cells_sha256": hashlib.sha256(cells_path.read_bytes()).hexdigest(),
+        "fzgm_git_sha": meta["fzgm"]["expected_git_sha"],
+        "metric": "NVML per-process peak (max over 3 reps), fzgmod-cli -b --runs 2, "
+                  "PREALLOCATE + coloring, rel_range 1e-3",
+    }
+
+
+def memory_ratio(row: dict) -> float:
+    """The table's Memory value: whole-process NVML when available, else pool self-report."""
+    value = row.get("process_memory_ratio_gmean")
+    return row["peak_memory_ratio_gmean"] if value is None else value
+
+
 def fmt(value: float | None, suffix: str = "") -> str:
     return "--" if value is None else f"{value:.2f}{suffix}"
 
@@ -207,9 +244,18 @@ def markdown(payload: dict, off_name: str, auto_name: str) -> str:
         "AdaptiveBitpack(B, mode)`. It is intentionally not labelled SZp; the",
         "`B=128, plain` cell is the shape previously called `szp_composed`.",
         "",
-        "| B | Mode | Pairs | C/D timed | Compress | Decompress | Auto C/D (GB/s) | CR / B=32 | Peak memory |",
-        "|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| B | Mode | Pairs | C/D timed | Compress | Decompress | Auto C/D (GB/s) | CR / B=32 | Process memory (NVML) | Pool peak (self-report) |",
+        "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    memory = payload.get("process_memory_source")
+    if memory:
+        lines[4:4] = [
+            "",
+            f"Process memory: `{memory['session']}` at FZGM `{memory['fzgm_git_sha']}`",
+            f"(`cells.jsonl` SHA-256 `{memory['cells_sha256']}`), {memory['metric']};",
+            "Auto/staged geometric mean over the five fields. Throughput, CR and the pool",
+            "column come from the staged/specialized sources above, an earlier FZGM commit.",
+        ]
     correction = payload.get("archive_size_correction")
     if correction:
         lines[4:4] = [
@@ -226,7 +272,9 @@ def markdown(payload: dict, off_name: str, auto_name: str) -> str:
             f"{fmt(row['specialized_compress_gbs_gmean'])}/"
             f"{fmt(row['specialized_decompress_gbs_gmean'])} | "
             f"{fmt(row['cr_ratio_vs_b32_gmean'], 'x')} | "
-            f"{100.0 * (row['peak_memory_ratio_gmean'] - 1.0):+.1f}% |"
+            + ("--" if row.get("process_memory_ratio_gmean") is None
+               else f"{100.0 * (row['process_memory_ratio_gmean'] - 1.0):+.1f}%")
+            + f" | {100.0 * (row['peak_memory_ratio_gmean'] - 1.0):+.1f}% |"
         )
     lines += [
         "",
@@ -273,7 +321,11 @@ def latex(payload: dict) -> str:
         "  \\centering",
         "  \\caption{H100 block-size sensitivity for the specialized 1-D Lorenzo",
         "  and adaptive-bitpack family. Ratios compare Auto with the identical staged",
-        "  graph. CR is paired relative to the same mode at $B=32$.}",
+        "  graph. CR is paired relative to the same mode at $B=32$."
+        + (" Memory is the change in whole-process peak device memory (NVML)."
+           if payload.get("process_memory_source") else
+           " Memory is the change in FZGM's memory-pool peak, excluding the CUDA context.")
+        + "}",
         "  \\label{tab:specialization-block-size}",
         "  \\small",
         "  \\resizebox{\\columnwidth}{!}{%",
@@ -285,13 +337,17 @@ def latex(payload: dict) -> str:
     correction = payload.get("archive_size_correction")
     if correction:
         lines.insert(2, f"% Archive-size correction config SHA-256: {correction['config_sha256']}")
+    memory = payload.get("process_memory_source")
+    if memory:
+        lines.insert(2, f"% Memory: NVML session {memory['session']} (FZGM {memory['fzgm_git_sha']}, "
+                        f"cells.jsonl SHA-256 {memory['cells_sha256']})")
     for row in payload["rows"]:
         lines.append(
             f"    {row['block_size']} & {row['compress_timed_pairs']}/{row['decompress_timed_pairs']} & "
             f"{row['mode']} & {row['compress_speedup_gmean']:.2f}$\\times$ & "
             f"{row['decompress_speedup_gmean']:.2f}$\\times$ & "
             f"{row['cr_ratio_vs_b32_gmean']:.2f}$\\times$ & "
-            f"{100.0 * (row['peak_memory_ratio_gmean'] - 1.0):+.1f}\\% \\\\"
+            f"{100.0 * (memory_ratio(row) - 1.0):+.1f}\\% \\\\"
         )
     lines += [
         "    \\bottomrule",
@@ -313,6 +369,9 @@ def main() -> None:
         help=("apply the audited historical FZGM archive-size correction using this "
               f"config (default mapping: {DEFAULT_ARCHIVE_SIZE_CONFIG})"),
     )
+    parser.add_argument("--memory-session", type=Path,
+                        help="tools/peak_memory session whose NVML Auto/staged ratios "
+                             "fill the table's Memory column")
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--output-md", type=Path)
     parser.add_argument("--output-tex", type=Path)
@@ -328,6 +387,8 @@ def main() -> None:
     payload["archive_size_correction"] = archive_size_metadata(
         args.fzgm_archive_size_config
     )
+    if args.memory_session is not None:
+        attach_process_memory(payload, args.memory_session)
     payload["staged_source"] = args.off.name
     payload["specialized_source"] = args.auto.name
     outputs = {
