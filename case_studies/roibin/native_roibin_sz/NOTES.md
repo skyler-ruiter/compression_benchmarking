@@ -173,3 +173,47 @@ Closing that needs a chunk-cooperative TiledLorenzo op (8x8 tiles are tile-major
 16 KiB chunk holds 64 whole tiles).
 
 Fixes are on FZGPUModules main as 80d2e1a (TiledLorenzo) and 0bfbb6f (GolombRice).
+
+---
+
+# 2026-09-30 — clean timing campaign (paper candidate) + lsCOMP
+
+**Build:** FZGPUModules `381a45e` (origin/main, includes the TiledLorenzo/GolombRice
+fixes and the chunk-fusion single-pass encode), worktree
+`~/FZGPUModules-roibin-381a45e/build_rel`. GPU verified idle before every cell (the
+driver aborts otherwise). EXAFEL volume, 1.19 GB, eb_roi=10, eb_bg=100, `-b --runs 7`,
+median device time; max phase CV 0.016. Driver: `clean_timing.py`; configs:
+`variant_configs/`; results: `clean_timing_results.json`.
+Every row: staged and specialized archives decode to byte-identical output; ROI max err
+10.0000; bin=1 bg max err 100.0001 (bg PSNR 49.09); bin=2 bg PSNR 44.02 (no bg bound).
+
+| background coder | bin=1 CR | bin=1 C/D GB/s (staged -> spec) | bin=2 CR | bin=2 C/D GB/s (staged -> spec) | installed |
+|---|---:|---|---:|---|---|
+| TiledLorenzo-AdaptiveBitpack | 11.40 | 205/209 -> **375/266** | 50.95 | 600/461 -> **818/547** | warp-register fwd+inv |
+| Quant-Difference-Bitshuffle-RZE (PFPL) | 13.52 | 198/140 -> **326/264** | 66.41 | 579/369 -> **798/542** | chunk-coop fwd+inv |
+| Quant-Difference-GolombRice | 11.06 | 154/99 -> 228/100 | 54.26 | 487/293 -> 641/293 | chunk-coop fwd only |
+| TiledLorenzo-Bitshuffle-RZE | 13.79 | 141/139 | 68.08 | 445/356 | none |
+| TiledLorenzo-GolombRice | 15.84 | 134/98 | 71.65 | 431/282 | none |
+| TiledLorenzo-RZE-ANS (32-bit) | 16.48 | 133/137 | 85.36 | 415/351 | none |
+| TiledLorenzo-RZE-ANS (16-bit) | 16.55 | 136/139 | 85.81 | 423/351 | none |
+| TiledLorenzo-Huffman (16-bit) | **16.92** | 125/108 | 74.44 | 395/311 | none |
+| **native ROIBIN-SZ** (CPU, SZ3) | **22.73** | 0.191/0.307 | **152.3** | 0.555/0.521 | — |
+
+Specialization speedups at bin=1: bitpack 1.83x C / 1.27x D; PFPL back end 1.65x C /
+1.89x D (+128 / +124 GB/s).
+
+## lsCOMP (SC'25 GPU light-source compressor) on CXIDB 21
+Input: 279 CXIDB 21 frames stacked as uint16 (raw int16 ADU + global offset 1717;
+lossless conversion, all values integer, span 16,571). `lsCOMP_uint16 -d 279 1480 1552`.
+Caveat: lsCOMP targets non-negative photon counts near zero; these are uncalibrated raw
+frames with negative noise, and the offset raises the background level, which hurts its
+ratio. Report as "on uncalibrated raw frames".
+
+| mode | CR | C/D GB/s (lsCOMP end-to-end) | ROI max err | ROI frac err>10 | bg max err |
+|---|---:|---|---:|---:|---:|
+| lossless (-b 1 1 1 1 -p 1) | 1.37 | 342/301 | 2048 (7 of 640M values wrong) | — | — |
+| uniform bins 20, no pooling | 2.19 | 445/317 | 19 | 0.49 | 2579 |
+| paper bins 3/5/10/15, pool 0.5 | 2.06 | 432/318 | 14 | 0.24 | 1934 |
+
+lsCOMP has no region-aware or pointwise bound; its lossless mode mis-decodes 7 values
+(not magnitude-correlated) — a defect worth reporting upstream.
