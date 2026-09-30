@@ -4,6 +4,9 @@ usage: run_native.py DATASET BIN MODE [WORKERS]
   DATASET  EXAFEL | CXIDB21
   BIN      1 (background error-bounded, SZ3 directly) | 2 (2x2 binning, ROIBIN-SZ)
   MODE     serial    one frame at a time, SZ3 single-threaded
+  INNER    (env RB_INNER) sz3 (default) | cuszp  -- ROIBIN-SZ's composition with a GPU
+           inner compressor (LibPressio cuSZp2 plugin; host->device copies per call);
+           RB_CUSZP_MODE plain|outlier
            omp       one frame at a time, sz3:openmp=true with pressio:nthreads=WORKERS
            frames    WORKERS processes, each compressing whole frames (frame-level
                      parallelism); throughput = total bytes / wall time
@@ -25,7 +28,8 @@ def frame_list(ds):
 def one(args):
     import smoke
     f, roi, binf, omp, nthreads = args
-    r = smoke.run(f, roi, reps=1, bin_factor=binf, nthreads=nthreads if omp else 1, sz3_openmp=omp)
+    r = smoke.run(f, roi, reps=1, bin_factor=binf, nthreads=nthreads if omp else 1, sz3_openmp=omp,
+                  inner=os.environ.get("RB_INNER", "sz3"), cuszp_mode=os.environ.get("RB_CUSZP_MODE", "outlier"))
     r["frame"] = os.path.basename(f)
     return r
 
@@ -64,7 +68,9 @@ def main():
         # wall time. Report the wall-time bound (conservative) and the ideal W x rate.
         summ["frames_wall_codec_gbs"] = nb / wall / 1e9
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                       f"native_{ds}_bin{binf}_{mode}{workers if mode != 'serial' else ''}.json")
+                       f"native_{ds}_bin{binf}_{mode}{workers if mode != 'serial' else ''}"
+                       + (f"_{os.environ['RB_INNER']}{os.environ.get('RB_CUSZP_MODE','outlier')}" if os.environ.get("RB_INNER", "sz3") != "sz3" else "")
+                       + ".json")
     json.dump(dict(summary=summ, frames=rows), open(out, "w"), indent=1, default=float)
     print(json.dumps(summ, default=float))
 

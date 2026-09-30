@@ -21,7 +21,7 @@ def roi_mask(shape_yx, rec, hw):
         m[max(0, y - hw):y + hw + 1, max(0, x - hw):x + hw + 1] = True
     return m
 
-def run(frame_path, roi_path, eb_roi=10.0, eb_bg=100.0, hw=4, nthreads=20, reps=3, bin_factor=2, sz3_openmp=False):
+def run(frame_path, roi_path, eb_roi=10.0, eb_bg=100.0, hw=4, nthreads=20, reps=3, bin_factor=2, sz3_openmp=False, inner="sz3", cuszp_mode="outlier"):
     nx, ny, nz, rec = read_roi(roi_path)
     # Frames are passed as 3-D (x, y, 1). LibPressio's 1-D and 2-D binning inverses
     # (roibin_impl.h restore_omp<1>/<2>) loop over bins[2]/bins[3] out of bounds and
@@ -32,15 +32,20 @@ def run(frame_path, roi_path, eb_roi=10.0, eb_bg=100.0, hw=4, nthreads=20, reps=
     centers = np.ascontiguousarray(centers.T)   # libpressio reads centers[i*width + d]
     if bin_factor == 1:   # background error-bounded: SZ3 directly, no binning
         comp = lp.PressioCompressor("roibin", early_config={
-            "roibin:roi": "sz3", "roibin:background": "sz3"}, name="rb")
-        comp.set_options({
+            "roibin:roi": inner, "roibin:background": inner}, name="rb")
+        opts = {
             "roibin:centers": centers, "roibin:roi_size": np.array([hw, hw, 0], dtype=np.uint64),
             "roibin:nthreads": nthreads,
             "/rb/roi:pressio:abs": eb_roi,
             "/rb/background:pressio:abs": eb_bg,
-            "/rb/background:sz3:openmp": sz3_openmp,
-            "/rb/background:pressio:nthreads": nthreads,
-        })
+        }
+        if inner == "sz3":
+            opts.update({"/rb/background:sz3:openmp": sz3_openmp,
+                         "/rb/background:pressio:nthreads": nthreads})
+        elif inner == "cuszp":
+            opts.update({"/rb/roi:cuszp:mode_str": cuszp_mode,
+                         "/rb/background:cuszp:mode_str": cuszp_mode})
+        comp.set_options(opts)
     else:
         comp = lp.PressioCompressor("roibin", early_config={
             "roibin:roi": "sz3", "roibin:background": "binning", "binning:compressor": "sz3"}, name="rb")

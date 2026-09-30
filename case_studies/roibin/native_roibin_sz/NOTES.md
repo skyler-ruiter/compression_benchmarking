@@ -284,3 +284,21 @@ Per-frame native cuSZp3 (`-m plain -d 2 1 1480 1552`, abs 10) also violates the 
 single CXIDB 21 frames: 1-9 values per frame, mostly original zeros reconstructed as
 +-160/320/640 (powers of two x eb: fixed-length overflow). Plotted flagged, excluded from the
 Pareto front.
+
+## 2026-09-30 — added to RQ4: GInterp background, native cuSZ, ROIBIN-SZ composition ceiling
+- **GInterp background (bin=1):** `variant_configs*/b1_I_ginterp_cr.toml` (GInterp ABS 100 ->
+  cuSZ-Hi CR back end). EXAFEL 17.50x at 85/32 GB/s (new Pareto point, highest GPU ratio);
+  CXIDB 21 23.46x at 90/48 (dominated by RZE+ANS). Bounds hold; no specialization. GInterp
+  takes the pipeline dims (no override), so it interpolates across frames on a volume.
+  Results `clean_timing_results_*_a062d88_ginterp.json`.
+- **Native cuSZ** (global abs 10, tall 2-D, CXIDB 21 in two batches): EXAFEL 5.96x at
+  352/82 GB/s; CXIDB 21 6.11x at 347/101. cuSZ writes a slightly padded reconstruction;
+  `baselines_volume.py` compares the first N values.
+- **LibPressio roibin + GPU inner compressor (cuSZp2):** spack env `roibin-sz-gpu`. Needed a
+  roibin glue fix (device outputs not staged to host; libpressio-fork branch
+  `roibin-device-outputs`); the cuSZp 2.0.1 fork then rejects `outlier` and plain mode
+  reconstructs wrongly (errors >> bound) through the Python bindings, whose outputs are
+  `PressioDataCuda`. Not pursued further. Instead measured the **composition ceiling**:
+  roibin with a no-op inner compressor = CPU-side peak gather/split cost alone, the upper
+  bound for ANY inner compressor inside that composition: 1.4 / 0.8 GB/s per stream,
+  ~15-17 GB/s compress with 20 frame-parallel workers (`native_*_noop*.json`).

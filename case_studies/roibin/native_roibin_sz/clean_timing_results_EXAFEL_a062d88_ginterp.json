@@ -1,0 +1,32 @@
+[
+ {
+  "variant": "I_ginterp_cr",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 17.501296,
+  "C_off": 85.434776,
+  "D_off": 31.74156,
+  "cv_off": 0.01,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 17.501296,
+  "C_auto": 85.341213,
+  "D_auto": 31.470219,
+  "cv_auto": 0.018,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 49.68,
+  "dataset": "EXAFEL"
+ }
+]

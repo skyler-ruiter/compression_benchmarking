@@ -23,7 +23,7 @@ CORPORA = {"EXAFEL": "EXAFEL (LCLS, 130 frames, calibrated)",
 # Golomb-Rice (H_diff_golomb) is omitted from the figure: compression-only specialization,
 # dominated by Bitpack; it stays in fzgm_all.
 FIG_VARIANTS = {"A_bitpack": "Bitpack", "G_pfpl": "PFPL back end",
-                "E_tl_huff16": "Huffman", "F_tl_rze_ans16": "RZE+ANS"}
+                "E_tl_huff16": "Huffman", "F_tl_rze_ans16": "RZE+ANS", "I_ginterp_cr": "Interpolation"}
 LABELS = {"A_bitpack": "TiledLorenzo-AdaptiveBitpack",
           "B_golomb_tl": "TiledLorenzo-GolombRice",
           "C_tl_rze": "TiledLorenzo-Zigzag-Bitshuffle-RZE",
@@ -31,8 +31,10 @@ LABELS = {"A_bitpack": "TiledLorenzo-AdaptiveBitpack",
           "E_tl_huff16": "TiledLorenzo-Zigzag-Huffman (16-bit)",
           "F_tl_rze_ans16": "TiledLorenzo-Zigzag-Bitshuffle-RZE-ANS (16-bit)",
           "G_pfpl": "Quantizer-Difference-Bitshuffle-RZE (PFPL back end)",
-          "H_diff_golomb": "Quantizer-Difference-GolombRice"}
-BASELINE_LABELS = {"PFPL": "PFPL", "cuSZp3 plain 2-D": "cuSZp3", "cuSZ-Hi (spline/cr-first/cr)": "cuSZ-Hi"}
+          "H_diff_golomb": "Quantizer-Difference-GolombRice",
+          "I_ginterp_cr": "GInterp-Huffman-Merge-RRE-Zigzag-RZE (cuSZ-Hi CR back end; bin=1 only)"}
+BASELINE_LABELS = {"PFPL": "PFPL", "cuSZp3 plain 2-D": "cuSZp3", "cuSZ-Hi (spline/cr-first/cr)": "cuSZ-Hi",
+                   "cuSZ": "cuSZ"}
 
 
 def load(name):
@@ -48,6 +50,7 @@ def main(out: Path) -> None:
           "native_roibin_sz/build_rq4_artifact.py`; see `NOTES.md` there for protocol and history.", ""]
     for ds, title in CORPORA.items():
         rows = load(f"clean_timing_results_{ds}_{REV}.json")
+        rows += load(f"clean_timing_results_{ds}_{REV}_ginterp.json")   # GInterp variant, same build/protocol
         for r in rows:
             assert r["ident"], (ds, r["variant"], "staged/specialized reconstructions differ")
             assert r["roi_max"] <= 10.0 * 1.001, (ds, r["variant"], "ROI bound")
@@ -76,6 +79,14 @@ def main(out: Path) -> None:
             compress_gbs_20core=20 * n1p["agg_cmp_gbs"], decompress_gbs_20core=20 * n1p["agg_dec_gbs"],
             wall_bound_gbs_20core=n1p["frames_wall_codec_gbs"],
             roi_max_err=n1s["roi_max_err"], bg_max_err=n1s["bg_max_err"])
+        # ROIBIN-SZ's composition with a no-op inner compressor: LibPressio roibin's
+        # CPU-side peak gather/split cost alone, i.e. the ceiling for ANY inner
+        # compressor (CPU or GPU) inside that composition on this node.
+        noop_s = load(f"native_{ds}_bin1_serial_noopoutlier.json")["summary"]
+        noop_p = load(f"native_{ds}_bin1_frames20_noopoutlier.json")["summary"]
+        corpus["roibin_sz_composition_ceiling"] = dict(
+            compress_gbs_1stream=noop_s["agg_cmp_gbs"], decompress_gbs_1stream=noop_s["agg_dec_gbs"],
+            compress_gbs_20core=20 * noop_p["agg_cmp_gbs"], decompress_gbs_20core=20 * noop_p["agg_dec_gbs"])
         corpus["native_roibin_sz_bin2"] = dict(
             cr=nat[2]["serial"]["agg_cr"], compress_gbs_1core=nat[2]["serial"]["agg_cmp_gbs"],
             compress_gbs_20core=20 * nat[2]["frames20"]["agg_cmp_gbs"])

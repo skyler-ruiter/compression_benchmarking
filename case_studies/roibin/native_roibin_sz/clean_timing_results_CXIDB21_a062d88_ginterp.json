@@ -1,0 +1,32 @@
+[
+ {
+  "variant": "I_ginterp_cr",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 23.456253,
+  "C_off": 90.081571,
+  "D_off": 48.140305,
+  "cv_off": 0.043,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 23.456253,
+  "C_auto": 90.459169,
+  "D_auto": 48.087914,
+  "cv_auto": 0.026,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0,
+  "bg_psnr": 51.42,
+  "dataset": "CXIDB21"
+ }
+]

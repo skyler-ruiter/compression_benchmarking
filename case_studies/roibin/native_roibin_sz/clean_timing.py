@@ -21,7 +21,11 @@ VARS = {  # name -> (bin1 config, bin2 config)
  "F_tl_rze_ans16":("b1_F_rze_ans16.toml","var_F_rze_ans16.toml"),
  "G_pfpl":      ("b1_G_pfpl.toml",      "b2_G_pfpl.toml"),
  "H_diff_golomb":("b1_H_golomb_chunk.toml","b2_H_golomb_chunk.toml"),
+ # GInterp takes the pipeline dims (no override), so only bin=1 (full-resolution
+ # background) is valid; on a volume it interpolates across frames.
+ "I_ginterp_cr": ("b1_I_ginterp_cr.toml", None),
 }
+ONLY = os.environ.get("CT_ONLY")   # comma-separated variant names to run
 def gpu_busy():
     out = subprocess.run(["nvidia-smi","--query-compute-apps=pid","--format=csv,noheader"],capture_output=True,text=True).stdout.strip()
     return out != ""
@@ -37,7 +41,11 @@ for r in rec:
 rng = float(x.max()-x.min())
 rows = []
 for name,(c1,c2) in VARS.items():
+    if ONLY and name not in ONLY.split(","):
+        continue
     for binf,cfg in ((1,c1),(2,c2)):
+        if cfg is None:
+            continue
         cfgp = os.path.join(HERE,CFGDIR,cfg); row = dict(variant=name, bin=binf)
         outs = {}
         for pol in ("off","auto"):

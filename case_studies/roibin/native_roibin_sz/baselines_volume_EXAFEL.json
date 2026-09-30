@@ -37,5 +37,18 @@
   ],
   "dataset": "EXAFEL",
   "eb_abs": 10.0
+ },
+ {
+  "tool": "cuSZ",
+  "batches": 1,
+  "cr": 5.963652184145512,
+  "cmp_gbs": 352.48681589470425,
+  "dec_gbs": 82.17199152425768,
+  "max_err": 10.0,
+  "psnr_per_batch": [
+   69.26057654226713
+  ],
+  "dataset": "EXAFEL",
+  "eb_abs": 10.0
  }
 ]

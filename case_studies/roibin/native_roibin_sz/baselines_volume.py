@@ -21,6 +21,7 @@ VOLS = {"EXAFEL": (f"{DATA}/EXAFEL_130x1480x1552/SDRBENCH-EXAFEL-data-130x1480x1
 CUSZHI = os.path.expanduser("~/compressors/cuSZ-Hi/build/cuszhi")
 PFPL = os.path.expanduser("~/compressors/PFPL/bin/f32/gpu")
 CUSZP3 = os.path.expanduser("~/compressors/cuSZp-V3.0.0/build/examples/bin/cuSZp")
+CUSZ = os.path.expanduser("~/compressors/cuSZ/build/cusz")
 EB = 10.0
 RUNS = 7
 
@@ -29,7 +30,9 @@ def gpu_idle(): return sh(["nvidia-smi","--query-compute-apps=pid","--format=csv
 
 def err_stats(orig, recon_path):
     o = np.fromfile(recon_path, np.float32)
-    e = np.abs(o.astype(np.float64) - orig)
+    pad = o.size - orig.size          # some tools (cuSZ) write a padded reconstruction
+    assert pad >= 0, (recon_path, "reconstruction shorter than input")
+    e = np.abs(o[:orig.size].astype(np.float64) - orig)
     rng = float(orig.max() - orig.min())
     return dict(max_err=float(e.max()), psnr=float(20*np.log10(rng) - 10*np.log10((e**2).mean())))
 
@@ -87,12 +90,38 @@ def batches(vol, nz, work):
         out.append((str(p), z1 - z0))
     return out
 
+def cusz(vol, nz, work, orig):
+    # cusz writes <input>.cusza and reconstructs to <input>.cuszx; -R time prints one
+    # JSON line per --repeat rep with compress_device_ms / decompress_device_ms.
+    link = work / "cz.f32"
+    if link.exists() or link.is_symlink(): link.unlink()
+    link.symlink_to(vol)
+    comp, rec = Path(str(link) + ".cusza"), Path(str(link) + ".cuszx")
+    base = [CUSZ, "-z", "-i", str(link), "-t", "f32", "-l", f"1552x{1480*nz}", "-m", "abs", "-e", repr(EB)]
+    # As benchkit's cusz adapter: --repeat timing runs do not write the archive, so
+    # time with --repeat, then write the archive and reconstruction with plain calls.
+    zt = sh(base + ["-S", "write2disk", "-R", "time", "--repeat", str(RUNS)])
+    sh(base + ["-R", "cr"])
+    xt = sh([CUSZ, "-x", "-i", str(comp), "-S", "write2disk", "-R", "time", "--repeat", str(RUNS)])
+    sh([CUSZ, "-x", "-i", str(comp)])
+    z, x = zt, xt
+    def ms(t, k):
+        v = [json.loads(l)[k] for l in t.splitlines() if l.strip().startswith("{") and k in l]
+        return float(np.median(v[1:] if len(v) > 1 else v))
+    nb = Path(vol).stat().st_size
+    r = dict(tool="cuSZ", cr=nb / comp.stat().st_size,
+             cmp_gbs=nb / (ms(z.stdout, "compress_device_ms") * 1e6),
+             dec_gbs=nb / (ms(x.stdout, "decompress_device_ms") * 1e6))
+    r.update(err_stats(orig, rec)); comp.unlink(); rec.unlink(); return r
+
 def main():
     ds = sys.argv[1]; vol, nz = VOLS[ds]
     work = Path(os.environ.get("CT_WORK", "/tmp")) / f"bl_{ds}"; work.mkdir(parents=True, exist_ok=True)
     parts = batches(vol, nz, work)
     rows = []
-    for fn in (pfpl, cuszp3, cuszhi):
+    only = os.environ.get("BL_ONLY")
+    fns = [f for f in (pfpl, cuszp3, cuszhi, cusz) if not only or f.__name__ in only.split(",")]
+    for fn in fns:
         per = []
         try:
             for pv, pnz in parts:
@@ -108,7 +137,10 @@ def main():
                      psnr_per_batch=[x["psnr"] for _, x in per])
         except Exception as ex: r = dict(tool=fn.__name__, error=str(ex)[:300])
         r["dataset"] = ds; r["eb_abs"] = EB; rows.append(r); print(json.dumps(r), flush=True)
-    json.dump(rows, open(HERE/f"baselines_volume_{ds}.json","w"), indent=1)
+    out = HERE/f"baselines_volume_{ds}.json"
+    prev = json.load(open(out)) if out.exists() and only else []
+    keep = [r for r in prev if r.get("tool") not in {x.get("tool") for x in rows}]
+    json.dump(keep + rows, open(out,"w"), indent=1)
 
 if __name__ == "__main__":
     main()
