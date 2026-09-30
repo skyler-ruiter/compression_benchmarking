@@ -1,7 +1,7 @@
 import json, os, subprocess, struct, sys
 import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
-CLI = "/home/exouser/FZGPUModules-roibin-381a45e/build_rel/bin/fzgmod-cli"
+CLI = "/home/exouser/FZGPUModules-roibin-a062d88/build_rel/bin/fzgmod-cli"
 DATA = "/media/volume/Compression_Data/sdrbench_data"
 DATASETS = {  # name -> (volume, z-indexed peaks, nz, config dir)
     "EXAFEL":  (f"{DATA}/EXAFEL_130x1480x1552/SDRBENCH-EXAFEL-data-130x1480x1552.f32",
@@ -59,4 +59,4 @@ for name,(c1,c2) in VARS.items():
         row["bg_psnr"]=round(float(20*np.log10(rng)-10*np.log10((e[~m]**2).mean())),2)
         for p in outs.values(): os.remove(p)
         row["dataset"]=DS; rows.append(row); print(json.dumps(row), flush=True)
-json.dump(rows, open(os.path.join(HERE,f"clean_timing_results_{DS}.json"),"w"), indent=1)
+json.dump(rows, open(os.path.join(HERE,f"clean_timing_results_{DS}_{os.environ.get('CT_TAG','run')}.json"),"w"), indent=1)

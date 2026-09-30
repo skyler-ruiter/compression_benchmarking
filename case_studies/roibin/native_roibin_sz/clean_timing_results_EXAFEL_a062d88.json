@@ -1,0 +1,494 @@
+[
+ {
+  "variant": "A_bitpack",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 11.40322,
+  "C_off": 205.34296,
+  "D_off": 208.84492,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 11.40322,
+  "C_auto": 373.10302,
+  "D_auto": 264.15854,
+  "cv_auto": 0.007,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "warp-register"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "A_bitpack",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 50.947026,
+  "C_off": 600.45686,
+  "D_off": 461.49356,
+  "cv_off": 0.002,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 50.947026,
+  "C_auto": 807.77352,
+  "D_auto": 546.13503,
+  "cv_auto": 0.019,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "warp-register"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "B_golomb_tl",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 15.840703,
+  "C_off": 133.56187,
+  "D_off": 97.800091,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 15.840703,
+  "C_auto": 133.55566,
+  "D_auto": 97.813671,
+  "cv_auto": 0.001,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "B_golomb_tl",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 71.647865,
+  "C_off": 431.10614,
+  "D_off": 281.66864,
+  "cv_off": 0.002,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 71.647865,
+  "C_auto": 431.09616,
+  "D_auto": 281.33321,
+  "cv_auto": 0.002,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "C_tl_rze",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 13.794829,
+  "C_off": 141.40948,
+  "D_off": 139.43852,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 13.794829,
+  "C_auto": 141.40681,
+  "D_auto": 139.41196,
+  "cv_auto": 0.001,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "C_tl_rze",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 68.080356,
+  "C_off": 444.64881,
+  "D_off": 355.62416,
+  "cv_off": 0.002,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 68.080356,
+  "C_auto": 445.13137,
+  "D_auto": 356.37115,
+  "cv_auto": 0.002,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "D_tl_rze_ans",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 16.476737,
+  "C_off": 133.26811,
+  "D_off": 136.67675,
+  "cv_off": 0.005,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 16.476737,
+  "C_auto": 133.43105,
+  "D_auto": 136.68727,
+  "cv_auto": 0.001,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "D_tl_rze_ans",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 85.36307,
+  "C_off": 415.43052,
+  "D_off": 350.19561,
+  "cv_off": 0.004,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 85.36307,
+  "C_auto": 415.33804,
+  "D_auto": 350.38957,
+  "cv_auto": 0.002,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "E_tl_huff16",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 16.924831,
+  "C_off": 125.37275,
+  "D_off": 106.80875,
+  "cv_off": 0.006,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 16.924831,
+  "C_auto": 125.36097,
+  "D_auto": 106.60893,
+  "cv_auto": 0.005,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "E_tl_huff16",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 74.435189,
+  "C_off": 394.75015,
+  "D_off": 311.03111,
+  "cv_off": 0.007,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 74.435189,
+  "C_auto": 394.22065,
+  "D_auto": 312.26972,
+  "cv_auto": 0.005,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "F_tl_rze_ans16",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 16.547874,
+  "C_off": 136.39656,
+  "D_off": 138.90818,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 16.547874,
+  "C_auto": 136.42647,
+  "D_auto": 138.87665,
+  "cv_auto": 0.003,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "F_tl_rze_ans16",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 85.811698,
+  "C_off": 422.135,
+  "D_off": 351.07838,
+  "cv_off": 0.002,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 85.811698,
+  "C_auto": 423.0201,
+  "D_auto": 350.75176,
+  "cv_auto": 0.002,
+  "inst": [
+   0,
+   0
+  ],
+  "impl": [],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "G_pfpl",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 13.520072,
+  "C_off": 197.99279,
+  "D_off": 140.07168,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 13.520072,
+  "C_auto": 303.90738,
+  "D_auto": 263.67521,
+  "cv_auto": 0.003,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "G_pfpl",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 66.413945,
+  "C_off": 579.19436,
+  "D_off": 369.48358,
+  "cv_off": 0.002,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 66.413945,
+  "C_auto": 779.45161,
+  "D_auto": 542.12138,
+  "cv_auto": 0.008,
+  "inst": [
+   1,
+   1
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "H_diff_golomb",
+  "bin": 1,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 11.059817,
+  "C_off": 154.40327,
+  "D_off": 99.539442,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 11.059817,
+  "C_auto": 219.08424,
+  "D_auto": 99.668353,
+  "cv_auto": 0.002,
+  "inst": [
+   1,
+   0
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 100.0001,
+  "bg_psnr": 49.09,
+  "dataset": "EXAFEL"
+ },
+ {
+  "variant": "H_diff_golomb",
+  "bin": 2,
+  "rc_off": [
+   0,
+   0
+  ],
+  "cr_off": 54.264945,
+  "C_off": 486.80909,
+  "D_off": 293.3434,
+  "cv_off": 0.001,
+  "rc_auto": [
+   0,
+   0
+  ],
+  "cr_auto": 54.264945,
+  "C_auto": 626.91008,
+  "D_auto": 292.19751,
+  "cv_auto": 0.003,
+  "inst": [
+   1,
+   0
+  ],
+  "impl": [
+   "chunk-coop"
+  ],
+  "ident": true,
+  "roi_max": 10.0,
+  "bg_max": 10518.0312,
+  "bg_psnr": 44.02,
+  "dataset": "EXAFEL"
+ }
+]

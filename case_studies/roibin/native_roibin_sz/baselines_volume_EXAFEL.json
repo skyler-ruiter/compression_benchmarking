@@ -1,0 +1,41 @@
+[
+ {
+  "tool": "PFPL",
+  "batches": 1,
+  "cr": 5.841485181362581,
+  "cmp_gbs": 326.1102422743913,
+  "dec_gbs": 246.31994351065444,
+  "max_err": 10.0,
+  "psnr_per_batch": [
+   69.26057654226713
+  ],
+  "dataset": "EXAFEL",
+  "eb_abs": 10.0
+ },
+ {
+  "tool": "cuSZp3 plain 2-D",
+  "batches": 1,
+  "cr": 5.694823147592587,
+  "cmp_gbs": 678.426938703872,
+  "dec_gbs": 1113.5255964549121,
+  "max_err": 10.000000953674316,
+  "psnr_per_batch": [
+   69.26057654226709
+  ],
+  "dataset": "EXAFEL",
+  "eb_abs": 10.0
+ },
+ {
+  "tool": "cuSZ-Hi (spline/cr-first/cr)",
+  "batches": 1,
+  "cr": 6.943014750611605,
+  "cmp_gbs": 121.55933160743702,
+  "dec_gbs": 79.13590860347011,
+  "max_err": 10.000015258789062,
+  "psnr_per_batch": [
+   69.11484907744949
+  ],
+  "dataset": "EXAFEL",
+  "eb_abs": 10.0
+ }
+]
