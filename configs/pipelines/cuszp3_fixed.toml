@@ -1,7 +1,9 @@
 [pipeline]
-# cuSZp3 fixed mode: quantization followed directly by per-block fixed-width
-# packing. There is no Lorenzo predictor. This mirrors the supported FZGM
-# preset and is used as the FZGM side of the native cuSZp3 fixed comparison.
+# cuSZp3 fixed mode, 1-D: quantization followed directly by per-block fixed-width
+# packing. There is no Lorenzo predictor. Native cuSZp3 `-m fixed -d 1` packs
+# 32-element blocks (cuSZp_kernels_1D_f32.cu: lane * 32), so block_size is 32.
+# The earlier 64-element preset was not a faithful port; at 32, compressed size
+# matches native to within a constant header on EXAALT/xx and HACC/vx.
 #
 # The current warp-register specialization requires
 # Quantizer -> block-local predictor -> AdaptiveBitpack, so this two-stage
@@ -21,5 +23,5 @@ linear_mode = true
 name = "ab"
 type = "AdaptiveBitpack"
 input_type = "int32"
-block_size = 64
+block_size = 32
 inputs = [{from = "quant", port = "codes"}]
