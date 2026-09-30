@@ -42,11 +42,18 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+# benchkit is imported from a per-session snapshot of the COMMITTED package when
+# PEAKMEM_BENCHKIT_SNAPSHOT is set (cmd_run sets it and re-executes). The checkout is
+# shared with other sessions, whose uncommitted adapter edits otherwise change the
+# argv/behaviour of cells mid-study (2026-09-29: fzgm.benchmark() began requiring a
+# prior compress() archive).
+_BK_SNAPSHOT = os.environ.get("PEAKMEM_BENCHKIT_SNAPSHOT")
+sys.path.insert(0, _BK_SNAPSHOT if _BK_SNAPSHOT else str(REPO))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from benchkit.adapters.base import RunSpec  # noqa: E402
 from benchkit.adapters.cusz_ref import CuszAdapter  # noqa: E402
+from benchkit.adapters.cuszhi import CuszhiAdapter  # noqa: E402
 from benchkit.adapters.cuszp import CuszpAdapter  # noqa: E402
 from benchkit.adapters.fsz import FszAdapter  # noqa: E402
 from benchkit.adapters.fzgm import FzgmAdapter  # noqa: E402
@@ -60,6 +67,9 @@ LMEM_DIR = REPO / "tools" / "peak_memory" / "lmem_probe"
 STACK_SHIM = LMEM_DIR / "libstacklimit.so"
 LMEM_ATTR_BIN = LMEM_DIR / "lmem_0"
 SCHEMA = "peak_memory_cell/v1"
+# Natives measured as a compress process plus a decompress process (cell = max);
+# PFPL is two-process too, through its adapter's own benchmark().
+TWO_PROCESS_NATIVE = ("cusz", "cuszhi")
 
 METRIC_DEFINITIONS = {
     "nvml_peak_bytes": (
@@ -210,8 +220,49 @@ def family_entry(fam_cfg: dict, rank: int) -> tuple[dict, str]:
     return fam_cfg["native"], fam_cfg["fzgm"]
 
 
+def snapshot_pipelines(cfg: dict, out: Path) -> dict:
+    """Pin every FZGM pipeline TOML the config uses to its COMMITTED content.
+
+    The repo checkout is shared with other sessions; a pipeline edited mid-run
+    silently changes what later cells measure (2026-09-29: pfpl.toml gained
+    inplace outliers and a new radius 3 s into a run). Each TOML is written from
+    `git show HEAD:<path>` into <out>/pipelines/ once, and cells read that copy.
+    Returns {repo path: {snapshot, sha256, working_tree_differs}}.
+    """
+    paths = set()
+    for fcfg in cfg["families"].values():
+        if "by_rank" in fcfg:
+            paths.update(e["fzgm"] for e in fcfg["by_rank"].values())
+        else:
+            paths.add(fcfg["fzgm"])
+    snap_dir = out / "pipelines"
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    pinned = {}
+    for rel in sorted(paths):
+        dst = snap_dir / Path(rel).name
+        override = (cfg.get("pipeline_sources") or {}).get(rel)
+        from_work = bool(override and override.get("source") == "working_tree")
+        if not dst.exists():
+            text = ((REPO / rel).read_bytes() if from_work else
+                    subprocess.check_output(["git", "-C", str(REPO), "show", f"HEAD:{rel}"]))
+            dst.write_bytes(text)
+        work = REPO / rel
+        pinned[rel] = {"snapshot": str(dst), "sha256": sha256_file(dst),
+                       "git_commit": git_state(REPO)["commit"],
+                       "source": "working_tree" if from_work else "HEAD",
+                       "source_reason": (override or {}).get("reason"),
+                       "working_tree_differs": (not work.exists()) or sha256_file(work) != sha256_file(dst)}
+        if from_work:
+            print(f"[peakmem] NOTE: {rel} pinned from the working tree by config "
+                  f"(sha256 {pinned[rel]['sha256'][:12]})", flush=True)
+        elif pinned[rel]["working_tree_differs"]:
+            print(f"[peakmem] NOTE: {rel} differs from HEAD in the working tree; "
+                  f"using the committed version ({dst})", flush=True)
+    return pinned
+
+
 def plan_cells(cfg: dict, catalog: DatasetCatalog, only_fields=None, only_families=None,
-               only_arms=None):
+               only_arms=None, pinned: dict | None = None):
     cells = []
     fz = cfg["fzgm"]
     for ds, fld in cfg["fields"]:
@@ -243,7 +294,10 @@ def plan_cells(cfg: dict, catalog: DatasetCatalog, only_fields=None, only_famili
                                       "impl": "fzgm", "arm": arm, "planning": pa,
                                       "strategy": pcfg["strategy"], "coloring": pcfg["coloring"],
                                       "specialize": sp, "process_shape": shape,
-                                      "pipeline": fzgm_toml, "field": fspec})
+                                      "n_runs": fz.get("runs", 1) if shape == "roundtrip" else 1,
+                                      "pipeline": fzgm_toml,
+                                      "pipeline_snapshot": (pinned or {}).get(fzgm_toml, {}).get("snapshot"),
+                                      "field": fspec})
     if only_arms:
         cells = [c for c in cells if c["arm"] in only_arms or c["impl"] in only_arms]
     return cells
@@ -253,6 +307,8 @@ def build_native_adapter(native: dict):
     comp = native["compressor"]
     if comp == "cusz":
         return CuszAdapter(variant="cusz")
+    if comp == "cuszhi":
+        return CuszhiAdapter(variant=f"cuszhi_{native['pipeline']}")
     if comp in ("cuszp2", "cuszp3"):
         return CuszpAdapter(version=int(comp[-1]), variant=f"{comp}_{native['pipeline']}")
     if comp == "pfpl":
@@ -277,7 +333,7 @@ def measure(cell: dict, cfg: dict, args, nvml: Nvml, workroot: Path) -> dict:
     wd.mkdir(parents=True)
     rec = Recorder(nvml, cfg["sample_period_ms"] / 1000.0, not args.no_probe, wd)
     out: dict = {"status": "ok"}
-    eb = float(cfg["error"]["bound"])
+    eb = None if cfg["error"]["bound"] is None else float(cfg["error"]["bound"])
     mode = cfg["error"]["mode"]
     try:
         if cell["impl"] == "baseline":
@@ -292,8 +348,8 @@ def measure(cell: dict, cfg: dict, args, nvml: Nvml, workroot: Path) -> dict:
                            pipeline=n["pipeline"], variant="reference")
             prep = ad.prepare(spec, wd)
             with rec.active():
-                if n["compressor"] == "cusz":
-                    # Native cuSZ is a two-process tool (-z, then -x from the archive).
+                if n["compressor"] in TWO_PROCESS_NATIVE:
+                    # Native cuSZ / cuSZ-Hi are two-process tools (-z, then -x from the archive).
                     c = ad.compress(spec, prep, wd)
                     ad.decompress(spec, c.compressed_path, wd)
                 else:
@@ -302,7 +358,8 @@ def measure(cell: dict, cfg: dict, args, nvml: Nvml, workroot: Path) -> dict:
         else:
             ad = FzgmAdapter(variant=cell["family"], cli_path=args.fzgm_cli)
             spec = RunSpec(field=f, error_mode=mode, error_bound=eb,
-                           pipeline=str(REPO / cell["pipeline"]), variant="fzgm")
+                           pipeline=cell.get("pipeline_snapshot") or str(REPO / cell["pipeline"]),
+                           variant="fzgm")
             prep = ad.prepare(spec, wd)
             extra = ["--strategy", cell["strategy"]]
             if not cell["coloring"]:
@@ -314,7 +371,7 @@ def measure(cell: dict, cfg: dict, args, nvml: Nvml, workroot: Path) -> dict:
                     ad.decompress(spec, c.compressed_path, wd)
                     reports = [wd / "z.json", wd / "x.json"]
                 else:
-                    ad.benchmark(spec, prep, 1, wd)
+                    ad.benchmark(spec, prep, cell.get("n_runs", 1), wd)
                     reports = [wd / "b.json"]
             out["fzgm_reports"] = [summarize_fzgm_report(r) for r in reports]
             shas = {r["git_sha"] for r in out["fzgm_reports"]}
@@ -451,10 +508,15 @@ def cmd_run(args) -> int:
     cfg = yaml.safe_load(cfg_path.read_text())
     if args.reps:
         cfg["reps"] = args.reps
+    if args.fzgm_runs:
+        # Recorded in session.json's config, so the session states its own protocol.
+        cfg["fzgm"]["runs"] = args.fzgm_runs
+        cfg["fzgm"]["runs_overridden_on_cli"] = True
     catalog = DatasetCatalog.load(REPO / "configs" / "datasets.yaml")
-    cells = plan_cells(cfg, catalog, args.only_fields, args.only_families, args.only_arms)
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
+    pinned = snapshot_pipelines(cfg, out)
+    cells = plan_cells(cfg, catalog, args.only_fields, args.only_families, args.only_arms, pinned)
     nvml = Nvml(args.device)
     fields = {c["field"].path: c["field"] for c in cells}.values()
     print(f"[peakmem] {len(cells)} cells x {cfg['reps']} reps -> {out}", flush=True)
@@ -470,6 +532,9 @@ def cmd_run(args) -> int:
     if not prov_path.exists():
         print("[peakmem] hashing datasets + binaries for provenance ...", flush=True)
         prov = capture_provenance(cfg, cfg_path, args, nvml, fields)
+        prov["pipelines"] = pinned
+        prov["benchkit_snapshot"] = (json.loads((Path(_BK_SNAPSHOT) / "SNAPSHOT.json").read_text())
+                                     if _BK_SNAPSHOT else None)
         bad = [k for k, d in prov["datasets"].items()
                if d["expected_sha256"] and d["expected_sha256"] != d["sha256"]]
         if bad:
@@ -483,6 +548,27 @@ def cmd_run(args) -> int:
             r = json.loads(line)
             done.add((r["cell_id"], r["rep"]))
     workroot = out / "work"
+    prov_now = json.loads(prov_path.read_text())
+    bk = (json.loads((Path(_BK_SNAPSHOT) / "SNAPSHOT.json").read_text()) if _BK_SNAPSHOT else None)
+    if prov_now.get("benchkit_snapshot") != bk:
+        prov_now.setdefault("benchkit_history", []).append(
+            {"utc": now(), "benchkit_snapshot": bk, "note": "benchkit source for rows from here on"})
+        prov_now["benchkit_snapshot"] = bk
+        prov_path.write_text(json.dumps(prov_now, indent=1, default=str))
+    cfg_sha = sha256_file(cfg_path)
+    if prov_now.get("config_sha256") != cfg_sha:
+        # Config extended on resume (e.g. families added): keep the old one on record.
+        prov_now.setdefault("config_history", []).append(
+            {"utc": now(), "config_sha256": prov_now.get("config_sha256"),
+             "config": prov_now.get("config")})
+        prov_now["config"], prov_now["config_sha256"] = cfg, cfg_sha
+        prov_path.write_text(json.dumps(prov_now, indent=1, default=str))
+    if prov_now.get("pipelines") != pinned:
+        # Resumed session (or one started before pinning): record what is used now.
+        prov_now.setdefault("pipelines_history", []).append(
+            {"utc": now(), "pipelines": pinned, "note": "pinned on resume"})
+        prov_now["pipelines"] = pinned
+        prov_path.write_text(json.dumps(prov_now, indent=1, default=str))
     for rep in range(cfg["reps"]):
         for i, cell in enumerate(cells):
             if (cell["cell_id"], rep) in done:
@@ -550,8 +636,9 @@ def cmd_aggregate(args) -> int:
             "family": r0["family"], "impl": r0["impl"], "arm": r0["arm"],
             "planning": r0.get("planning"), "strategy": r0.get("strategy"),
             "coloring": r0.get("coloring"), "specialize": r0.get("specialize"),
+            "n_runs": r0.get("n_runs"),
             "process_shape": r0.get("process_shape") or (
-                "split" if r0["impl"] == "native" and r0.get("native", {}).get("compressor") in ("cusz", "pfpl")
+                "split" if r0["impl"] == "native" and r0.get("native", {}).get("compressor") in ("cusz", "cuszhi", "pfpl")
                 else "roundtrip"),
             "pipeline": r0.get("pipeline"), "native": r0.get("native"),
             "dataset": r0["dataset"], "field": r0["field"], "dtype": ds["dtype"],
@@ -582,6 +669,28 @@ def cmd_aggregate(args) -> int:
     return 0
 
 
+def ensure_benchkit_snapshot(out: Path) -> None:
+    """Re-exec this command against `git archive HEAD benchkit` unpacked in <out>."""
+    if _BK_SNAPSHOT:
+        return
+    snap = out / "benchkit_snapshot"
+    if not (snap / "benchkit").exists():
+        snap.mkdir(parents=True, exist_ok=True)
+        tar = subprocess.run(["git", "-C", str(REPO), "archive", "HEAD", "benchkit"],
+                             check=True, capture_output=True).stdout
+        subprocess.run(["tar", "-x", "-C", str(snap)], input=tar, check=True)
+        head = git_state(REPO)["commit"]
+        differs = bool(subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "benchkit"],
+                                      capture_output=True, text=True).stdout.strip())
+        (snap / "SNAPSHOT.json").write_text(json.dumps(
+            {"git_commit": head, "working_tree_differed": differs, "utc": now()}, indent=1))
+        if differs:
+            print("[peakmem] NOTE: benchkit/ differs from HEAD in the working tree; "
+                  "this session uses the committed package", flush=True)
+    env = dict(os.environ, PEAKMEM_BENCHKIT_SNAPSHOT=str(snap))
+    os.execve(sys.executable, [sys.executable, *sys.argv], env)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -591,6 +700,8 @@ def main() -> int:
     r.add_argument("--fzgm-cli", required=True)
     r.add_argument("--device", type=int, default=0)
     r.add_argument("--reps", type=int)
+    r.add_argument("--fzgm-runs", type=int,
+                   help="override fzgm.runs (in-process executions per round trip)")
     r.add_argument("--only-fields", nargs="*")
     r.add_argument("--only-families", nargs="*")
     r.add_argument("--only-arms", nargs="*", help="arm ids or impl names (native/fzgm/baseline)")
@@ -601,6 +712,10 @@ def main() -> int:
     a = sub.add_parser("aggregate")
     a.add_argument("session")
     args = ap.parse_args()
+    if args.cmd == "run" and not args.dry_run:
+        out = Path(args.out).resolve()
+        out.mkdir(parents=True, exist_ok=True)
+        ensure_benchkit_snapshot(out)
     return cmd_run(args) if args.cmd == "run" else cmd_aggregate(args)
 
 

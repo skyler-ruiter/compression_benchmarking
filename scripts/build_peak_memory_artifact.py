@@ -24,10 +24,12 @@ import math
 from pathlib import Path
 
 FAMILY_LABEL = {
-    "cusz": "cuSZ", "cuszp2_outlier": "cuSZp2-O", "cuszp2_plain": "cuSZp2-P",
-    "cuszp3_outlier": "cuSZp3-O", "cuszp3_plain": "cuSZp3-P", "pfpl": "PFPL", "fsz": "FSZ",
+    "cusz": "cuSZ", "cuszhi_cr": "cuSZ-Hi-CR", "cuszhi_tp": "cuSZ-Hi-TP",
+    "cuszp2_outlier": "cuSZp2-O", "cuszp2_plain": "cuSZp2-P",
+    "cuszp3_outlier": "cuSZp3-O", "cuszp3_plain": "cuSZp3-P", "cuszp3_fixed": "cuSZp3-F",
+    "pfpl": "PFPL", "fsz": "FSZ",
 }
-FAMILIES = list(FAMILY_LABEL)
+FAMILIES = list(FAMILY_LABEL)   # families absent from a session are skipped
 ARMS = {  # short name -> arm id
     "native": "native",
     "staged": "fzgm:planned:off",
@@ -50,6 +52,11 @@ def load_jsonl(p: Path) -> list[dict]:
 def gmean(xs):
     xs = [x for x in xs if x and x > 0]
     return math.exp(sum(math.log(x) for x in xs) / len(xs)) if xs else None
+
+
+def cid(c):
+    """Cell id for a Markdown table cell (the raw id's '|' separators break tables)."""
+    return "`" + c.replace("|", " / ") + "`"
 
 
 def fmt_mb(b):
@@ -112,16 +119,39 @@ def build(args):
     exclusions = []
     for c in cells:
         if c["status"] != "ok":
+            f_ = c.get("failure") or {}
+            err = f_.get("error") or ""
+            tail = f_.get("log_tail") or ""
+            # Prefer the tool's own message (e.g. a C++ exception's what()) when the
+            # adapter error only carries an exit code.
+            import re as _re
+            what = _re.search(r"what\(\):\s*(.+)", tail) or _re.search(r"ERR\s+(.+)", tail)
+            if what and "exit" in err:
+                err = err + " — " + _re.sub(r"\x1b\[[0-9;]*m", "", what.group(1)).strip()
+            if "must specify data type" in err and "cuszhi" in c["cell_id"]:
+                err += (" (the native cuSZ-Hi build parses -t f64 but its check_dtype accepts only "
+                        "f32: native cuSZ-Hi is f32-only here)")
             exclusions.append({"cell_id": c["cell_id"], "status": c["status"],
-                               "n_ok": c["n_ok"], "n_reps": c["n_reps"],
-                               "error": (c.get("failure") or {}).get("error")})
+                               "n_ok": c["n_ok"], "n_reps": c["n_reps"], "error": err})
     polluted = [c["cell_id"] for c in cells if c.get("foreign_processes_seen")]
+    # A foreign process does not enter a per-PID NVML reading; confirm by rep agreement.
+    reps_by = {}
+    for line in (session / "raw.jsonl").read_text().splitlines():
+        r_ = json.loads(line)
+        reps_by.setdefault(r_["cell_id"], []).append(r_)
+    polluted_detail = []
+    for cid_ in polluted:
+        rr = reps_by[cid_]
+        clean = [r_["nvml_peak_bytes"] for r_ in rr if not r_.get("foreign_processes_seen")]
+        dirty = [r_["nvml_peak_bytes"] for r_ in rr if r_.get("foreign_processes_seen")]
+        polluted_detail.append({"cell_id": cid_, "clean_reps": clean, "foreign_reps": dirty,
+                                "identical": bool(clean) and set(dirty) <= set(clean)})
     inversions = [c["cell_id"] for c in cells if c.get("probe_gt_nvml_inversions")]
     spread = max((c["nvml_rep_spread_bytes"] or 0) for c in cells if c["status"] == "ok")
 
     # ------------------------------------------------------------- per-cell summary rows
     summary = []
-    for fam in FAMILIES:
+    for fam in [f_ for f_ in FAMILIES if f_ in {c["family"] for c in cells}]:
         for f in fields:
             row = {"family": fam, "label": FAMILY_LABEL[fam], "field": f, "input_bytes": input_bytes[f]}
             for short in ARMS:
@@ -132,6 +162,9 @@ def build(args):
             row["native_probe_bytes"] = nat["probe_peak_bytes"] if nat else None
             row["native_lmem_reserved_bytes"] = nat["lmem_reserved_above_default_bytes"] if nat else None
             au = ix.get(fam, "auto", f)
+            fus = (au or {}).get("fusion") or {}
+            row["auto_installed"] = (fus.get("installed_group_count") or 0) > 0 if au else None
+            row["auto_fallback_reason"] = fus.get("fallback_reason") if au else None
             row["auto_lmem_reserved_bytes"] = au["lmem_reserved_above_default_bytes"] if au else None
             st = ix.get(fam, "staged", f)
             row["staged_lmem_reserved_bytes"] = st["lmem_reserved_above_default_bytes"] if st else None
@@ -156,8 +189,11 @@ def build(args):
     def fam_rows(fam):
         return [r for r in summary if r["family"] == fam]
 
+    present = {c["family"] for c in cells}
     per_family = {}
     for fam in FAMILIES:
+        if fam not in present:
+            continue
         rs = fam_rows(fam)
         specializes = any(r["auto_nvml_bytes"] for r in rs)
         d = {"label": FAMILY_LABEL[fam], "specializes": specializes}
@@ -167,8 +203,12 @@ def build(args):
         d["gmean_auto_over_staged_self"] = gmean([r["auto_over_staged_self"] for r in rs]) if specializes else None
         d["gmean_nocolor_over_planned_staged_self"] = gmean([r["nocolor_over_planned_staged_self"] for r in rs])
         d["gmean_nocolor_over_planned_staged_nvml"] = gmean([r["nocolor_over_planned_staged_nvml"] for r in rs])
-        # Largest field: the realistic-size end of this field set.
-        big = max((r for r in rs if r["native_nvml_bytes"]), key=lambda r: r["input_bytes"], default=None)
+        # Largest field where native AND the family's default FZGM arm both measured:
+        # the realistic-size end of this field set that is actually comparable.
+        dkey = "auto_nvml_bytes" if specializes else "staged_nvml_bytes"
+        big = max((r for r in rs if r["native_nvml_bytes"] and r[dkey]),
+                  key=lambda r: r["input_bytes"], default=None)
+        d["largest_input_bytes"] = big["input_bytes"] if big else None
         d["largest_field"] = big["field"] if big else None
         d["largest_staged_over_native"] = big["staged_over_native"] if big else None
         d["largest_auto_over_native"] = big["auto_over_native"] if big else None
@@ -190,8 +230,10 @@ def build(args):
     pa_nvml = [r["nocolor_over_planned_staged_nvml"] for r in summary]
     pa_auto = [r["nocolor_over_planned_auto_nvml"] for r in summary if r["nocolor_over_planned_auto_nvml"]]
     mn = [r["minimal_over_planned_staged_nvml"] for r in summary if r["minimal_over_planned_staged_nvml"]]
-    sp_self = [r["auto_over_staged_self"] for r in summary if r["auto_over_staged_self"]]
-    sp_nvml = [r["auto_over_staged_nvml"] for r in summary if r["auto_over_staged_nvml"]]
+    inst = [r for r in summary if r["auto_installed"]]
+    fallback = [r for r in summary if r["auto_installed"] is False]
+    sp_self = [r["auto_over_staged_self"] for r in inst if r["auto_over_staged_self"]]
+    sp_nvml = [r["auto_over_staged_nvml"] for r in inst if r["auto_over_staged_nvml"]]
     agg["planning"] = {
         "gmean_nocolor_over_planned_staged_self": gmean(pa_self),
         "range_nocolor_over_planned_staged_self": [min(x for x in pa_self if x), max(x for x in pa_self if x)],
@@ -207,6 +249,10 @@ def build(args):
         "range_auto_over_staged_nvml": [min(sp_nvml), max(sp_nvml)] if sp_nvml else None,
         "n_cells_auto_above_staged_nvml": sum(1 for x in sp_nvml if x > 1.0),
         "n_cells": len(sp_nvml),
+        "n_fallback_cells": len(fallback),
+        "fallback_fields": sorted({r["field"] for r in fallback}),
+        "fallback_reasons": sorted({r["auto_fallback_reason"] or "?" for r in fallback}),
+        "scope": "installed cells only; fallback cells (Auto == staged execution) reported separately",
     }
     # Self-report vs NVML: what the paper's Memory column would claim vs process view
     nat_stacks = [c["max_stack_limit_bytes"] for c in cells if c["status"] == "ok" and c["impl"] == "native"
@@ -230,11 +276,15 @@ def build(args):
             continue
         pred = base["nvml_peak_bytes"] + (c["lmem_reserved_above_default_bytes"] or 0) + c["probe_peak_bytes"]
         decomp.append({"cell_id": c["cell_id"], "nvml": c["nvml_peak_bytes"], "predicted": pred,
+                       "split": c.get("process_shape") == "split",
                        "residual_bytes": c["nvml_peak_bytes"] - pred})
-    res = [d["residual_bytes"] for d in decomp]
+    res = [d["residual_bytes"] for d in decomp if not d["split"]]
+    res_split = [d["residual_bytes"] for d in decomp if d["split"]]
     agg["decomposition"] = {
         "model": "NVML peak ≈ empty-context baseline + local-memory reservation above default + probe peak (live cudaMalloc-family bytes)",
-        "n_cells": len(decomp),
+        "n_cells": len(res),
+        "n_split_cells": len(res_split),
+        "split_residual_max_bytes": max(res_split) if res_split else None,
         "residual_min_bytes": min(res) if res else None,
         "residual_max_bytes": max(res) if res else None,
         "residual_median_bytes": sorted(res)[len(res) // 2] if res else None,
@@ -287,6 +337,87 @@ def build(args):
                          "h100_nvml_bytes": h100["nvml_peak_bytes"] if h100 and h100["status"] == "ok" else None})
         spots.append({"session": str(sp), "host": sprov["host"], "gpu": sprov["gpu"], "rows": rows})
 
+    # ------------------------------------------------------------- first-execution sensitivity
+    first = None
+    if args.first_execution:
+        fcells = load_jsonl(Path(args.first_execution) / "cells.jsonl")
+        fix = {(c["family"], c["arm"], f"{c['dataset']}/{c['field']}"): c for c in fcells}
+        pairs = []
+        for (fam_, arm, f), c in ix.by.items():
+            if c["impl"] != "fzgm" or c["status"] != "ok" or c.get("process_shape") == "split":
+                continue
+            o = fix.get((fam_, arm, f))
+            if o and o["status"] == "ok":
+                pairs.append({"family": fam_, "arm": arm, "field": f,
+                              "steady_bytes": c["nvml_peak_bytes"], "first_bytes": o["nvml_peak_bytes"],
+                              "ratio": c["nvml_peak_bytes"] / o["nvml_peak_bytes"]})
+        def stats(sel):
+            rs = [p_["ratio"] for p_ in pairs if sel(p_)]
+            return {"n": len(rs), "gmean": gmean(rs), "max": max(rs) if rs else None,
+                    "n_changed_over_1pct": sum(1 for r in rs if abs(r - 1) > 0.01)}
+        fprov = json.loads((Path(args.first_execution) / "session.json").read_text())
+        first = {"session": str(args.first_execution),
+                 "fzgm": fprov["fzgm"]["expected_git_sha"],
+                 "auto": stats(lambda p_: p_["arm"].endswith(":auto")),
+                 "staged": stats(lambda p_: p_["arm"].endswith(":off")),
+                 "largest_changes": sorted(pairs, key=lambda p_: -p_["ratio"])[:10]}
+
+    # ------------------------------------------------------------- revision change
+    rev = None
+    if args.previous_revision:
+        prev_dir = Path(args.previous_revision)
+        pcells = load_jsonl(prev_dir / "cells.jsonl")
+        pprov = json.loads((prev_dir / "session.json").read_text())
+        pix = {(c["family"], c["arm"], f"{c['dataset']}/{c['field']}"): c for c in pcells}
+        rows_ = []
+        for key, c in ix.by.items():
+            o = pix.get(key)
+            if c["status"] != "ok" or not o or o["status"] != "ok" or c["impl"] == "baseline":
+                continue
+            rows_.append({"family": key[0], "arm": key[1], "field": key[2],
+                          "prev_bytes": o["nvml_peak_bytes"], "new_bytes": c["nvml_peak_bytes"],
+                          "ratio": c["nvml_peak_bytes"] / o["nvml_peak_bytes"]})
+        by_fam = {}
+        for fam_ in FAMILIES:
+            for impl_, sel in (("native", lambda a: a in ("native", "native_static")),
+                               ("fzgm", lambda a: a.startswith("fzgm:"))):
+                rs_ = [r["ratio"] for r in rows_ if r["family"] == fam_ and sel(r["arm"])]
+                if rs_:
+                    by_fam[f"{fam_}/{impl_}"] = {"n": len(rs_), "gmean": gmean(rs_),
+                                                 "min": min(rs_), "max": max(rs_)}
+        prev_largest = {}
+        for fam_ in FAMILIES:
+            if fam_ not in per_family:
+                continue
+            key_arm = ARMS["auto"] if per_family[fam_]["specializes"] else ARMS["staged"]
+            pf = [c for c in pcells if c["family"] == fam_ and c["status"] == "ok"]
+            if not pf:
+                continue
+            big = max(c["input_bytes"] for c in pf)
+            nat = next((c for c in pf if c["arm"] == "native" and c["input_bytes"] == big), None)
+            fz = next((c for c in pf if c["arm"] == key_arm and c["input_bytes"] == big), None)
+            if nat and fz:
+                prev_largest[fam_] = fz["nvml_peak_bytes"] / nat["nvml_peak_bytes"]
+        rev = {"previous_session": str(prev_dir), "previous_largest_default_over_native": prev_largest,
+               "previous_fzgm": pprov["fzgm"]["expected_git_sha"],
+               "by_family": by_fam,
+               "largest_changes": sorted(rows_, key=lambda r: r["ratio"])[:12]}
+
+    diags = None
+    if args.diagnostics and Path(args.diagnostics).exists():
+        drows = load_jsonl(Path(args.diagnostics))
+        grp = {}
+        for d_ in drows:
+            grp.setdefault((d_["diagnostic"], d_["cell_id"]), []).append(d_)
+        diags = []
+        for (tag, cid), rs_ in sorted(grp.items()):
+            nv = [r_["nvml_peak_bytes"] for r_ in rs_ if r_["status"] == "ok"]
+            sf = [r_["fzgm_self_peak_bytes"] for r_ in rs_ if r_["status"] == "ok" and r_["fzgm_self_peak_bytes"]]
+            diags.append({"diagnostic": tag, "cell_id": cid, "n": len(nv),
+                          "nvml_max_bytes": max(nv) if nv else None,
+                          "self_max_bytes": max(sf) if sf else None,
+                          "cli": rs_[0]["fzgm_cli"], "error": rs_[0]["error"], "env": rs_[0]["env"]})
+
     # ------------------------------------------------------------- write
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -299,6 +430,7 @@ def build(args):
                                            "native_tools", "binaries_sha256", "datasets",
                                            "metric_definitions", "sample_period_ms", "config_sha256")},
         "protocol": {"error": prov["config"]["error"], "reps": prov["config"]["reps"],
+                     "fzgm_runs": prov["config"]["fzgm"].get("runs", 1),
                      "families": FAMILIES, "arms": ARMS,
                      "field_set_note": ("Eight fields chosen to span 11.5 MB-1.12 GB and resolve the "
                                         "native/FZGM crossover; NOT corpus-representative.")},
@@ -307,9 +439,13 @@ def build(args):
         "summary": summary,
         "exclusions": exclusions,
         "quality_flags": {"cells_with_foreign_gpu_processes": polluted,
+                          "foreign_process_rep_check": polluted_detail,
                           "cells_with_probe_gt_nvml": inversions},
         "reference_comparison": ref_cmp,
         "spot_checks": spots,
+        "first_execution_sensitivity": first,
+        "revision_change": rev,
+        "diagnostics": diags,
     }
     (out / "peak_memory.json").write_text(json.dumps(payload, indent=1, default=str))
 
@@ -361,7 +497,9 @@ def render_md(p: dict, args) -> str:
       f"on every row); native pins: " + ", ".join(f"{k} `{v['pinned_commit'][:8]}`" for k, v in pv["native_tools"].items()) + ".")
     a(f"- Bound: {p['protocol']['error']['mode']} {p['protocol']['error']['bound']:g}. "
       f"{p['protocol']['reps']} process repetitions per cell; reported value is the max over reps "
-      f"(max rep-to-rep spread observed: {agg['max_rep_spread_bytes'] / MB:.1f} MB).")
+      f"(max rep-to-rep spread observed: {agg['max_rep_spread_bytes'] / MB:.1f} MB). FZGM round-trip "
+      f"processes execute the pipeline {p['protocol']['fzgm_runs']}× (steady state; see below); the "
+      "split-process control executes once per process.")
     a(f"- **Primary metric:** NVML per-process `usedGpuMemory` of the tool's process tree, polled every "
       f"{pv['sample_period_ms']} ms (ctypes binding to `libnvidia-ml`). A measurement covers one compress "
       "and one decompress; multi-process tools take the max over their processes.")
@@ -384,7 +522,10 @@ def render_md(p: dict, args) -> str:
       "`tools/peak_memory/lmem_probe/lmem_probe.cu` reproduces this exactly. "
       f"Across {d['n_cells']} cells, NVML peak = context + local-memory reservation + probe peak "
       f"within {d['residual_min_bytes'] / MB:+.0f} to {d['residual_max_bytes'] / MB:+.0f} MB "
-      "(pool rounding and module data).\n")
+      f"(median {d['residual_median_bytes'] / MB:+.0f} MB; pool reservation rounding and retention). "
+      f"The {d['n_split_cells']} split-process cells leave up to {d['split_residual_max_bytes'] / MB:+,.0f} MB "
+      "unexplained, all of it FZGM's memory pool retaining freed blocks in the decompress-from-file process: "
+      "with the pool disabled (`pool_off` diagnostic) the MIRANDA split cell falls to context + live bytes.\n")
     sr = agg.get("native_cuszp_stack_limit_range_bytes")
     a("This replaces the September explanation of cuSZp's large fixed overhead (\"allocator churn "
       "invisible to the probe\"): native cuSZp processes raise the context stack limit to "
@@ -433,12 +574,17 @@ def render_md(p: dict, args) -> str:
       f"(range {fmt_pct(sp['range_auto_over_staged_self'][0])} to {fmt_pct(sp['range_auto_over_staged_self'][1])}). "
       f"Process footprint (NVML): gmean {fmt_pct(sp['gmean_auto_over_staged_nvml'])} (range "
       f"{fmt_pct(sp['range_auto_over_staged_nvml'][0])} to {fmt_pct(sp['range_auto_over_staged_nvml'][1])}); "
-      f"Auto is *above* staged in {sp['n_cells_auto_above_staged_nvml']} of {sp['n_cells']} cells.\n")
+      f"Auto is *above* staged in {sp['n_cells_auto_above_staged_nvml']} of {sp['n_cells']} cells. "
+      f"These statistics cover the {sp['n_cells']} cells where specialization installed. In "
+      f"{sp['n_fallback_cells']} more cells (fields: {', '.join(sp['fallback_fields'])}) Auto declined to "
+      f"install (`{', '.join(sp['fallback_reasons'])}`) and executed the staged graph, so those "
+      "Auto points equal staged.\n")
     bt = agg["self_vs_process"]["blocksize_table_memory_column_pct"]
     a("The block-size table's Memory column ("
       + (f"{bt[0]:+.1f}% to {bt[1]:+.1f}%" if bt else "n/a") +
-      ", `scripts/analyze_specialization_blocksize.py`) is this self-report ratio. It measures the pool, "
-      "not the process, and should be labelled that way (or replaced with the NVML ratio).\n")
+      ", `scripts/analyze_specialization_blocksize.py`, benchkit rows at `d511ebc`) uses this same "
+      "self-report ratio. It measures the pool, not the process, and should be labelled that way (or "
+      "replaced with the NVML ratio).\n")
 
     a("## FZGM vs native\n")
     a("| Family | Field | Input MB | Native | Staged | Auto | Staged/native | Auto/native |")
@@ -466,15 +612,34 @@ def render_md(p: dict, args) -> str:
           "split arm is the like-for-like comparison for those two families.\n")
 
     ex = p["exclusions"]
+    a("| Family | Field | Native (2 proc) | Staged split | Auto split | Staged split/native | Auto split/native |")
+    a("|---|---|--:|--:|--:|--:|--:|")
+    for r in S:
+        if r["family"] in ("cusz", "pfpl") and r["native_nvml_bytes"] and r["staged_split_nvml_bytes"]:
+            a(f"| {r['label']} | {r['field']} | {fmt_mb(r['native_nvml_bytes'])} | {fmt_mb(r['staged_split_nvml_bytes'])} | "
+              f"{fmt_mb(r['auto_split_nvml_bytes'])} | {fmt_x(ratio(r['staged_split_nvml_bytes'], r['native_nvml_bytes']))} | "
+              f"{fmt_x(ratio(r['auto_split_nvml_bytes'], r['native_nvml_bytes']))} |")
+    a("\n(Split cells execute once per process; Auto's second-execution growth does not arise.)\n")
+
     a("## Exclusions and data-quality flags\n")
     if ex:
-        a("| Cell | Status | Error |\n|---|---|---|")
+        groups = {}
         for e in ex:
-            a(f"| `{e['cell_id']}` | {e['status']} ({e['n_ok']}/{e['n_reps']}) | {(e['error'] or '')[:110]} |")
+            fam_, arm_, field_ = e["cell_id"].split("|")
+            impl_ = "native" if arm_.startswith("native") else "FZGM"
+            cause = (e["error"] or "").split(" — ")[-1].split("; see")[0][:240]
+            groups.setdefault((fam_, impl_, cause), []).append((arm_, field_))
+        a("| Family | Impl | Cells | Fields | Cause |\n|---|---|--:|---|---|")
+        for (fam_, impl_, cause), items in sorted(groups.items()):
+            fields_ = sorted({f_ for _, f_ in items})
+            a(f"| {FAMILY_LABEL.get(fam_, fam_)} | {impl_} | {len(items)} | {', '.join(fields_)} | {cause} |")
     else:
         a("No failed cells.")
     q = p["quality_flags"]
-    a(f"\nCells with a foreign GPU process during measurement: {len(q['cells_with_foreign_gpu_processes'])}. "
+    same = sum(1 for d_ in q["foreign_process_rep_check"] if d_["identical"])
+    a(f"\nCells with a foreign GPU process during measurement: {len(q['cells_with_foreign_gpu_processes'])} "
+      f"(another session's jobs on the shared host); in {same} of them the affected rep equals the "
+      "clean reps exactly, as expected for a per-PID NVML reading. "
       f"Cells where probe > NVML (a sampling miss): {len(q['cells_with_probe_gt_nvml'])}.\n")
 
     rc = p["reference_comparison"]
@@ -495,6 +660,68 @@ def render_md(p: dict, args) -> str:
               ", ".join(f"{FAMILY_LABEL[c['family']]} {c['arm']} {c['field']}" for c in rc["only_old"]) + ".")
         a("")
 
+    fe = p.get("first_execution_sensitivity")
+    if fe:
+        a("## First execution vs steady state\n")
+        a(f"Primary FZGM numbers use `fzgmod-cli -b --runs {p['protocol'].get('fzgm_runs')}` (steady state). "
+          f"A complete single-execution session (`{Path(fe['session']).name}`, FZGM `{fe['fzgm']}`"
+          + ("" if fe["fzgm"] == p["provenance"]["fzgm"]["expected_git_sha"] else
+             f", the previous revision: the sensitivity run was not repeated at "
+             f"`{p['provenance']['fzgm']['expected_git_sha']}`, whose only further change is the "
+             "inverse-DAG cache fix, and families added since have no single-execution comparison")
+          + ") is the sensitivity result: "
+          f"Auto cells are {fmt_pct(fe['auto']['gmean'])} higher at steady state (gmean, max "
+          f"{fmt_pct(fe['auto']['max'])}; {fe['auto']['n_changed_over_1pct']} of {fe['auto']['n']} cells "
+          f"move by more than 1%), staged cells {fmt_pct(fe['staged']['gmean'])} "
+          f"({fe['staged']['n_changed_over_1pct']} of {fe['staged']['n']} move by more than 1%). "
+          "The step appears from the second execution on and then stays flat: FZGM keeps a pool-managed "
+          "decompressed output valid until the next `decompress()` (its documented ownership contract), "
+          "so the benchmark loop's next compress runs with it resident. At `d511ebc` a retained inverse "
+          "result buffer added a further step (fixed; see the revision section and diagnostics). Native "
+          "cuSZp and PFPL repeat internally inside their measured process, so steady state is the "
+          "like-for-like setting.\n")
+        a("| Family | Arm | Field | first exec MB | steady MB | ratio |\n|---|---|---|--:|--:|--:|")
+        for c in fe["largest_changes"]:
+            a(f"| {FAMILY_LABEL.get(c['family'], c['family'])} | {c['arm']} | {c['field']} | "
+              f"{fmt_mb(c['first_bytes'])} | {fmt_mb(c['steady_bytes'])} | {fmt_x(c['ratio'], 3)} |")
+        a("")
+
+    rv = p.get("revision_change")
+    if rv:
+        a(f"## Change from the previous FZGM revision (`{rv['previous_fzgm']}`)\n")
+        a(f"Same protocol, same host; the previous session is `{Path(rv['previous_session']).name}`. "
+          f"Between `{rv['previous_fzgm']}` and `{p['provenance']['fzgm']['expected_git_sha']}` "
+          "(branch `memfix-chunk-fusion`), the memory-relevant FZGM changes are: no padded input copy "
+          "for chunk-fused pipelines; single-pass chunk encode without a full-size scratch buffer; no "
+          "retained inverse result buffer in `decompress()`; and the inverse-DAG cache rebuilt when a "
+          "stage's stream size changes (a correctness fix that can cost a rebuild's worth of pool "
+          "memory). Native rows are re-measured controls and should not move; families absent from "
+          "the previous session are not compared.\n")
+        a("| Family | Impl | cells | NVML new/previous (gmean) | min | max |\n|---|---|--:|--:|--:|--:|")
+        for k, v in rv["by_family"].items():
+            fam_, impl_ = k.split("/")
+            a(f"| {FAMILY_LABEL[fam_]} | {impl_} | {v['n']} | {fmt_x(v['gmean'], 3)} | "
+              f"{fmt_x(v['min'], 3)} | {fmt_x(v['max'], 3)} |")
+        a("\n| Family | Arm | Field | previous MB | new MB | ratio |\n|---|---|---|--:|--:|--:|")
+        for c in rv["largest_changes"]:
+            a(f"| {FAMILY_LABEL[c['family']]} | {c['arm']} | {c['field']} | {fmt_mb(c['prev_bytes'])} | "
+              f"{fmt_mb(c['new_bytes'])} | {fmt_x(c['ratio'], 3)} |")
+        a("")
+
+    dg = p.get("diagnostics")
+    if dg:
+        a("## Diagnostic cells (one factor changed each)\n")
+        a("Recorded at FZGM `d511ebc` (the pre-fix revision) by `tools/peak_memory/diagnose.py` against "
+          "that revision's first-execution session. They explain the September artifact's numbers; the "
+          "`runsN` step they show was partly the retained inverse buffer fixed since. Cells: "
+          "`binary` = the September `build_paper` tree; `from_toml` = the TOML's literal ABS 1e-3 bound "
+          "(the September script's bound semantics); `pool_off` = `FZ_FORCE_MEMPOOL_FALLBACK=1`; "
+          "`runsN` = N in-process executions.\n")
+        a("| Diagnostic | Cell | NVML MB (max) | FZGM self MB |\n|---|---|--:|--:|")
+        for d_ in dg:
+            a(f"| {d_['diagnostic']} | {cid(d_['cell_id'])} | {fmt_mb(d_['nvml_max_bytes'])} | {fmt_mb(d_['self_max_bytes'])} |")
+        a("")
+
     if p["spot_checks"]:
         a("## Bare-metal spot check\n")
         for s in p["spot_checks"]:
@@ -504,6 +731,8 @@ def render_md(p: dict, args) -> str:
                 a(f"| {r['family']} | {r['arm']} | {r['field']} | {fmt_mb(r['nvml_bytes'])} | "
                   f"{fmt_mb(r['lmem_reserved_bytes'])} | {fmt_mb(r['h100_nvml_bytes'])} |")
         a("")
+
+    a(draft_paragraph(p))
 
     a("## Caveats\n")
     cb = agg["ctx_baseline_bytes"]
@@ -521,11 +750,93 @@ def render_md(p: dict, args) -> str:
     return "\n".join(L) + "\n"
 
 
+def draft_paragraph(p: dict) -> str:
+    """~150-word RQ3 draft for the author; every number and every comparative word
+    (below/above native) is derived from the payload."""
+    agg, fam, S = p["aggregates"], p["per_family"], p["summary"]
+    pl, sp = agg["planning"], agg["specialization"]
+    rv = p.get("revision_change") or {}
+
+    def pct(r):
+        return f"{100 * (r - 1):.0f}%"
+
+    def red(r):
+        return f"{100 * (1 - r):.0f}%"
+
+    def x(r):
+        return f"{r:.2f}\u00d7"
+
+    largest = {k: (d["largest_auto_over_native"] if d["specializes"] else d["largest_staged_over_native"])
+               for k, d in fam.items()}
+    top = max(d["largest_input_bytes"] or 0 for d in fam.values())
+    short = {k: d["largest_input_bytes"] for k, d in fam.items()
+             if d["largest_input_bytes"] and d["largest_input_bytes"] < top}
+    at_or_below = [k for k in FAMILIES if largest.get(k) is not None and largest[k] <= 1.0]
+    above = [k for k in FAMILIES if largest.get(k) is not None and largest[k] > 1.0]
+    lm = [r["native_lmem_reserved_bytes"] for r in S if r["native_lmem_reserved_bytes"]]
+    small = [r for r in S if r["family"] == "cuszp2_outlier" and r["native_nvml_bytes"] and r["auto_nvml_bytes"]]
+    small_min = min(small, key=lambda r: r["input_bytes"]) if small else None
+    def join(items):
+        items = list(items)
+        return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+    names = lambda ks: join(FAMILY_LABEL[k] for k in ks)
+    big_mb = max(r["input_bytes"] for r in S) / 1e9
+    parts = [
+        "We measure peak device memory as the driver-reported resident footprint of each "
+        "compressor process over one compression and one decompression, on eight fields spanning "
+        f"{min(r['input_bytes'] for r in S) / MB:.1f}\u2009MB to {big_mb:.2f}\u2009GB.",
+        "Graph-wide planning matters: disabling liveness-based buffer reuse enlarges FZGM's working "
+        f"set by {pct(pl['gmean_nocolor_over_planned_staged_self'])} (geometric mean; up to "
+        f"{pct(pl['range_nocolor_over_planned_staged_self'][1])}).",
+        "Specialization removes materialized intermediates, shrinking the working set by a further "
+        f"{red(sp['gmean_auto_over_staged_self'])} and process memory by {red(sp['gmean_auto_over_staged_nvml'])}"
+        + (f", although generated kernels with large per-thread stacks raise the footprint in "
+           f"{sp['n_cells_auto_above_staged_nvml']} of {sp['n_cells']} cases." if sp["n_cells_auto_above_staged_nvml"] else "."),
+    ]
+    where = f"At the largest comparable field ({top / 1e9:.2f}\u2009GB"
+    if short:
+        by_size = {}
+        for k, b in short.items():
+            by_size.setdefault(b, []).append(k)
+        where += "; " + "; ".join(f"{b / MB:.0f}\u2009MB for {names(ks)}" for b, ks in sorted(by_size.items()))
+    where += ")"
+    if at_or_below:
+        rs = [largest[k] for k in at_or_below]
+        parts.append(f"{where} FZGM needs {x(min(rs))}\u2013{x(max(rs))} the memory of native "
+                     f"{names(at_or_below)}")
+    if above:
+        ra = [largest[k] for k in above]
+        worst = max(above, key=lambda k: largest[k])
+        above_txt = (f"{x(min(ra))}\u2013{x(max(ra))} for the other {len(above)} "
+                     f"(highest: {FAMILY_LABEL[worst]})")
+        parts[-1] += (f", and {above_txt}." if at_or_below
+                      else f"{where} FZGM needs {above_txt} the memory of native.")
+    elif at_or_below:
+        parts[-1] += "."
+    if lm and small_min:
+        parts.append(f"Native cuSZp kernels reserve up to {max(lm) / 1e9:.1f}\u2009GB of per-thread stack memory, "
+                     f"so on small fields FZGM needs as little as {x(small_min['auto_over_native'])} of native.")
+    pf_prev = (rv.get("previous_largest_default_over_native") or {}).get("pfpl")
+    if pf_prev and "pfpl" in largest:
+        parts.append("Removing a padded input copy, a full-size chunk scratch buffer, and a retained "
+                     f"decompression buffer lowered PFPL from {x(pf_prev)} to {x(largest['pfpl'])} of native.")
+    parts.append(f"Planning and specialization bring FZGM to or below native memory for {len(at_or_below)} of "
+                 f"{len(at_or_below) + len(above)} families; the rest keep a family-specific gap.")
+    txt = " ".join(parts)
+    n_words = len(txt.split())
+    return ("## Draft RQ3 paragraph (for the author; not in evaluation.tex)\n\n"
+            f"Generated from this artifact ({n_words} words; H100 only; field set not representative). "
+            "Every number and comparative word below is filled in by the builder.\n\n> " + txt + "\n")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--session", required=True)
     ap.add_argument("--reference")
     ap.add_argument("--spot", nargs="*")
+    ap.add_argument("--first-execution", help="runs=1 session for the sensitivity section")
+    ap.add_argument("--previous-revision", help="same-protocol session at the previous FZGM revision")
+    ap.add_argument("--diagnostics", help="diagnostics.jsonl from tools/peak_memory/diagnose.py")
     ap.add_argument("--blocksize-tex", help="papers/FZGM/tables/specialization_blocksize_h100.tex")
     ap.add_argument("--out-dir", required=True)
     build(ap.parse_args())

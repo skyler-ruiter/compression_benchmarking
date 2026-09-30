@@ -45,6 +45,30 @@ adapter integration would need to formalize, if that becomes worth doing.
 >   size), not live bytes, so NVML - context - local-mem - probe is positive; largest in
 >   the `-x` decompress-from-file process.
 >
+> **2026-09-29: primary revision moved to FZGM `e5e3412`** (branch `memfix-chunk-fusion` =
+> `main` 0bfbb6f + three memory fixes: no zero-padded input copy for chunk-fused pipelines,
+> single-pass look-back chunk encode without a full-size scratch buffer, no retained inverse
+> result buffer in `decompress()`; archives byte-identical). Config
+> `configs/peak_memory/rq3_h100_e5e3412.yaml`; the `d511ebc` sessions are kept as the pre-fix
+> comparison. The retained-buffer fix lowers every family's round trip, not only PFPL.
+> **Pipeline TOMLs are now pinned per session:** another session edited
+> `configs/pipelines/pfpl.toml` (uncommitted) three seconds into a run, so the driver writes each
+> family's committed TOML (`git show HEAD:`) into `<session>/pipelines/` and cells read that
+> copy; `session.json` records the hashes. The 192 PFPL rows measured against the edited file
+> were discarded (backup `raw.before-pfpl-repin.jsonl`) and re-measured; every re-measured row
+> matches the hash of the rows taken before the edit and of the `d511ebc` session.
+>
+> **2026-09-29 (later): primary revision is FZGM `4ac2f2d`** = `e5e3412` + a pre-existing-bug fix:
+> `decompress()` now rebuilds its cached inverse DAG when any stage's stream size changed (it
+> keyed only on the source size; a grown cuSZ-Hi side stream overran a reused buffer, ~3% of
+> cuSZ-Hi CR round trips on `main`). Families added: cuSZp3 fixed (dimension-matched, faithful
+> 32-element 1-D preset pinned from the working tree by `pipeline_sources`) and cuSZ-Hi CR/TP
+> (staged only). Sessions now also pin `benchkit/` to `git archive HEAD` (another session's
+> uncommitted adapter change had altered `fzgm.benchmark()`); `benchkit_snapshot` in
+> `session.json`. Config `configs/peak_memory/rq3_h100_4ac2f2d.yaml`. The first-execution
+> sensitivity result is reused from `e5e3412` (author decision). Native cuSZ-Hi here is f32-only
+> and fails on EXAALT/vx with its own GPU API error; FZGM's cuSZ-Hi graph rejects 1-D input.
+>
 > Results, exclusions, and the comparison against the September numbers are in the
 > generated artifact `paper_organizer/projects/FZGM/evidence/publication/memory/peak_memory.md`
 > (`scripts/build_peak_memory_artifact.py`). DESIGN D47 records the decisions.

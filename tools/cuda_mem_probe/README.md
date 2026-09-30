@@ -85,5 +85,9 @@ plain, async, managed, and pitched allocations, and an unmatched free.
 - VMM/`cuMemCreate` reservations not tracked (v1) — cross-check with NVML.
 - Async free timing is call-ordered, not stream-ordered (small transient error).
 - Excludes CUDA context and host (`cudaHostAlloc`) memory by design.
+- Blind to the driver's local-memory (stack) reservation, which grows device-wide when a
+  kernel's per-thread frame exceeds the 1 KiB default and is the dominant "hidden" cost
+  of native cuSZp (up to ~0.9 GB on an H100). `tools/peak_memory/lmem_probe/` measures
+  and attributes it; see `docs/peak_memory_methodology.md`.
 - Counts live, not reserved — a caching sub-allocator's spare capacity is not counted
   (this is the intended, FZGM-comparable semantics).

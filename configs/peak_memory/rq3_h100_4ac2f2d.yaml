@@ -16,7 +16,7 @@
 # FIELD SET IS NOT CORPUS-REPRESENTATIVE: eight fields chosen to span 11.5 MB-1.12 GB
 # and resolve the native/FZGM crossover. Do not aggregate across it as a "typical" ratio.
 
-name: peak_memory_rq3_h100
+name: peak_memory_rq3_h100_4ac2f2d
 error: {mode: rel_range, bound: 1.0e-3}
 reps: 3                     # process repetitions per cell; reported peak = max over reps
 sample_period_ms: 0.5       # NVML poll period
@@ -32,7 +32,12 @@ fields:                     # [dataset, field] from configs/datasets.yaml
   - [HACC, vx]
 
 fzgm:
-  expected_git_sha: d511ebc
+  # FZGM branch memfix-chunk-fusion @ 4ac2f2d = main 0bfbb6f + F1 (no padded input
+  # copy), F3 (no retained inverse result buffer), F2 (single-pass look-back chunk
+  # encode) + inverse-DAG cache fix (rebuild when a stage stream size changes). Primary
+  # RQ3 revision from 2026-09-29 (author); d511ebc and e5e3412 results are kept
+  # as the pre-fix comparison (configs/peak_memory/rq3_h100.yaml).
+  expected_git_sha: 4ac2f2d
   # In-process executions per measured round-trip process (fzgmod-cli -b --runs N).
   # Specialized (Auto) pipelines allocate additional state on their 2nd execution and
   # then plateau (PFPL HACC Auto: identical peak at --runs 2, 3, 6, 11); staged graphs do
@@ -86,11 +91,42 @@ families:
              static_bin_dir_env: PFPL_BIN_DIR,
              static_control_fields: [CESM-2D/CLDHGH, HACC/vx]}
     fzgm: configs/pipelines/pfpl.toml
+  cuszp3_fixed:
+    # Dimension-routed like the other cuSZp3 modes (native bare `fixed` is 1-D; the
+    # 2-D/3-D modes need the :2d/:3d suffix; see cuszp3_fixed_dimmatched_full.yaml).
+    # 2-D/3-D specialize; the 1-D flat preset is a non-specializing control.
+    specializes: true
+    by_rank:
+      1: {native: {compressor: cuszp3, pipeline: fixed},      fzgm: configs/pipelines/cuszp3_fixed.toml}
+      2: {native: {compressor: cuszp3, pipeline: "fixed:2d"}, fzgm: configs/pipelines/cuszp3_2d_fixed.toml}
+      3: {native: {compressor: cuszp3, pipeline: "fixed:3d"}, fzgm: configs/pipelines/cuszp3_3d_fixed.toml}
+  cuszhi_cr:
+    # GInterp spline pipeline: not a fusable shape, staged only (as in the paper's RQ2).
+    # Native cuSZ-Hi is a two-process tool (-z, then -x). Native 1-D support is not
+    # assumed: 1-D cells are attempted and any refusal is recorded as an exclusion.
+    specializes: false
+    native: {compressor: cuszhi, pipeline: cr}
+    fzgm: configs/pipelines/cusz_hi_cr_b1.toml
+  cuszhi_tp:
+    specializes: false
+    native: {compressor: cuszhi, pipeline: tp}
+    fzgm: configs/pipelines/cusz_hi_tp_b1.toml
   fsz:
     specializes: false
     # Stock FSZ CLI round trip (--csv), not the repo-built fsz_hosttime harness.
     native: {compressor: fsz, pipeline: default, stock_cli: true}
     fzgm: configs/pipelines/fsz.toml
+
+# Pipeline snapshot sources. Default: the committed file (git show HEAD:<path>), pinned
+# into the session at start. An entry here pins the working-tree file instead, with a
+# recorded reason; it is still snapshotted once, so later edits cannot leak in.
+pipeline_sources:
+  configs/pipelines/cuszp3_fixed.toml:
+    source: working_tree
+    reason: >-
+      Faithful 1-D port (block_size 32, matching native cuSZp3 -m fixed -d 1) from the
+      2026-09-28 dim-matched campaign (cuszp3_fixed_dimmatched_full.yaml); not yet committed.
+      The committed 64-element preset is the unfaithful one that campaign replaced.
 
 # Native tool pins (verified against checkout HEADs at run start).
 native_pins:
@@ -99,3 +135,4 @@ native_pins:
   cuszp3: {commit: da90afb42770fcef6129cb586cf185c7d54c614c, checkout: cuSZp-V3.0.0, vendored: true}
   pfpl:   {commit: 36f5aaef42744ed78b4d1525b03a7fb2168b363c, checkout: PFPL}
   fsz:    {commit: 43240ed1149ff4c48b52e74c9d8ba998ca5bcf8c, checkout: FSZ}
+  cuszhi: {commit: e16b75b63369ef3676742c34ea0d71451b6626a0, checkout: cuSZ-Hi}
