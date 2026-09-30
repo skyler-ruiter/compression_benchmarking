@@ -39,7 +39,13 @@ def correct_fzgm_archive_sizes(rows: list[dict], config_path: str | Path = DEFAU
     the new diagnostic fields, so a changed pipeline cannot silently inherit a
     neighboring topology's header size. Non-FZGM rows are copied unchanged.
     """
-    selectors = load_archive_size_config(config_path)["selectors"]
+    config = load_archive_size_config(config_path)
+    selectors = config["selectors"]
+    # Variants first measured with the complete-archive adapter: their rows carry the
+    # real .fzm size (header + alignment padding), which is authoritative, so they
+    # need no audited constant; they must still be listed explicitly and be
+    # internally consistent.
+    measured = config.get("measured_archive_selectors") or {}
     corrected = []
     for source in rows:
         row = copy.deepcopy(source)
@@ -48,6 +54,19 @@ def correct_fzgm_archive_sizes(rows: list[dict], config_path: str | Path = DEFAU
             continue
         variant, pipeline = row.get("variant"), row.get("pipeline")
         key = f"{variant}|{pipeline}"
+        if key in measured:
+            payload = row.get("compressed_payload_bytes")
+            overhead = row.get("compressed_archive_overhead_bytes")
+            if row.get("status") != "ok" and not isinstance(payload, int):
+                corrected.append(row)
+                continue
+            if (not isinstance(payload, int) or not isinstance(overhead, int) or overhead <= 0
+                    or row.get("compressed_bytes") != payload + overhead):
+                raise ArchiveSizeCorrectionError(
+                    f"measured-archive selector {key!r} needs a complete-archive row "
+                    "(compressed_bytes == compressed_payload_bytes + compressed_archive_overhead_bytes)")
+            corrected.append(row)
+            continue
         if key not in selectors:
             raise ArchiveSizeCorrectionError(
                 f"no audited FZM archive-size selector for variant={variant!r}, pipeline={pipeline!r}"

@@ -65,14 +65,14 @@ def main() -> None:
             r"See \Cref{fig:cuszhi-cr-graph}",
             "---",
             measured_difference("cuszhi_cr"),
-            r"2-D uses 16$\times$16 rather than native 64$\times$64 tiles; Huffman partitioning differs.",
+            r"Native 64$\times$64 2-D geometry; Huffman partitioning and archive container differ.",
         ),
         (
             "cuSZ-Hi TP",
             r"G-Interp branches to codes: Zigzag $\rightarrow$ Bitshuffle $\rightarrow$ RRE; auxiliaries: Merge $\rightarrow$ Bitshuffle $\rightarrow$ RRE $\rightarrow$ RZE",
             "---",
             measured_difference("cuszhi_tp"),
-            r"Denser 2-D anchors (16$\times$16 vs. native 64$\times$64); matched 3-D: $+1.4\%$.",
+            r"Native 64$\times$64 2-D geometry; residual from modular lossless stages and framing.",
         ),
         (
             "cuSZp2 plain",

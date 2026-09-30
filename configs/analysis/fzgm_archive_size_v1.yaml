@@ -64,3 +64,14 @@ selectors:
   szp_composed|configs/pipelines/szp_composed.toml: {header_bytes: 1104}
   szp_composed_color|configs/pipelines/szp_composed.toml: {header_bytes: 1104}
   szp_composed_nocolor|configs/pipelines/szp_composed_nocolor.toml: {header_bytes: 1104}
+
+# Variants whose rows were measured with the complete-archive FZGM adapter
+# (compression_benchmarking 7d87ebd): compressed_bytes is the real .fzm size, whose
+# overhead is the header formula plus payload-dependent alignment padding (native64
+# CR: 1872-1884 B). These rows are validated for consistency, not corrected.
+measured_archive_selectors:
+  cuszhi_cr_native64|configs/pipelines/cusz_hi_cr_native64.toml:
+    source: b1-cuszhi-native64-h100-d9e0d06-20260930
+  cuszhi_tp_native64|configs/pipelines/cusz_hi_tp_native64.toml:
+    source: b1-cuszhi-native64-h100-d9e0d06-20260930
+

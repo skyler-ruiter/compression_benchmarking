@@ -176,16 +176,16 @@ pairs:
       pipeline: cr
     reconstruction:
       compressor: fzgm
-      variant: cuszhi_cr_b1_singlecall
-      pipeline: configs/pipelines/cusz_hi_cr_b1.toml
-    intended_relationship: native_mode_reconstruction_with_documented_2d_variant
+      variant: cuszhi_cr_native64
+      pipeline: configs/pipelines/cusz_hi_cr_native64.toml
+    intended_relationship: native_mode_reconstruction
     known_structural_differences:
       - Both implementations use CR-first structural autotuning.
-      - FZGM uses level-4 16x16 tiles in 2-D rather than the pinned native implementation's level-6 64x64 tiles.
-      - FZGM fixes an overlapping output slot in the native 2-D autotuning kernel.
+      - FZGM uses the native level-6 64x64 2-D geometry (geometry_2d = native64, FZGM ed4b3c1), including the sparse anchor layout.
+      - FZGM fixes an overlapping output slot and uninitialized shared memory in the native 2-D autotuning kernel, so 2-D autotuning can choose different parameters.
       - The 3-D predictor geometry follows native level-4 16x16x16 interpolation.
-      - Native and FZGM archive containers and entropy-coding stages differ.
-      - The FZGM CR arm uses one call per fresh process because its current RRE/RZE graph is not safe under repeated pipeline reuse.
+      - Native and FZGM archive containers and entropy-coding stages differ; FZGM's Huffman partitioning differs from native's.
+      - The source session uses one compressor call per cell; the earlier repeated-reuse defect in the RRE/RZE path (a stale inverse-DAG cache) is fixed in FZGM d9e0d06.
 
   - id: cuszhi_tp
     label: cuSZ-Hi TP
@@ -195,13 +195,13 @@ pairs:
       pipeline: tp
     reconstruction:
       compressor: fzgm
-      variant: cuszhi_tp_b1
-      pipeline: configs/pipelines/cusz_hi_tp_b1.toml
-    intended_relationship: native_mode_reconstruction_with_documented_2d_variant
+      variant: cuszhi_tp_native64
+      pipeline: configs/pipelines/cusz_hi_tp_native64.toml
+    intended_relationship: native_mode_reconstruction
     known_structural_differences:
       - Both implementations use CR-first structural autotuning; TP uses the Huffman-free lossless pipeline.
-      - FZGM uses level-4 16x16 tiles in 2-D rather than the pinned native implementation's level-6 64x64 tiles.
-      - FZGM fixes an overlapping output slot in the native 2-D autotuning kernel.
+      - FZGM uses the native level-6 64x64 2-D geometry (geometry_2d = native64, FZGM ed4b3c1), including the sparse anchor layout.
+      - FZGM fixes an overlapping output slot and uninitialized shared memory in the native 2-D autotuning kernel, so 2-D autotuning can choose different parameters.
       - The 3-D predictor geometry follows native level-4 16x16x16 interpolation.
       - Native and FZGM archive containers and entropy-coding stages differ.
 
