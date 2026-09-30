@@ -1,0 +1,47 @@
+# Generated from configs/experiments/cuszhi_tp_performance.yaml for the ipdps27-submission correctness rerun.
+# Run both arms: FZ_SPECIALIZE=off|auto, FZGMOD_CLI=<tag build>. Timing is NOT publication data.
+name: cuszhi_tp_performance_correctness_ipdps27
+description: 'Correctness-only rerun of cuszhi_tp_performance.yaml at the ipdps27-submission tag (a062d88):
+  FZGM rows only, 1 repetition, no warm-up. Compare compressed size, reconstruction hash and bound against
+  the published sessions; timing is not used.'
+datasets:
+- HURR
+- SCALE-LETKF
+error:
+  mode: rel_range
+  bounds:
+  - 0.01
+  - 0.001
+  - 0.0001
+repetitions: 1
+warmup_reps: 0
+lock_clocks: false
+retain_decompressed: false
+retain_compressed: false
+runs:
+- tool_version: 2.0.0-dev
+  tool_source_commit: a062d88b2311a23eac6bdc211b763511d36437f0
+  tool_build_flags: Release;CUDA;sm_90;clean source;FZ_SPECIALIZE=off
+  tool_patch_sha256: clean
+  compressor: fzgm
+  variant: cuszhi_tp_b1
+  pipeline: configs/pipelines/cusz_hi_tp_b1.toml
+verification:
+  accepted_exclusions:
+  - codes:
+    - degenerate_field
+    match:
+      dataset: HURR
+    reason: Constant or degenerate fields cannot support a throughput ratio.
+  - codes:
+    - degenerate_field
+    match:
+      dataset: SCALE-LETKF
+    reason: Constant or degenerate fields cannot support a throughput ratio.
+  accepted_unreliable_timing:
+  - match:
+      compressor: cuszhi
+    reason: Timing-unreliable cells are excluded from the performance aggregate.
+  - match:
+      compressor: fzgm
+    reason: Timing-unreliable cells are excluded from the performance aggregate.

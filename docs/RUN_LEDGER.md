@@ -621,3 +621,18 @@ Copy one row per session (or link a result document when details do not fit):
 | Curated baseline path |  |
 | Result note |  |
 | Follow-up |  |
+
+### Submission freeze correctness rerun (`CORRECTNESS-IPDPS27`), queued 2026-09-30
+
+FZGPUModules tag `ipdps27-submission` (`a062d88`), build
+`~/FZGPUModules-roibin-a062d88/build_rel`. Configs
+`configs/experiments/correctness_ipdps27_{specialization,cuszhi_tp}.yaml` (generated from
+the published experiments: FZGM rows only, 1 repetition, no warm-up — **timing is not
+publication data**). Launcher `scripts/run-correctness-ipdps27.sh` waits for any running
+benchkit campaign (range_precomputed_spec was running) and an idle GPU, runs both
+FZ_SPECIALIZE arms concurrently, then writes `results/correctness_ipdps27_report.md` via
+`scripts/compare_correctness_rerun.py` (payload bytes, reconstruction hash, bound; staged vs
+specialized identity). Payload = `compressed_bytes - compressed_archive_overhead_bytes`
+because benchkit `7d87ebd` began charging the full FZM archive after the published sessions.
+Smoke (QMCPACK-3D, 240 cells, auto): 192 same-pipeline cells identical; 48 differ only
+because the pfpl/szp_composed pipeline definitions changed (`11ea87e`), all within bound.
