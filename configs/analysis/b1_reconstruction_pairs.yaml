@@ -178,10 +178,10 @@ pairs:
       compressor: fzgm
       variant: cuszhi_cr_b1_singlecall
       pipeline: configs/pipelines/cusz_hi_cr_b1.toml
-    intended_relationship: native_mode_reconstruction_with_documented_2d_correction
+    intended_relationship: native_mode_reconstruction_with_documented_2d_variant
     known_structural_differences:
       - Both implementations use CR-first structural autotuning.
-      - FZGM uses 16x16 level-4 tiles in 2-D to avoid the native level-6 anchor-gather defect.
+      - FZGM uses level-4 16x16 tiles in 2-D rather than the pinned native implementation's level-6 64x64 tiles.
       - FZGM fixes an overlapping output slot in the native 2-D autotuning kernel.
       - The 3-D predictor geometry follows native level-4 16x16x16 interpolation.
       - Native and FZGM archive containers and entropy-coding stages differ.
@@ -197,10 +197,10 @@ pairs:
       compressor: fzgm
       variant: cuszhi_tp_b1
       pipeline: configs/pipelines/cusz_hi_tp_b1.toml
-    intended_relationship: native_mode_reconstruction_with_documented_2d_correction
+    intended_relationship: native_mode_reconstruction_with_documented_2d_variant
     known_structural_differences:
       - Both implementations use CR-first structural autotuning; TP uses the Huffman-free lossless pipeline.
-      - FZGM uses 16x16 level-4 tiles in 2-D to avoid the native level-6 anchor-gather defect.
+      - FZGM uses level-4 16x16 tiles in 2-D rather than the pinned native implementation's level-6 64x64 tiles.
       - FZGM fixes an overlapping output slot in the native 2-D autotuning kernel.
       - The 3-D predictor geometry follows native level-4 16x16x16 interpolation.
       - Native and FZGM archive containers and entropy-coding stages differ.

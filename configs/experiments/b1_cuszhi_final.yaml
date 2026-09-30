@@ -3,8 +3,9 @@ description: >-
   Paired H100 compressed-size and reconstruction-quality study of native
   cuSZ-Hi CR/TP and the corresponding FZGM GInterp pipelines. Native and FZGM
   both use CR-first structural autotuning. Results are analyzed separately for
-  2-D and 3-D because FZGM intentionally changes the defective native 2-D
-  anchor geometry and patches a 2-D autotuning output-slot collision.
+  2-D and 3-D because this historical FZGM revision uses a finer 16x16 2-D
+  geometry than pinned native cuSZ-Hi's 64x64 path and corrects a 2-D
+  autotuning output-slot collision.
 
 datasets: [CESM-2D, HURR, SCALE-LETKF]
 

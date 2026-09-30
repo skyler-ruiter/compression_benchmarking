@@ -1,0 +1,67 @@
+name: b1_cuszhi_native64
+description: >-
+  Paired H100 compressed-size and reconstruction-quality comparison of native
+  cuSZ-Hi CR/TP and FZGM GInterp with the active native 2-D 64x64 geometry.
+  The FZGM source is pinned by commit plus tracked-patch SHA-256. Timing is
+  diagnostic; a separate timing campaign is needed for throughput claims.
+
+# Exact fresh-build executables. Check these digests before launch if either
+# source checkout or build directory has changed; Benchkit records this YAML
+# but does not itself enforce the binary hashes.
+x-binary-sha256:
+  fzgm: 99c7383c97efb3119b418d9db7e41821dd8e532a9f2e329c36e8209a29d9d895
+  cuszhi: 14cf1df90bf438d71b80f734737d1783d28b8bb0a7b628ada07b3a52cedea1c3
+
+datasets: [CESM-2D, HURR, SCALE-LETKF]
+
+error:
+  mode: rel_range
+  bounds: [1.0e-2, 1.0e-3, 1.0e-4]
+
+# One fresh compressor invocation per logical cell avoids the previously
+# observed CR-chain pipeline-reuse issue. Independent repeats, if needed for
+# close size/quality results, should use separate sessions.
+repetitions: 1
+warmup_reps: 0
+lock_clocks: true
+retain_decompressed: false
+retain_compressed: false
+
+x-fzgm-tool: &fzgm_tool
+  tool_version: 2.0.0-dev
+  tool_source_commit: 381a45e4a8a863f37f0a12e993f668058ebff4ab
+  tool_build_flags: Release;CUDA;sm_90;fresh build/native64_benchmark;FZ_SPECIALIZE=off
+  tool_patch_sha256: c88db75d1e6f0ce30fd6bdcbdbe207c53f261dfeea8cd725758603d941bedfed
+  cli_path: /home/exouser/FZGPUModules/build/native64_benchmark/bin/fzgmod-cli
+
+x-cuszhi-tool: &cuszhi_tool
+  tool_version: cuSZ-Hi-e16b75-repeatfix
+  tool_source_commit: e16b75b63369ef3676742c34ea0d71451b6626a0
+  tool_build_flags: Release;PSZ_BACKEND=cuda;CMAKE_CUDA_ARCHITECTURES=90;NVHPC-25.7-CUDA-12.9;fresh build/native64_benchmark;fresh-compressor-per-repeat
+  tool_patch_sha256: a234d502b0ad40b79c2184c3c2bb4a3ef753570489845ace15d86547f675c128
+  cli_path: /home/exouser/compressors/cuSZ-Hi/build/native64_benchmark/cuszhi
+
+runs:
+  - {<<: *cuszhi_tool, compressor: cuszhi, variant: cuszhi_cr, pipeline: cr}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszhi_cr_native64,
+     pipeline: configs/pipelines/cusz_hi_cr_native64.toml}
+  - {<<: *cuszhi_tool, compressor: cuszhi, variant: cuszhi_tp, pipeline: tp}
+  - {<<: *fzgm_tool, compressor: fzgm, variant: cuszhi_tp_native64,
+     pipeline: configs/pipelines/cusz_hi_tp_native64.toml}
+
+verification:
+  accepted_exclusions:
+    - codes: [degenerate_field]
+      match: {dataset: CESM-2D}
+      reason: Constant or numerically degenerate fields cannot support rate-distortion comparison.
+    - codes: [degenerate_field]
+      match: {dataset: HURR}
+      reason: Constant or numerically degenerate fields cannot support rate-distortion comparison.
+    - codes: [degenerate_field]
+      match: {dataset: SCALE-LETKF}
+      reason: Constant or numerically degenerate fields cannot support rate-distortion comparison.
+  accepted_unreliable_timing:
+    - match: {compressor: cuszhi}
+      reason: This campaign supports compressed-size and quality claims only.
+    - match: {compressor: fzgm}
+      reason: This campaign supports compressed-size and quality claims only.
