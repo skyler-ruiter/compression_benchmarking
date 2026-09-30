@@ -1,0 +1,132 @@
+# Peak device memory study for FZGM paper RQ3 ("How does graph-wide memory planning
+# and specialization affect the memory required to execute a compressor?").
+#
+# Run with tools/peak_memory/run_peak_memory.py (NOT `benchkit run`: this is a
+# standalone NVML/probe measurement that reuses benchkit adapters for argv).
+# Protocol, metrics and caveats: docs/peak_memory_methodology.md (+ DESIGN D46/D47).
+#
+# Framing decisions (author, 2026-09-28):
+#   - native, FZGM staged, FZGM specialized are SEPARATE curves; no per-cell
+#     min(staged, specialized) (evaluation_setup_review.md decision #6).
+#   - planning ablation: PREALLOCATE+coloring (default) vs PREALLOCATE --no-coloring
+#     vs MINIMAL, each x FZ_SPECIALIZE off/auto where specialization applies.
+#   - cuSZ and FSZ never specialize -> staged only. szp_composed dropped (FZGM-only).
+#   - FZ-GPU excluded (paper family set).
+#
+# FIELD SET IS NOT CORPUS-REPRESENTATIVE: eight fields chosen to span 11.5 MB-1.12 GB
+# and resolve the native/FZGM crossover. Do not aggregate across it as a "typical" ratio.
+
+name: peak_memory_rq3_h100_b09f210
+error: {mode: rel_range, bound: 1.0e-3}
+reps: 3                     # process repetitions per cell; reported peak = max over reps
+sample_period_ms: 0.5       # NVML poll period
+
+fields:                     # [dataset, field] from configs/datasets.yaml
+  - [EXAALT, vx]
+  - [CESM-2D, CLDHGH]
+  - [HURR, CLOUD]
+  - [MIRANDA, density]
+  - [NYX, temperature]
+  - [CESMATM-3D, CLDICE]
+  - [NWCHEM, t631]
+  - [HACC, vx]
+
+fzgm:
+  # FZGM main @ b09f210 = the memory fixes F1-F3 and the inverse-DAG cache fix (as in
+  # 4ac2f2d), plus opt-in GInterp native64 2-D geometry (ed4b3c1) and deterministic
+  # GInterp auto-tuning (b09f210). Final RQ3 revision (author, 2026-09-30), the same FZGM
+  # commit as the cuSZ-Hi B1 port-fidelity rerun. Earlier sessions: rq3_h100.yaml
+  # (d511ebc), rq3_h100_e5e3412.yaml, rq3_h100_4ac2f2d.yaml.
+  expected_git_sha: b09f210
+  # In-process executions per measured round-trip process (fzgmod-cli -b --runs N).
+  # Specialized (Auto) pipelines allocate additional state on their 2nd execution and
+  # then plateau (PFPL HACC Auto: identical peak at --runs 2, 3, 6, 11); staged graphs do
+  # not change. Native cuSZp (10 warmup + 100 launches) and PFPL (9 reps) already repeat
+  # inside their measured process, so runs=2 is the steady-state, like-for-like setting
+  # (author decision 2026-09-28). The split-process arm (-z / -x) executes once each.
+  runs: 2
+  # Planning arms. `strategy`/`coloring` map to fzgmod-cli --strategy / --no-coloring.
+  planning_arms:
+    planned:     {strategy: preallocate, coloring: true}    # default; paper configuration
+    no_coloring: {strategy: preallocate, coloring: false}   # planning's liveness aliasing off
+    minimal:     {strategy: minimal,     coloring: true}    # alloc-on-demand; coloring is inert
+  # Extra process shape for the planned arm only: compress (-z) and decompress (-x) as
+  # two processes, cell peak = max. Matches native cuSZ/PFPL, which are two-process tools.
+  split_process_arms: [planned]
+
+# Pipelines mirror configs/experiments/specialization_vs_native_full.yaml (the H100
+# publication run) and fsz_vs_native_full_standard.yaml. `by_rank` keys on the number
+# of field dims (1/2/3) for the dimension-matched cuSZp3 variants.
+families:
+  cusz:
+    specializes: false
+    native: {compressor: cusz, pipeline: default}
+    fzgm: configs/pipelines/cusz.toml
+  cuszp2_outlier:
+    specializes: true
+    native: {compressor: cuszp2, pipeline: outlier}
+    fzgm: configs/pipelines/cuszp2_sp.toml
+  cuszp2_plain:
+    specializes: true
+    native: {compressor: cuszp2, pipeline: plain}
+    fzgm: configs/pipelines/cuszp2_plain_sp.toml
+  cuszp3_outlier:
+    specializes: true
+    by_rank:
+      1: {native: {compressor: cuszp3, pipeline: outlier},    fzgm: configs/pipelines/cuszp2_sp.toml}
+      2: {native: {compressor: cuszp3, pipeline: "outlier:2d"}, fzgm: configs/pipelines/cuszp3_outlier_sp.toml}
+      3: {native: {compressor: cuszp3, pipeline: "outlier:3d"}, fzgm: configs/pipelines/cuszp3_3d_sp.toml}
+  cuszp3_plain:
+    specializes: true
+    by_rank:
+      1: {native: {compressor: cuszp3, pipeline: plain},    fzgm: configs/pipelines/cuszp2_plain_sp.toml}
+      2: {native: {compressor: cuszp3, pipeline: "plain:2d"}, fzgm: configs/pipelines/cuszp3_plain_sp.toml}
+      3: {native: {compressor: cuszp3, pipeline: "plain:3d"}, fzgm: configs/pipelines/cuszp3_3d_plain_sp.toml}
+  pfpl:
+    specializes: true
+    # Shadow rebuild (-cudart shared) so the probe sees allocations; NVML does not
+    # need it. tools/peak_memory/build_pfpl_shadow.sh. The pinned static binaries are
+    # also measured (arm native_static) on two fields to show NVML agrees across builds.
+    native: {compressor: pfpl, pipeline: default, bin_dir_env: PEAKMEM_PFPL_SHADOW_BIN_DIR,
+             static_bin_dir_env: PFPL_BIN_DIR,
+             static_control_fields: [CESM-2D/CLDHGH, HACC/vx]}
+    fzgm: configs/pipelines/pfpl.toml
+  cuszp3_fixed:
+    # Dimension-routed like the other cuSZp3 modes (native bare `fixed` is 1-D; the
+    # 2-D/3-D modes need the :2d/:3d suffix; see cuszp3_fixed_dimmatched_full.yaml).
+    # 2-D/3-D specialize; the 1-D flat preset is a non-specializing control.
+    specializes: true
+    by_rank:
+      1: {native: {compressor: cuszp3, pipeline: fixed},      fzgm: configs/pipelines/cuszp3_fixed.toml}
+      2: {native: {compressor: cuszp3, pipeline: "fixed:2d"}, fzgm: configs/pipelines/cuszp3_2d_fixed.toml}
+      3: {native: {compressor: cuszp3, pipeline: "fixed:3d"}, fzgm: configs/pipelines/cuszp3_3d_fixed.toml}
+  cuszhi_cr:
+    # GInterp spline pipeline: not a fusable shape, staged only (as in the paper's RQ2).
+    # Native cuSZ-Hi is a two-process tool (-z, then -x). Native 1-D support is not
+    # assumed: 1-D cells are attempted and any refusal is recorded as an exclusion.
+    specializes: false
+    native: {compressor: cuszhi, pipeline: cr}
+    fzgm: configs/pipelines/cusz_hi_cr_native64.toml
+  cuszhi_tp:
+    specializes: false
+    native: {compressor: cuszhi, pipeline: tp}
+    fzgm: configs/pipelines/cusz_hi_tp_native64.toml
+  fsz:
+    specializes: false
+    # Stock FSZ CLI round trip (--csv), not the repo-built fsz_hosttime harness.
+    native: {compressor: fsz, pipeline: default, stock_cli: true}
+    fzgm: configs/pipelines/fsz.toml
+
+# Pipeline snapshot sources. Default: the committed file (git show HEAD:<path>), pinned
+# into the session at start. An entry here pins the working-tree file instead, with a
+# recorded reason; it is still snapshotted once, so later edits cannot leak in.
+pipeline_sources: {}
+
+# Native tool pins (verified against checkout HEADs at run start).
+native_pins:
+  cusz:   {commit: e1c0135f2309921e13e7dac72c00101381e60c23, checkout: cuSZ}
+  cuszp2: {commit: 240240b2f8cc3984236c6cea1f18658ef535a81c, checkout: cuSZp-V2.0.1, vendored: true}
+  cuszp3: {commit: da90afb42770fcef6129cb586cf185c7d54c614c, checkout: cuSZp-V3.0.0, vendored: true}
+  pfpl:   {commit: 36f5aaef42744ed78b4d1525b03a7fb2168b363c, checkout: PFPL}
+  fsz:    {commit: 43240ed1149ff4c48b52e74c9d8ba998ca5bcf8c, checkout: FSZ}
+  cuszhi: {commit: e16b75b63369ef3676742c34ea0d71451b6626a0, checkout: cuSZ-Hi}
