@@ -17,6 +17,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REV = "a062d88"
+HEADLINE_VARIANT = "G_pfpl"   # ROIBIN-GPU
 CORPORA = {"EXAFEL": "EXAFEL (LCLS, 130 frames, calibrated)",
            "CXIDB21": "CXIDB 21 (LCLS, 279 frames, raw ADU)"}
 # Figure selection: specialized configurations plus the best-ratio staged coders.
@@ -87,6 +88,17 @@ def main(out: Path) -> None:
         corpus["roibin_sz_composition_ceiling"] = dict(
             compress_gbs_1stream=noop_s["agg_cmp_gbs"], decompress_gbs_1stream=noop_s["agg_dec_gbs"],
             compress_gbs_20core=20 * noop_p["agg_cmp_gbs"], decompress_gbs_20core=20 * noop_p["agg_dec_gbs"])
+        # ROIBIN-GPU (specialized PFPL back end) end-to-end wall time from the CLI report,
+        # for the like-for-like comparison with ROIBIN-SZ (whose rate is wall-clock).
+        rep = load(f"roibin_gpu_report_{ds}.json"); tt = rep["timing"]
+        med = lambda x: x["median"] if isinstance(x, dict) else x
+        nbytes = rep["size"]["original_bytes"] if "original_bytes" in rep["size"] else None
+        hw_c, hw_d = med(tt["compress"]["host_wall_ms"]), med(tt["decompress"]["host_wall_ms"])
+        dv_c = med(tt["compress"]["device_ms"])
+        g = next(e for e in corpus["fzgm_all"] if e["variant"] == HEADLINE_VARIANT and e["bin"] == 1)
+        scale = g["compress_gbs_specialized"] * dv_c        # = bytes / 1e6, from the device rate
+        corpus["roibin_gpu_wall"] = dict(compress_gbs=scale / hw_c, decompress_gbs=scale / hw_d,
+                                         vs_native_20core=(scale / hw_c) / corpus["native_roibin_sz"]["compress_gbs_20core"])
         corpus["native_roibin_sz_bin2"] = dict(
             cr=nat[2]["serial"]["agg_cr"], compress_gbs_1core=nat[2]["serial"]["agg_cmp_gbs"],
             compress_gbs_20core=20 * nat[2]["frames20"]["agg_cmp_gbs"])

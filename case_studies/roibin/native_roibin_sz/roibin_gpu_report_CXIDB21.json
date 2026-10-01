@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.1",
+  "tool": { "name": "fzgmod-cli", "version": "2.0.0", "git_sha": "a062d88" },
+  "status": "ok",
+  "error_message": null,
+  "config": {
+    "operation": "benchmark",
+    "dtype": "f32",
+    "dims": [1552, 1480, 279], "dim_order": "fast-to-slow", "num_elements": 640851840,
+    "error_mode": "rel", "error_bound": 0.001, "radius": 32768,
+    "pipeline": "/home/exouser/compression_benchmarking/case_studies/roibin/native_roibin_sz/variant_configs_cxidb21/b1_G_pfpl.toml",
+    "memory_strategy": "PREALLOCATE", "coloring": true, "chunk_size": 16384, "n_runs": 7
+  },
+  "size": {
+    "original_bytes": 2563407360,
+    "compressed_bytes": 123550928,
+    "ratio": 20.747779,
+    "bitrate_bits_per_elem": 1.5423338
+  },
+  "timing": {
+    "n_runs": 7,
+    "timing_method": "cuda_events_dag",
+      "compress": {
+        "device_ms":    { "median": 8.2976322, "min": 8.2834883, "max": 8.3173437, "all": [8.3026876, 8.3173437, 8.3065281, 8.2834883, 8.2976322, 8.2957439, 8.2874556] },
+        "host_wall_ms": { "median": 10.19566, "min": 10.180132, "max": 10.224083, "all": [10.210939, 10.224083, 10.20531, 10.180132, 10.19566, 10.194186, 10.181953] }
+      },
+      "decompress": {
+        "device_ms":    { "median": 9.4608955, "min": 9.4589758, "max": 10.071904, "all": [10.071904, 9.4683838, 9.4681921, 9.4593601, 9.4608955, 9.4589758, 9.4590397] },
+        "host_wall_ms": { "median": 9.50219, "min": 9.493517, "max": 14.807403, "all": [14.807403, 9.51263, 9.505296, 9.494941, 9.50219, 9.494787, 9.493517] }
+      }
+  },
+  "throughput": {
+    "compress_gbs": 308.93239,
+    "decompress_gbs": 270.94764,
+    "basis": "original_bytes / device_ms median (GB/s, 1e9)"
+  },
+  "memory": { "peak_device_bytes": 13464476012, "method": "pipeline_pool_tracker" },
+  "quality": {
+    "val_min": -1717, "val_max": 14854, "val_range": 16571,
+    "max_abs_err": 100, "psnr_db": 49.968491, "nrmse": 0.0031737701
+  },
+  "stages": [
+    { "name": "ROIBinSplit", "phase": "compress", "device_ms": 1.696864 },
+    { "name": "Quantizer", "phase": "compress", "device_ms": 0.006304 },
+    { "name": "AdaptiveBitpack", "phase": "compress", "device_ms": 0.017216001 },
+    { "name": "fused:chunk-coop", "phase": "compress", "device_ms": 6.5472641 },
+    { "name": "AdaptiveBitpack", "phase": "decompress", "device_ms": 0.022464 },
+    { "name": "fused:chunk-coop-inverse", "phase": "decompress", "device_ms": 7.72928 },
+    { "name": "Quantizer", "phase": "decompress", "device_ms": 0.0052479999 },
+    { "name": "ROIBinSplit", "phase": "decompress", "device_ms": 1.691296 }
+  ],
+  "stage_versions": {
+    "AdaptiveBitpack": "1f4d5ab0b725d202",
+    "Quantizer": "96a94e6e660ac021",
+    "ROIBinSplit": "da78107428752cfc"
+  },
+  "run_notes": {
+    "ROIBinSplit": ["ROIBinSplit: 5655 peaks, box 9x9, roi 458055 elems (0.0715% of field, 2.80% duplicated), bin 1 -> bg 640851840 elems (100.00% of field)"]
+  },
+  "specialization": {
+    "policy": "auto",
+    "legal_group_count": 2,
+    "installed_group_count": 1,
+    "installed_stage_count": 4,
+    "inverse_installed_group_count": 1,
+    "inverse_installed_stage_count": 4,
+    "fallback_reason": null,
+    "groups": [
+      { "implementation": "chunk-coop", "stages": ["Quantizer", "Difference", "Bitshuffle", "RZE"] }
+    ],
+    "inverse_groups": [
+      { "implementation": "chunk-coop-inverse", "stages": ["RZE", "Bitshuffle", "Difference", "Quantizer"] }
+    ]
+  },
+  "fusion": {
+    "policy": "auto",
+    "legal_group_count": 2,
+    "installed_group_count": 1,
+    "installed_stage_count": 4,
+    "inverse_installed_group_count": 1,
+    "inverse_installed_stage_count": 4,
+    "fallback_reason": null,
+    "groups": [
+      { "implementation": "chunk-coop", "stages": ["Quantizer", "Difference", "Bitshuffle", "RZE"] }
+    ],
+    "inverse_groups": [
+      { "implementation": "chunk-coop-inverse", "stages": ["RZE", "Bitshuffle", "Difference", "Quantizer"] }
+    ]
+  }
+}
