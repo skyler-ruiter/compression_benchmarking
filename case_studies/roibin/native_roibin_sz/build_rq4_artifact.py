@@ -23,7 +23,7 @@ CORPORA = {"EXAFEL": "EXAFEL (LCLS, 130 frames, calibrated)",
 # Golomb-Rice (H_diff_golomb) is omitted from the figure: compression-only specialization,
 # dominated by Bitpack; it stays in fzgm_all.
 FIG_VARIANTS = {"A_bitpack": "Bitpack", "G_pfpl": "PFPL back end",
-                "E_tl_huff16": "Huffman", "F_tl_rze_ans16": "RZE+ANS", "I_ginterp_cr": "Interpolation"}
+                "E_tl_huff16": "Huffman", "F_tl_rze_ans16": "RZE+ANS", "I_ginterp_cr": "Interp"}
 LABELS = {"A_bitpack": "TiledLorenzo-AdaptiveBitpack",
           "B_golomb_tl": "TiledLorenzo-GolombRice",
           "C_tl_rze": "TiledLorenzo-Zigzag-Bitshuffle-RZE",
